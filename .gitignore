@@ -1,0 +1,39 @@
+# ── Secrets / environment (NEVER commit) ──
+.env
+.env.local
+.env.*.local
+# livekit.yaml / egress.yaml hold real secrets — use the *.example.yaml templates
+livekit.yaml
+egress.yaml
+
+# Internal ops/handoff notes (server IPs, deploy specifics) — not for sharing
+SESSION_STATUS.md
+
+# ── Node / Next.js (app/) ──
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Python (agent/) ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ── Logs ──
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

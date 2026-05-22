@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === NextAuth Models ===
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// === App Models ===
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("member") // admin | member
+  timezone      String    @default("Europe/Kyiv")
+  createdAt     DateTime  @default(now())
+  lastLogin     DateTime?
+  preferences   Json?
+  // 2FA (TOTP)
+  totpSecret      String?  // AES-256-GCM encrypted at rest
+  totpEnabled     Boolean  @default(false)
+  totpBackupCodes Json?    // array of HMAC-SHA256 hashed single-use codes
+
+  accounts            Account[]
+  sessions            Session[]
+  createdMeetings     Meeting[]            @relation("MeetingCreator")
+  participations      MeetingParticipant[]
+  assignedTasks       MeetingTask[]        @relation("TaskAssignee")
+  transcriptSegments  TranscriptSegment[]
+  notifications       Notification[]
+}
+
+model Meeting {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  createdById  String
+  createdBy    User      @relation("MeetingCreator", fields: [createdById], references: [id])
+  scheduledAt  DateTime?
+  durationMin  Int       @default(60)
+  status       String    @default("scheduled") // scheduled | live | ended | cancelled
+  recurrence   Json?
+  livekitRoom  String?   @unique
+  joinToken    String?   @unique
+  createdAt    DateTime  @default(now())
+  endedAt      DateTime?
+  reminderSent Boolean   @default(false)
+  // AI options
+  transcriptionEnabled Boolean @default(true)
+  aiReportEnabled      Boolean @default(true)
+  allowGuests          Boolean @default(true)
+  agenda               Json?
+
+  participants    MeetingParticipant[]
+  transcripts     TranscriptSegment[]
+  reports         MeetingReport[]
+  tasks           MeetingTask[]
+  emailLog        EmailLog[]
+  notifications   Notification[]
+  notes           MeetingNote?
+  recordings      Recording[]
+  joinRequests    JoinRequest[]
+}
+
+model JoinRequest {
+  id        String   @id @default(cuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  guestName String
+  status    String   @default("pending") // pending | approved | denied
+  createdAt DateTime @default(now())
+  decidedAt DateTime?
+
+  @@index([meetingId, status])
+}
+
+model Recording {
+  id          String    @id @default(cuid())
+  meetingId   String
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  egressId    String?
+  fileName    String
+  filePath    String
+  fileSize    BigInt?
+  durationSec Int?
+  status      String    @default("ready") // processing | ready | failed
+  permanent   Boolean   @default(false)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([meetingId])
+  @@index([expiresAt])
+}
+
+model MeetingParticipant {
+  id         String    @id @default(cuid())
+  meetingId  String
+  meeting    Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
+  guestName  String?
+  guestEmail String?
+  rsvpStatus String    @default("pending") // pending | accepted | declined | tentative
+  joinedAt   DateTime?
+  leftAt     DateTime?
+  role       String    @default("participant") // host | participant
+
+  @@unique([meetingId, userId])
+}
+
+model TranscriptSegment {
+  id          String   @id @default(cuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speakerName String?
+  speakerId   String?
+  speaker     User?    @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  content     String
+  language    String?  // ru | uk | en
+  startTime   Float
+  endTime     Float
+  confidence  Float?
+  isFinal     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([meetingId, startTime])
+  @@index([speakerId])
+}
+
+model MeetingReport {
+  id           String   @id @default(cuid())
+  meetingId    String
+  meeting      Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  summary      String?  @db.Text
+  agenda       Json?
+  decisions    Json?
+  followUps    Json?
+  rawPrompt    String?  @db.Text
+  rawResponse  String?  @db.Text
+  modelUsed    String?
+  tokensInput  Int?
+  tokensOutput Int?
+  generatedAt  DateTime @default(now())
+
+  tasks MeetingTask[]
+}
+
+model MeetingTask {
+  id           String    @id @default(cuid())
+  meetingId    String?
+  meeting      Meeting?  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  reportId     String?
+  report       MeetingReport? @relation(fields: [reportId], references: [id])
+  title        String
+  description  String?
+  assigneeId   String?
+  assignee     User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeName String?
+  priority     String    @default("medium") // high | medium | low
+  status       String    @default("open") // open | in_progress | done
+  dueDate      DateTime?
+  createdAt    DateTime  @default(now())
+  source       String    @default("ai") // ai | manual
+  completedAt  DateTime?
+  sortOrder    Int       @default(0)
+  externalId   String?
+  externalUrl  String?
+  externalSync String?
+  lastSyncedAt DateTime?
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([meetingId])
+}
+
+model EmailLog {
+  id           String   @id @default(cuid())
+  meetingId    String?
+  meeting      Meeting? @relation(fields: [meetingId], references: [id])
+  recipient    String
+  template     String
+  mailersendId String?
+  status       String   @default("sent")
+  sentAt       DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // meeting_starting | task_assigned | report_ready | action_item | mention
+  title     String
+  body      String?
+  link      String?  // URL to navigate to on click
+  read      Boolean  @default(false)
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model MeetingNote {
+  id        String   @id @default(cuid())
+  meetingId String   @unique
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  content   String   @db.Text @default("")
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

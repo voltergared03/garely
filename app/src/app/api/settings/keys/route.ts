@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { isInternalAuthed } from '@/lib/internal-auth';
+
+const ALLOWED_KEYS = ['DEEPSEEK_API_KEY', 'DEEPSEEK_BASE_URL', 'DEEPSEEK_MODEL', 'DEEPGRAM_API_KEY', 'DEEPGRAM_MODEL', 'DEEPGRAM_LANGUAGE'];
+const SECRET_KEYS = ['DEEPSEEK_API_KEY', 'DEEPGRAM_API_KEY'];
+
+// GET /api/settings/keys — masked for admins (write-only secrets); full values for
+// internal callers (the Python agent, authenticated by the shared secret header).
+export async function GET(req: NextRequest) {
+  const internal = isInternalAuthed(req);
+  if (!internal) {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
+  const configs = await (prisma as any).systemConfig.findMany({
+    where: { key: { in: ALLOWED_KEYS } },
+  });
+
+  const result: Record<string, { value: string; masked: string; updatedAt: string }> = {};
+  for (const c of configs) {
+    const val = c.value || '';
+    const isSecret = SECRET_KEYS.includes(c.key);
+    const masked = !isSecret
+      ? val
+      : (val.length > 8 ? val.slice(0, 4) + '••••••••' + val.slice(-4) : '••••••••');
+    // Internal callers get the real value; the browser never receives raw secrets.
+    result[c.key] = { value: internal ? val : (isSecret ? '' : val), masked, updatedAt: c.updatedAt?.toISOString() || '' };
+  }
+
+  // Add missing keys with empty values
+  for (const key of ALLOWED_KEYS) {
+    if (!result[key]) {
+      result[key] = { value: '', masked: 'Не налаштовано', updatedAt: '' };
+    }
+  }
+
+  return NextResponse.json(result);
+}
+
+// PATCH /api/settings/keys — update API keys
+export async function PATCH(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const updates: { key: string; value: string }[] = [];
+
+  for (const [key, value] of Object.entries(body)) {
+    if (ALLOWED_KEYS.includes(key) && typeof value === 'string' && value.trim()) {
+      updates.push({ key, value: value.trim() });
+    }
+  }
+
+  if (updates.length === 0) {
+    return NextResponse.json({ error: 'No valid keys to update' }, { status: 400 });
+  }
+
+  for (const { key, value } of updates) {
+    await (prisma as any).systemConfig.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
+  }
+
+  // Update the running process env so the app picks up new values without a
+  // restart. (The Python agent reads its own env — it is restarted separately.)
+  for (const { key, value } of updates) {
+    process.env[key] = value;
+  }
+
+  return NextResponse.json({ success: true, updated: updates.map(u => u.key) });
+}

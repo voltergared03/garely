@@ -1,0 +1,23 @@
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50200
+  use_external_ip: true
+  tcp_port: 7881
+keys:
+  # Must match LIVEKIT_API_SECRET in .env. Generate: openssl rand -hex 32
+  EAM_MEET_KEY: your-livekit-api-secret-hex
+room:
+  auto_create: false
+  max_participants: 20
+  empty_timeout: 300
+webhook:
+  urls:
+    - http://eam-meet:3000/api/webhooks/livekit
+  api_key: EAM_MEET_KEY
+logging:
+  level: info
+# Required for Egress (recording). Must match egress.yaml's redis.
+redis:
+  address: eam-meet-redis:6379
+  password: your-redis-password

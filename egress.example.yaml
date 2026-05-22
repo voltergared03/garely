@@ -1,0 +1,9 @@
+# LiveKit Egress config. Copy to egress.yaml and fill in real values.
+# redis MUST be the same instance LiveKit server uses (see livekit.yaml).
+redis:
+  address: eam-meet-redis:6379
+  password: your-redis-password
+api_key: EAM_MEET_KEY
+api_secret: your-livekit-api-secret-hex   # must match livekit.yaml + .env
+ws_url: ws://livekit:7880
+log_level: info
