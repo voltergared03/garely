@@ -972,10 +972,10 @@ ${transcriptHtml ? `<div class="sec"><div class="sec-title">Транскрипт
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px 60px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px clamp(14px, 4vw, 28px) 80px' }}>
         {/* ─── Header ─────────────────────────────────────────────── */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
               <button className="btn btn-ghost btn-icon" onClick={() => router.back()}>
                 <ChevronLeft size={16} />
@@ -994,7 +994,7 @@ ${transcriptHtml ? `<div class="sec"><div class="sec-title">Транскрипт
                 {fmtRelative(scheduledDate)} &bull; {fmtDateLong(scheduledDate)} &bull; {fmtTime(scheduledDate)}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-sm" onClick={copySummary}>
                 {copied ? <Check size={13} /> : <Copy size={13} />}
                 {copied ? 'Скопійовано' : 'Copy summary'}
@@ -1053,7 +1053,7 @@ ${transcriptHtml ? `<div class="sec"><div class="sec-title">Транскрипт
 
         {/* ─── Summary Tab ────────────────────────────────────────── */}
         {activeTab === 'summary' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
+          <div className="report-main-grid" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
             {/* Left column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Підсумок */}

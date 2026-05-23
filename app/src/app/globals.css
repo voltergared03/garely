@@ -373,6 +373,11 @@ h2 {
   grid-template-columns: 1fr;
 }
 
+/* ── Report — mobile: stack summary + analytics ──────── */
+.report-main-grid {
+  grid-template-columns: 1fr;
+}
+
 /* ── Admin — mobile: card-style rows ─────────────────── */
 .admin-tabs {
   overflow-x: auto;
@@ -581,6 +586,9 @@ h2 {
   }
   .settings-grid-3 {
     grid-template-columns: 1fr 1fr 1fr;
+  }
+  .report-main-grid {
+    grid-template-columns: 1.5fr 1fr;
   }
 
   .admin-table-header {
