@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { SetupChecklist } from './setup-checklist';
+import { InstallAppCard } from '@/components/install-app-card';
 import {
   Video, Sparkles, FileText, Users, Clock, RefreshCw, MoreHorizontal,
   Pencil, Trash2, X, Search, Send, Calendar as CalendarIcon, Save,
@@ -121,6 +122,7 @@ export function DashboardClient({
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
       <div className='page-container' style={{ maxWidth: 1100, margin: '0 auto' }}>
         <SetupChecklist />
+        <InstallAppCard />
         {/* Hero / Next meeting */}
         <div className='dash-hero' style={{ display: 'grid', gap: 18, marginBottom: 24 }}>
           <div

@@ -1,14 +1,20 @@
 'use client';
 
 import { useEffect } from 'react';
+import { initInstallCapture } from '@/lib/pwa-install';
 
 /**
  * Registers the service worker once, after load, on every page. Mounted in the
- * root layout. Safe no-op where service workers aren't supported.
+ * root layout. Safe no-op where service workers aren't supported. Also starts
+ * capturing the install prompt so the dashboard card can trigger it later.
  */
 export function PwaRegister() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Start listening for `beforeinstallprompt` ASAP (fires once, won't refire).
+    initInstallCapture();
+
     if (!('serviceWorker' in navigator)) return;
 
     const register = () => {
