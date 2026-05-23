@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { SessionProvider } from 'next-auth/react';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,7 +15,18 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { default: wsName, template: `%s · ${wsName}` },
     description: 'Self-hosted video conferencing with AI meeting intelligence',
-    icons: { icon: '/favicon.svg' },
+    applicationName: wsName,
+    manifest: '/manifest.webmanifest',
+    icons: {
+      icon: '/favicon.svg',
+      apple: '/icons/apple-touch-icon.png',
+    },
+    appleWebApp: {
+      capable: true,
+      title: wsName,
+      statusBarStyle: 'black-translucent',
+    },
+    formatDetection: { telephone: false },
   };
 }
 
@@ -23,6 +35,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
+  themeColor: '#0b0d11',
 };
 
 export default function RootLayout({
@@ -33,6 +46,7 @@ export default function RootLayout({
   return (
     <html lang="uk">
       <body>
+        <PwaRegister />
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

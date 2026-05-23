@@ -6,6 +6,7 @@ import {
   Bell, Check, CheckCheck, FileText, ListChecks,
   Zap, AtSign, Video, X,
 } from 'lucide-react';
+import { PushOptInBanner } from '@/components/push-optin-banner';
 
 interface Notification {
   id: string;
@@ -194,6 +195,9 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
               </button>
             </div>
           </div>
+
+          {/* Push opt-in (only when supported & not yet enabled) */}
+          <PushOptInBanner />
 
           {/* Notifications List */}
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>

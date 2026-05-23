@@ -14,7 +14,8 @@ reactions, and optional meeting recording.
 - **Tasks** board, **collaborative notes** with @mentions, **reactions**, screen share
 - **Meeting recording** via LiveKit Egress (optional — see [Recording](#recording-livekit-egress))
 - **Auth**: Google SSO (NextAuth) + optional **2FA (TOTP)** for admins
-- **Notifications**: in-app + email (reminders, weekly digest, report-ready, mentions)
+- **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (reminders, weekly digest, report-ready, mentions)
+- **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
 - **Admin panel**: users, workspace policies, integrations, usage/cost
 - **First-run setup wizard** (`/setup`): configure SSO, branding & integrations from the browser — zero config-file editing
 
@@ -30,6 +31,7 @@ reactions, and optional meeting recording.
 | STT / LLM | Deepgram / DeepSeek |
 | Cache / coordination | Redis 7 (LiveKit + Egress) |
 | Email / storage | SMTP (nodemailer) / S3-compatible (optional) |
+| PWA / push | Web App Manifest + service worker + Web Push (VAPID, `web-push`) |
 | Infra | Docker Compose, nginx (TLS reverse proxy) |
 
 ---
@@ -142,6 +144,30 @@ first-run **/setup** wizard and edited later in the **admin panel** (Settings):
 | Workspace | `WS_NAME/TIMEZONE/LANGUAGE/GUEST_ACCESS/AI_SUMMARY/LIVE_TRANSCRIPTION/RECORD_ALL/REQUIRE_2FA/MAX_PARTICIPANTS/MAX_DURATION_MIN/RETENTION_DAYS` |
 | Pricing | `PRICE_DEEPSEEK_IN/OUT`, `PRICE_DEEPGRAM_MIN`, `EMAIL_LIMIT` |
 | S3 (optional) | `S3_ENDPOINT/REGION/BUCKET/ACCESS_KEY/SECRET_KEY/FORCE_PATH_STYLE` |
+
+---
+
+## Notifications & PWA
+
+The app installs as a **Progressive Web App** (manifest + service worker) and
+supports **Web Push**, so meeting reminders, task assignments, report-ready and
+@mentions reach users even when the tab or installed app is closed.
+
+**Push setup is automatic.** A VAPID keypair is generated on first boot and
+stored in `SystemConfig` (`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`) — no config
+files to edit. Push requires HTTPS (already needed for the app). Users opt in
+**per device** from **Settings → Notifications** or the bell's prompt.
+
+- **iOS**: push works on iOS 16.4+ **only after** the user installs the PWA
+  ("Add to Home Screen").
+- **Subject**: pushes use `mailto:admin@<your-domain>`; override with the
+  optional `VAPID_SUBJECT` env / config key for a different contact.
+- **Offline**: the service worker caches static assets and serves an offline
+  fallback page; live routes (`/room`, `/lobby`, `/api`) always hit the network
+  and are never cached.
+
+In-app notifications and push share the server's `notify()` helper — push is
+just an extra delivery channel, so nothing else needs wiring.
 
 ---
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendReportEmail } from '@/lib/report-email';
 import { isInternalAuthed } from '@/lib/internal-auth';
+import { notify } from '@/lib/notify';
 
 // POST /api/webhooks/report — store AI-generated report (called by Python agent)
 export async function POST(req: NextRequest) {
@@ -78,18 +79,14 @@ export async function POST(req: NextRequest) {
 
       // Notify assignee about the new task (respect their action-item notification preference)
       if (assigneeId && notifyAssignee) {
-        try {
-          await prisma.notification.create({
-            data: {
-              userId: assigneeId,
-              type: 'task_assigned',
-              title: 'Нове завдання',
-              body: item.title,
-              link: '/tasks',
-              meetingId,
-            },
-          });
-        } catch { /* skip */ }
+        await notify({
+          userIds: [assigneeId],
+          type: 'task_assigned',
+          title: 'Нове завдання',
+          body: item.title,
+          link: '/tasks',
+          meetingId,
+        });
       }
     }
   }
@@ -111,15 +108,13 @@ export async function POST(req: NextRequest) {
         .map(p => p.userId)
         .filter((uid): uid is string => uid !== null);
       if (userIds.length > 0) {
-        await prisma.notification.createMany({
-          data: userIds.map(uid => ({
-            userId: uid,
-            type: 'report_ready',
-            title: 'Звіт готовий',
-            body: `Звіт по мітингу "${meeting.title}" згенерований`,
-            link: `/meetings/${meetingId}/report`,
-            meetingId,
-          })),
+        await notify({
+          userIds,
+          type: 'report_ready',
+          title: 'Звіт готовий',
+          body: `Звіт по мітингу "${meeting.title}" згенерований`,
+          link: `/meetings/${meetingId}/report`,
+          meetingId,
         });
       }
     }

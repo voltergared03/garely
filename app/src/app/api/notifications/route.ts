@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isInternalAuthed } from '@/lib/internal-auth';
+import { notify } from '@/lib/notify';
 
 // GET /api/notifications — list notifications for current user
 export async function GET(req: NextRequest) {
@@ -81,16 +82,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'userId/userIds, type, and title required' }, { status: 400 });
   }
 
-  const created = await prisma.notification.createMany({
-    data: targetUserIds.map((uid: string) => ({
-      userId: uid,
-      type,
-      title,
-      body: notifBody || null,
-      link: link || null,
-      meetingId: meetingId || null,
-    })),
+  const count = await notify({
+    userIds: targetUserIds,
+    type,
+    title,
+    body: notifBody || null,
+    link: link || null,
+    meetingId: meetingId || null,
   });
 
-  return NextResponse.json({ count: created.count }, { status: 201 });
+  return NextResponse.json({ count }, { status: 201 });
 }

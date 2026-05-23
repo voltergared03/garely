@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
+import { notify } from '@/lib/notify';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
@@ -38,16 +39,14 @@ export async function GET(req: NextRequest) {
     // In-app notifications for participant users
     const userIds = m.participants.map((p) => p.user?.id).filter((x): x is string => !!x);
     if (userIds.length > 0) {
-      await prisma.notification.createMany({
-        data: userIds.map((uid) => ({
-          userId: uid,
-          type: 'meeting_starting',
-          title: 'Мітинг скоро почнеться',
-          body: `"${m.title}" о ${startStr}`,
-          link: `/lobby/${m.id}`,
-          meetingId: m.id,
-        })),
-      }).catch(() => {});
+      await notify({
+        userIds,
+        type: 'meeting_starting',
+        title: 'Мітинг скоро почнеться',
+        body: `"${m.title}" о ${startStr}`,
+        link: `/lobby/${m.id}`,
+        meetingId: m.id,
+      });
       notified += userIds.length;
     }
 

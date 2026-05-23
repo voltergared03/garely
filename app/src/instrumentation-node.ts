@@ -1,4 +1,5 @@
 import { isSetupComplete, getOrCreateSetupToken } from './lib/setup';
+import { ensureVapidKeys } from './lib/push';
 
 /**
  * Node-only boot logic. Imported from instrumentation.ts ONLY inside the
@@ -37,3 +38,5 @@ export async function logSetupTokenIfNeeded() {
 
 // Runs once when this module is first imported (i.e. on Node server boot).
 void logSetupTokenIfNeeded();
+// Generate + persist the VAPID keypair early so the first push subscribe is instant.
+void ensureVapidKeys();

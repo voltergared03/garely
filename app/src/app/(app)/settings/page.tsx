@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { TwoFactorSecurity } from '@/components/twofa/security-card';
 import { TwoFactorSetupFlow } from '@/components/twofa/setup-flow';
+import { PushToggle } from '@/components/push-toggle';
 import { useSession, signOut } from 'next-auth/react';
 
 /* ── Shared UI ────────────────────────────────── */
@@ -193,6 +194,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
 
       <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Нотифікації</div>
+        <PushToggle />
         <Toggle label="Email-нагадування за 15 хв до мітингу" value={emailReminder} onChange={setEmailReminder} />
         <Toggle label="Email зі звітом після мітингу" value={emailReport} onChange={setEmailReport} />
         <Toggle label="Нотифікація, коли вам призначено action item" value={actionItemNotif} onChange={setActionItemNotif} />

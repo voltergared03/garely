@@ -66,6 +66,22 @@ model User {
   assignedTasks       MeetingTask[]        @relation("TaskAssignee")
   transcriptSegments  TranscriptSegment[]
   notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
+}
+
+// Web Push (PWA) subscription endpoints — one user can have many devices.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String   // client public key (base64url)
+  auth      String   // client auth secret (base64url)
+  ua        String?  // user-agent, for display in settings
+  createdAt DateTime @default(now())
+  lastUsed  DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Meeting {
