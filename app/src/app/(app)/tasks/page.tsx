@@ -237,7 +237,7 @@ function TaskListView({ tasks, onEdit, onStatusChange, q }: {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "18px 28px 60px" }}>
+    <div style={{ flex: 1, overflowY: "auto", padding: "18px clamp(14px, 4vw, 28px) 60px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", gap: 26 }}>
         {(["open", "in_progress", "done"] as const).map(status => {
           const items = groups[status];
@@ -358,7 +358,7 @@ function KanbanView({ tasks, onEdit, onStatusChange }: {
   };
 
   return (
-    <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "18px 28px 28px" }}>
+    <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "18px clamp(14px, 4vw, 28px) 28px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(260px, 1fr))", gap: 14, height: "100%", minWidth: 840 }}>
         {cols.map(col => (
           <div key={col.id} style={{
@@ -831,7 +831,7 @@ export default function TasksPage() {
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "18px 28px 16px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: "18px clamp(14px, 4vw, 28px) 16px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 240 }}>
             <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Таски</h1>
@@ -854,12 +854,12 @@ export default function TasksPage() {
           </div>
         </div>
         {/* Filter row */}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="tasks-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <FilterPills value={scope} onChange={setScope} options={[
             { id: "mine", label: "Мої", count: counts.mine },
             { id: "all", label: "Усі", count: counts.all },
           ]} />
-          <div style={{ width: 1, height: 24, background: "var(--border)" }} />
+          <div className="tasks-filter-sep" style={{ width: 1, height: 24, background: "var(--border)" }} />
           <SelectChip icon={CalendarIcon} value={filterMeeting} onChange={setFilterMeeting}
             options={[{ value: "all", label: "Усі мітинги" }, ...meetingOptions.map(m => ({ value: m.id, label: m.title }))]} />
           <SelectChip icon={AlertCircle} value={filterPriority} onChange={setFilterPriority}
@@ -873,7 +873,7 @@ export default function TasksPage() {
             <SelectChip icon={User} value={filterAssignee} onChange={(v) => { setFilterAssignee(v); if (v !== "all") setScope("all"); }}
               options={[{ value: "all", label: "Усі виконавці" }, ...users.map(u => ({ value: u.id, label: u.name || u.email }))]} />
           )}
-          <div style={{ position: "relative", flex: 1, minWidth: 200, maxWidth: 300, marginLeft: "auto" }}>
+          <div className="tasks-search" style={{ position: "relative" }}>
             <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input placeholder="Пошук тасок…" value={q} onChange={e => setQ(e.target.value)}
               style={{ paddingLeft: 34, height: 34, fontSize: 13, width: "100%", background: "var(--surface)",
