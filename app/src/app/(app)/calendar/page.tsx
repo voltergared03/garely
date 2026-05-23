@@ -191,6 +191,7 @@ function WeekView({
         style={{
           display: 'grid',
           gridTemplateColumns: '64px repeat(7, 1fr)',
+          minWidth: 560,
           borderBottom: '1px solid var(--border)',
           position: 'sticky',
           top: 0,
@@ -252,6 +253,7 @@ function WeekView({
         style={{
           display: 'grid',
           gridTemplateColumns: '64px repeat(7, 1fr)',
+          minWidth: 560,
           flex: 1,
           minHeight: 0,
         }}
@@ -1419,8 +1421,9 @@ export default function CalendarPage() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 14,
-          padding: '18px 28px',
+          gap: 10,
+          flexWrap: 'wrap',
+          padding: '14px clamp(14px, 4vw, 28px)',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}

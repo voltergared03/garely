@@ -429,6 +429,10 @@ h2 {
 .archive-search {
   min-width: auto;
 }
+/* Hide the participant avatar stack in archive rows on phones (count is shown) */
+.archive-row-avatars {
+  display: none;
+}
 
 /* ── Calendar header — mobile: wrap ──────────────────── */
 .cal-header {
@@ -509,6 +513,9 @@ h2 {
 
   .archive-filter-bar {
     flex-direction: row;
+  }
+  .archive-row-avatars {
+    display: block;
   }
 
   .cal-header {

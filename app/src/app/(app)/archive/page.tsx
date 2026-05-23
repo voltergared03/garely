@@ -442,13 +442,13 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meet
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12, minWidth: 0 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <Users size={12} />
             {users.length} учасн.
           </span>
-          <span>&middot;</span>
-          <span>{meeting.createdBy.name || 'Unknown'}</span>
+          <span style={{ flexShrink: 0 }}>&middot;</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{meeting.createdBy.name || 'Unknown'}</span>
         </div>
 
         {/* Transcript matches */}
@@ -495,8 +495,8 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meet
         )}
       </div>
 
-      {/* Avatar stack */}
-      <div style={{ flexShrink: 0 }}>
+      {/* Avatar stack (hidden on narrow screens — participant count is in the meta row) */}
+      <div className="archive-row-avatars" style={{ flexShrink: 0 }}>
         <AvatarStack users={users} max={4} />
       </div>
 
