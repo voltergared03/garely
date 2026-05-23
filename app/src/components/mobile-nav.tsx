@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, ListChecks, Archive, Bell, Plus } from 'lucide-react';
+import { Home, Calendar, ListChecks, Archive, Plus } from 'lucide-react';
 
 const NAV = [
   { id: '/', label: 'Головна', icon: Home, adminOnly: false },
   { id: '/calendar', label: 'Календар', icon: Calendar, adminOnly: false },
   { id: '/tasks', label: 'Таски', icon: ListChecks, adminOnly: false },
   { id: '/archive', label: 'Архів', icon: Archive, adminOnly: false },
-  { id: '/notifications', label: 'Сповіщ.', icon: Bell, adminOnly: false },
 ];
 
 export function MobileNav() {

@@ -7,6 +7,8 @@ import { isSetupComplete } from '@/lib/setup';
 import { TWOFA_COOKIE, verifyTwoFactorCookie } from '@/lib/twofactor';
 import { Sidebar } from '@/components/sidebar';
 import { MobileNav } from '@/components/mobile-nav';
+import { Logo } from '@/components/ui/logo';
+import { NotificationBell } from '@/components/notifications';
 
 // The whole (app) group is behind auth + a setup gate that can redirect. It must
 // never be statically prerendered (that bakes a build-time redirect into the
@@ -58,6 +60,10 @@ export default async function AppLayout({
     <div className="app-layout" style={{ height: '100vh', overflow: 'hidden' }}>
       <Sidebar workspaceName={workspaceName} />
       <main className="app-main">
+        <header className="mobile-topbar">
+          <Logo size={20} />
+          <NotificationBell placement="down" />
+        </header>
         {children}
       </main>
       <MobileNav />

@@ -45,7 +45,7 @@ function timeAgo(dateStr: string): string {
   return `${days} дн`;
 }
 
-export function NotificationBell() {
+export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'down' }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -149,8 +149,9 @@ export function NotificationBell() {
       {/* Dropdown Panel */}
       {open && (
         <div style={{
-          position: 'absolute', bottom: 'calc(100% + 8px)', left: 0,
-          width: 360, maxHeight: 480,
+          position: 'absolute',
+          ...(placement === 'down' ? { top: 'calc(100% + 8px)', right: 0 } : { bottom: 'calc(100% + 8px)', left: 0 }),
+          width: 'min(360px, calc(100vw - 24px))', maxHeight: 480,
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,.5)',
           display: 'flex', flexDirection: 'column',
