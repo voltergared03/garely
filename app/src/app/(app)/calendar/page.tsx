@@ -645,6 +645,7 @@ function DayModal({
         className="card"
         style={{
           width: 520,
+          maxWidth: 'calc(100vw - 24px)',
           maxHeight: '80vh',
           overflow: 'auto',
           padding: 0,
@@ -852,7 +853,7 @@ function MeetingDetailModal({
       <div
         className="card"
         style={{
-          width: 540, maxHeight: '85vh', overflow: 'auto',
+          width: 540, maxWidth: 'calc(100vw - 24px)', maxHeight: '85vh', overflow: 'auto',
           padding: 0, animation: 'fadeIn .15s',
         }}
         onClick={e => e.stopPropagation()}

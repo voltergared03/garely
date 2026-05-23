@@ -147,7 +147,7 @@ export default function LobbyPage() {
                     <div onClick={() => setShowDevices(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
                     <div style={{
                       position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-                      width: 320, padding: '14px 16px', zIndex: 100,
+                      width: 320, maxWidth: 'calc(100vw - 24px)', padding: '14px 16px', zIndex: 100,
                       background: 'var(--surface)', border: '1px solid var(--border)',
                       borderRadius: 14, boxShadow: '0 20px 50px rgba(0,0,0,.5)',
                     }}>
