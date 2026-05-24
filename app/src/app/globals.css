@@ -159,6 +159,22 @@ input, select, textarea { font: inherit; color: inherit; }
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent);
 }
 
+/* Native date/time inputs: iOS renders these with an oversized value font and a
+   stubborn intrinsic min-width, so they look huge and overflow their box. Force
+   them to behave like normal fields (match font size, allow shrinking, stay
+   inside the border). */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  font-size: 14px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
 /* Custom select — themed dropdown with chevron */
 select.field {
   -webkit-appearance: none;
