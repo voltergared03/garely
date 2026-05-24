@@ -485,7 +485,7 @@ function UsersTab() {
       )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="admin-table-header" style={{ display: 'grid', padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+        <div className="admin-table-header" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
           <div>Користувач</div><div>Email</div><div>Роль</div><div>Статус</div><div />
         </div>
         {filtered.map((u) => {
