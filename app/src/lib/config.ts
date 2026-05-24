@@ -38,6 +38,56 @@ export async function getGoogleConfig(): Promise<{ clientId: string; clientSecre
   };
 }
 
+export interface AuthConfig {
+  googleEnabled: boolean;
+  passwordEnabled: boolean;
+  selfReg: boolean; // self-registration with admin approval (requires passwordEnabled)
+  selfRegDomains: string[]; // allowlist; empty = any domain
+  requestTtlDays: number; // self-reg request lifetime
+}
+
+/**
+ * Which sign-in methods are active. BACKWARD-COMPATIBLE: existing deployments
+ * have no AUTH_* keys, so Google stays on iff its credentials exist, while
+ * password + self-registration default OFF. Nothing changes until an admin
+ * toggles them in /setup or Settings.
+ */
+export async function getAuthConfig(): Promise<AuthConfig> {
+  const m = await readConfig([
+    'AUTH_GOOGLE_ENABLED',
+    'AUTH_PASSWORD_ENABLED',
+    'AUTH_SELFREG',
+    'AUTH_SELFREG_DOMAINS',
+    'AUTH_REQUEST_TTL_DAYS',
+  ]);
+  const google = await getGoogleConfig();
+  const hasGoogleCreds = !!(google.clientId && google.clientSecret);
+
+  const googleEnabled =
+    m.AUTH_GOOGLE_ENABLED !== undefined && m.AUTH_GOOGLE_ENABLED !== ''
+      ? m.AUTH_GOOGLE_ENABLED === 'true'
+      : hasGoogleCreds; // legacy default: on when Google is configured
+
+  const passwordEnabled = m.AUTH_PASSWORD_ENABLED === 'true';
+  const selfReg = passwordEnabled && m.AUTH_SELFREG === 'true';
+  const selfRegDomains = (m.AUTH_SELFREG_DOMAINS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const ttl = parseInt(m.AUTH_REQUEST_TTL_DAYS || '', 10);
+  const requestTtlDays = Number.isFinite(ttl) && ttl > 0 ? ttl : 3;
+
+  return { googleEnabled, passwordEnabled, selfReg, selfRegDomains, requestTtlDays };
+}
+
+/** Is this email permitted to self-register? (Empty allowlist = any domain.) */
+export function emailAllowedForSelfReg(email: string, domains: string[]): boolean {
+  if (!domains.length) return true;
+  const at = email.lastIndexOf('@');
+  if (at < 0) return false;
+  return domains.includes(email.slice(at + 1).toLowerCase());
+}
+
 /** Defaults for workspace + pricing config (used when a key is not set). */
 export const CONFIG_DEFAULTS: Record<string, string> = {
   WS_NAME: 'EZmeet',
