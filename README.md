@@ -167,8 +167,10 @@ certs with certbot (`certbot --nginx -d meet.example.com`).
 ## Authentication
 
 Two sign-in methods, toggled per workspace in the **/setup** wizard or later in
-**Admin → Settings → Sign-in methods**. At least one stays active at all times —
-the UI refuses to disable both.
+**Admin → Settings → Sign-in methods** (saved instantly). At least one stays
+active at all times, and the workspace **won't let you disable a method that
+would lock every admin out** — e.g. turning off Google SSO while no admin has a
+password yet.
 
 | Method | Notes |
 |---|---|
@@ -177,7 +179,9 @@ the UI refuses to disable both.
 
 **Admin-provisioned users** (Admin → Users → invite) get a temporary password
 and are forced to set their own on first login; an email is sent if SMTP is
-configured.
+configured. Admins can **reset** a user's password (Admin → Users → key icon),
+and anyone can **set or change their own** under **Profile → Security** — so a
+Google-only account can add a password before switching sign-in methods.
 
 ### Self-registration (optional)
 
