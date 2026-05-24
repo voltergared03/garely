@@ -504,7 +504,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meet
       {isAdmin && (
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="btn btn-ghost btn-icon"
+          className="btn btn-ghost btn-icon archive-del-btn"
           title="Видалити мітинг"
           style={{
             width: 30, height: 30, flexShrink: 0, color: 'var(--muted)',

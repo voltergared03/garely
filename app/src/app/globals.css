@@ -458,6 +458,15 @@ h2 {
   display: none;
 }
 
+/* The archive row delete button is hover-revealed on mouse devices. Touch
+   devices have no hover, so force it visible there (overrides the inline
+   opacity:0). */
+@media (hover: none) {
+  .archive-del-btn {
+    opacity: 1 !important;
+  }
+}
+
 /* ── Calendar header — mobile: wrap ──────────────────── */
 .cal-header {
   flex-direction: column;
