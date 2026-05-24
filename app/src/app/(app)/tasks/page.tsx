@@ -10,6 +10,7 @@ import {
   LayoutList, LayoutGrid, AlertCircle, Calendar as CalendarIcon, Wand2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { useIsMobile } from "@/lib/use-is-mobile";
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
@@ -140,9 +141,9 @@ function SelectChip({ value, onChange, options, icon: IconComp }: {
 /* ═══════════════════════════════════════════════════════════
    TASK ROW (List view)
    ═══════════════════════════════════════════════════════════ */
-function TaskRow({ t, onEdit, onStatusChange, q, last }: {
+function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
   t: Task; onEdit: () => void; onStatusChange: (status: string) => void;
-  q: string; last: boolean;
+  q: string; last: boolean; mobile?: boolean;
 }) {
   const due = dueLabel(t.dueDate);
   const isOverdue = due?.overdue && t.status !== "done";
@@ -152,6 +153,65 @@ function TaskRow({ t, onEdit, onStatusChange, q, last }: {
     const next = t.status === "open" ? "in_progress" : t.status === "in_progress" ? "done" : "open";
     onStatusChange(next);
   };
+
+  // Mobile: a stacked card — title on top, then a wrapping meta row. Far more
+  // legible on a phone than the desktop single-line row.
+  if (mobile) {
+    const dueChip = due && (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "3px 8px", borderRadius: 6,
+        background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" :
+                    due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "var(--surface-2)",
+        color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)",
+        fontWeight: isOverdue ? 600 : 500,
+      }}>
+        <Clock size={11} /> {due.txt}
+      </span>
+    );
+    return (
+      <div onClick={onEdit} style={{
+        display: "flex", gap: 12, padding: "13px 16px",
+        borderBottom: last ? "none" : "1px solid var(--border)",
+        borderLeft: isOverdue ? "3px solid var(--red)" : "3px solid transparent",
+        paddingLeft: isOverdue ? 13 : 16, cursor: "pointer",
+      }}>
+        <div style={{ paddingTop: 1 }}><StatusCheckbox status={t.status} onClick={cycleStatus} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+            {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 3 }} />}
+            <div style={{
+              fontSize: 14, fontWeight: 500, lineHeight: 1.35, flex: 1, minWidth: 0,
+              color: t.status === "done" ? "var(--muted)" : "var(--text)",
+              textDecoration: t.status === "done" ? "line-through" : "none",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}>
+              <Hl text={t.title} q={q} />
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <PriorityTag p={t.priority} />
+            {dueChip}
+            {t.assignee ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>
+                <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
+                {(t.assignee.name || "").split(" ")[0]}
+              </span>
+            ) : t.assigneeName ? (
+              <span style={{ fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>{t.assigneeName}</span>
+            ) : null}
+          </div>
+          {t.meeting && t.meetingId && (
+            <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} style={{
+              display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", textDecoration: "none",
+              fontSize: 11.5, marginTop: 8, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              <Video size={11} /> {t.meeting.title}
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -220,8 +280,8 @@ function TaskRow({ t, onEdit, onStatusChange, q, last }: {
 /* ═══════════════════════════════════════════════════════════
    LIST VIEW
    ═══════════════════════════════════════════════════════════ */
-function TaskListView({ tasks, onEdit, onStatusChange, q }: {
-  tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string;
+function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
+  tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
 }) {
   const groups = useMemo(() => ({
     open: tasks.filter(t => t.status === "open"),
@@ -268,7 +328,7 @@ function TaskListView({ tasks, onEdit, onStatusChange, q }: {
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
                   {items.map((t, i) => (
                     <TaskRow key={t.id} t={t} onEdit={() => onEdit(t)}
-                      onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} />
+                      onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile={mobile} />
                   ))}
                 </div>
               )}
@@ -770,6 +830,7 @@ export default function TasksPage() {
 
   const isAdmin = (session?.user as any)?.role === "admin";
   const userId = (session?.user as any)?.id;
+  const isMobile = useIsMobile();
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -888,7 +949,7 @@ export default function TasksPage() {
         {filtered.length === 0 ? (
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} />
         ) : (
           <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} />
         )}
