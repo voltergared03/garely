@@ -843,6 +843,7 @@ function MeetingDetailModal({
   const hasReport = m.reports && m.reports.length > 0;
   const isCompleted = m.status === 'completed' || m.status === 'ended';
   const agenda = Array.isArray(m.agenda) ? m.agenda : [];
+  const isMobile = useIsMobile();
 
   return (
     <div
@@ -972,13 +973,13 @@ function MeetingDetailModal({
             Організатор: <strong style={{ color: 'var(--text-2)' }}>{m.createdBy?.name || 'Невідомо'}</strong>
           </div>
 
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Action buttons — wrap on mobile so nothing overflows */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {isCompleted && hasReport ? (
               <Link
                 href={'/meetings/' + m.id + '/report'}
                 className="btn btn-primary"
-                style={{ textDecoration: 'none', flex: 1, justifyContent: 'center', fontWeight: 600 }}
+                style={{ textDecoration: 'none', flex: isMobile ? '1 1 100%' : 1, justifyContent: 'center', fontWeight: 600 }}
                 onClick={onClose}
               >
                 <FileText size={15} /> Переглянути звіт
@@ -987,7 +988,7 @@ function MeetingDetailModal({
               <Link
                 href={'/lobby/' + m.id}
                 className="btn btn-primary"
-                style={{ textDecoration: 'none', flex: 1, justifyContent: 'center', fontWeight: 600 }}
+                style={{ textDecoration: 'none', flex: isMobile ? '1 1 100%' : 1, justifyContent: 'center', fontWeight: 600 }}
                 onClick={onClose}
               >
                 <Video size={15} /> {m.status === 'live' ? 'Приєднатися' : 'Увійти в мітинг'}
@@ -997,7 +998,7 @@ function MeetingDetailModal({
               <button
                 className="btn"
                 onClick={() => onEdit(m)}
-                style={{ flexShrink: 0 }}
+                style={isMobile ? { flex: 1, justifyContent: 'center' } : { flexShrink: 0 }}
               >
                 <Pencil size={14} /> Редагувати
               </button>
@@ -1012,7 +1013,7 @@ function MeetingDetailModal({
                 {deleting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />}
               </button>
             )}
-            <button className="btn" onClick={onClose} style={{ flexShrink: 0 }}>
+            <button className="btn" onClick={onClose} style={isMobile ? { flex: 1, justifyContent: 'center' } : { flexShrink: 0 }}>
               Закрити
             </button>
           </div>
