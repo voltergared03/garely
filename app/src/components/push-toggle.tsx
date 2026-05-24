@@ -7,6 +7,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   showTestNotification,
+  sendServerTest,
   type PushState,
 } from '@/lib/push-client';
 
@@ -18,6 +19,8 @@ import {
 export function PushToggle() {
   const [state, setState] = useState<PushState | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     getPushState().then(setState);
@@ -47,6 +50,27 @@ export function PushToggle() {
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runTest = async () => {
+    if (testing) return;
+    setTesting(true);
+    setTestMsg(null);
+    // Local notification (does the OS show anything at all?) + a real server
+    // push (full pipeline). Same tag collapses them into one banner.
+    const [local, server] = await Promise.all([showTestNotification(), sendServerTest()]);
+    setTesting(false);
+
+    if (!local.ok && local.reason === 'denied') {
+      setTestMsg({ ok: false, text: 'Сповіщення заблоковано в браузері для цього сайту — дозвольте їх і спробуйте ще раз.' });
+    } else if (server.sent === 0 && local.ok) {
+      // OS accepted the local one, but the server found no live subscription.
+      setTestMsg({ ok: true, text: 'Локальне сповіщення надіслано. Якщо не бачите його — увімкніть сповіщення для браузера в налаштуваннях системи (macOS: Системні налаштування → Сповіщення) і вимкніть режим «Не турбувати».' });
+    } else if (local.ok || server.sent > 0) {
+      setTestMsg({ ok: true, text: 'Надіслано ✓ Не бачите банер? Перевірте, що сповіщення дозволені для браузера в налаштуваннях системи, і вимкнено режим «Не турбувати» / Focus.' });
+    } else {
+      setTestMsg({ ok: false, text: 'Не вдалося надіслати. Вимкніть і знову ввімкніть push, потім спробуйте ще раз.' });
     }
   };
 
@@ -92,13 +116,30 @@ export function PushToggle() {
           {hint}
         </div>
         {enabled && (
-          <button
-            className="btn btn-sm"
-            style={{ marginTop: 9, fontSize: 12 }}
-            onClick={() => void showTestNotification()}
-          >
-            Надіслати тест
-          </button>
+          <>
+            <button
+              className="btn btn-sm"
+              style={{ marginTop: 9, fontSize: 12, gap: 6 }}
+              onClick={() => void runTest()}
+              disabled={testing}
+            >
+              {testing ? <Loader2 size={12} className="spin" /> : null}
+              Надіслати тест
+            </button>
+            {testMsg && (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11.5,
+                  lineHeight: 1.45,
+                  color: testMsg.ok ? 'var(--muted)' : 'var(--red, #ef4444)',
+                  maxWidth: 360,
+                }}
+              >
+                {testMsg.text}
+              </div>
+            )}
+          </>
         )}
       </div>
 

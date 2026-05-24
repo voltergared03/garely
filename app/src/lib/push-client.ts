@@ -100,14 +100,71 @@ export async function unsubscribeFromPush(): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
-/** Fire a quick local test notification (used by the "test" button in settings). */
-export async function showTestNotification(): Promise<void> {
-  if (!isPushSupported() || Notification.permission !== 'granted') return;
-  const reg = await navigator.serviceWorker.ready;
-  await reg.showNotification('EAM Meet', {
-    body: 'Сповіщення увімкнено ✓',
+export type TestResult =
+  | { ok: true; via: 'sw' | 'direct' }
+  | { ok: false; reason: 'unsupported' | 'denied' | 'error'; detail?: string };
+
+/**
+ * Fire a LOCAL test notification. Prefers the SW (`registration.showNotification`,
+ * works everywhere) but falls back to a direct `Notification` if the SW isn't
+ * ready within a short window — so it never silently hangs. A success here means
+ * the browser accepted it; if the user still sees nothing, the OS is suppressing
+ * it (notifications disabled for the browser, or Do-Not-Disturb / Focus).
+ */
+export async function showTestNotification(): Promise<TestResult> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    try {
+      perm = await Notification.requestPermission();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (perm !== 'granted') return { ok: false, reason: 'denied' };
+
+  const body = 'Тестове сповіщення ✓';
+  const opts: NotificationOptions & { badge?: string } = {
+    body,
     icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.png',
     tag: 'eam-test',
-  });
+  };
+
+  try {
+    if ('serviceWorker' in navigator) {
+      // Don't wait forever for an active SW.
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<null>((r) => setTimeout(() => r(null), 3000)),
+      ]);
+      if (reg) {
+        await (reg as ServiceWorkerRegistration).showNotification('EAM Meet', opts);
+        return { ok: true, via: 'sw' };
+      }
+    }
+    // Fallback for desktop browsers without a ready SW.
+    new Notification('EAM Meet', { body, icon: '/icons/icon-192.png' });
+    return { ok: true, via: 'direct' };
+  } catch (e: any) {
+    return { ok: false, reason: 'error', detail: e?.message };
+  }
+}
+
+/**
+ * Ask the SERVER to push to this user's devices — validates the full pipeline
+ * (VAPID → push service → SW). Returns how many subscriptions were reached.
+ */
+export async function sendServerTest(): Promise<{ sent: number; error?: string }> {
+  try {
+    const res = await fetch('/api/push/test', { method: 'POST' });
+    if (!res.ok) return { sent: 0, error: 'request-failed' };
+    const d = await res.json().catch(() => ({}));
+    return { sent: d.sent ?? 0 };
+  } catch {
+    return { sent: 0, error: 'network' };
+  }
 }
