@@ -19,6 +19,7 @@ export async function GET() {
       timezone: true,
       preferences: true,
       totpEnabled: true,
+      passwordHash: true,
     } as any,
   }) as any;
 
@@ -49,6 +50,7 @@ export async function GET() {
     timezone: user.timezone,
     preferences: prefs,
     twoFactorEnabled: !!user.totpEnabled,
+    hasPassword: !!user.passwordHash,
   });
 }
 

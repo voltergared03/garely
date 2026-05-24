@@ -82,6 +82,72 @@ const TABS: TabDef[] = [
 
 /* ── ProfileTab ───────────────────────────────── */
 
+// Set or change your own login password. SSO-only accounts (no password yet)
+// can set one without a current password — the authenticated session authorizes it.
+function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) {
+  const [has, setHas] = useState(initialHas);
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const submit = async () => {
+    if (next.length < 8) { setMsg({ ok: false, text: 'Пароль — щонайменше 8 символів' }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch('/api/account/password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(has ? { currentPassword: cur, newPassword: next } : { newPassword: next }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMsg({ ok: true, text: has ? 'Пароль змінено' : 'Пароль встановлено' });
+        setHas(true); setCur(''); setNext('');
+        setTimeout(() => { setOpen(false); setMsg(null); }, 1800);
+      } else {
+        setMsg({ ok: false, text: d.error || 'Не вдалося зберегти' });
+      }
+    } catch { setMsg({ ok: false, text: 'Помилка мережі' }); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13.5, fontWeight: 500 }}>Пароль для входу</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {has ? 'Можна входити через email + пароль' : 'Задайте пароль, щоб входити без Google'}
+          </div>
+        </div>
+        {!open && (
+          <button className="btn btn-sm" onClick={() => { setOpen(true); setMsg(null); }} style={{ gap: 6, flexShrink: 0 }}>
+            <Key size={13} /> {has ? 'Змінити' : 'Задати пароль'}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{ marginTop: 12, display: 'grid', gap: 10, maxWidth: 360 }}>
+          {has && (
+            <input className="field" type="password" autoComplete="current-password" placeholder="Поточний пароль"
+              value={cur} onChange={(e) => setCur(e.target.value)} />
+          )}
+          <input className="field" type="password" autoComplete="new-password" placeholder="Новий пароль (мін. 8 символів)"
+            value={next} onChange={(e) => setNext(e.target.value)} />
+          {msg && <div style={{ fontSize: 12.5, color: msg.ok ? 'var(--green)' : 'var(--red)' }}>{msg.text}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={submit} disabled={busy || !next || (has && !cur)} style={{ gap: 6 }}>
+              {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} Зберегти
+            </button>
+            <button className="btn btn-sm" onClick={() => { setOpen(false); setCur(''); setNext(''); setMsg(null); }}>Скасувати</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProfileTab({ session: sess, updateSession }: { session: any; updateSession: any }) {
   const user = sess?.user;
   const [saving, setSaving] = useState(false);
@@ -100,6 +166,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
   const [actionItemNotif, setActionItemNotif] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
 
   useEffect(() => {
     fetch('/api/settings')
@@ -118,6 +185,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
         setActionItemNotif(p.actionItemNotif ?? true);
         setWeeklyDigest(p.weeklyDigest ?? false);
         setTwoFactorEnabled(data.twoFactorEnabled ?? false);
+        setHasPassword(data.hasPassword ?? false);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -204,6 +272,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
       <div className="card" style={{ padding: '18px 22px' }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Безпека</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
+        <PasswordSection hasPassword={hasPassword} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--red)' }}>Вийти з акаунту</div>

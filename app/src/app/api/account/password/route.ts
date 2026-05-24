@@ -25,10 +25,10 @@ export async function POST(req: NextRequest) {
   })) as any;
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!user.mustChangePassword) {
-    if (!user.passwordHash) {
-      return NextResponse.json({ error: 'Для цього акаунта пароль не налаштовано' }, { status: 400 });
-    }
+  // Require the current password only when voluntarily changing an EXISTING
+  // password. A forced first-change (temp password) or an SSO account with no
+  // password yet can set one directly — the authenticated session authorizes it.
+  if (!user.mustChangePassword && user.passwordHash) {
     if (!(await verifyPassword(String(currentPassword || ''), user.passwordHash))) {
       return NextResponse.json({ error: 'Невірний поточний пароль' }, { status: 400 });
     }
