@@ -1404,7 +1404,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '18px 28px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '18px clamp(14px, 4vw, 28px) 0', borderBottom: '1px solid var(--border)' }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>Налаштування</h1>
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
           {isAdmin ? 'Особисті параметри та адміністрування' : 'Особисті параметри облікового запису'}
@@ -1412,7 +1412,7 @@ export default function SettingsPage() {
         <div className="admin-tabs" style={{ display: 'flex', gap: 2, marginTop: 18 }}>
           {visibleTabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} className="btn btn-ghost" style={{
-              padding: '10px 16px', borderRadius: 0,
+              padding: '10px 16px', borderRadius: 0, flexShrink: 0, whiteSpace: 'nowrap',
               borderBottom: '2px solid ' + (tab === t.key ? 'var(--accent)' : 'transparent'),
               color: tab === t.key ? 'var(--text)' : 'var(--muted)',
               fontWeight: tab === t.key ? 600 : 500,

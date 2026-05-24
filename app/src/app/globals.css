@@ -270,9 +270,8 @@ select.field option:checked {
   bottom: 0;
   left: 0;
   right: 0;
-  /* 64px for the items + the iOS home-indicator inset reserved BELOW them
-     (border-box: keep the inset out of the 64px so items aren't squished). */
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  /* Compact icon-only bar + the iOS home-indicator inset reserved BELOW it. */
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   background: var(--bg);
   border-top: 1px solid var(--border);
@@ -283,10 +282,8 @@ select.field option:checked {
 .mobile-nav-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
   color: var(--muted);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
@@ -305,17 +302,19 @@ select.field option:checked {
 }
 
 .mobile-nav-fab {
-  width: 48px;
-  height: 48px;
+  position: fixed;
+  right: 16px;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 16px);
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  margin: 0 4px;
-  box-shadow: 0 4px 14px rgba(59,130,246,.35);
+  z-index: 51;
+  box-shadow: 0 6px 20px rgba(59,130,246,.45);
   -webkit-tap-highlight-color: transparent;
   transition: transform .12s;
 }
@@ -599,6 +598,9 @@ h2 {
     display: none;
   }
   .mobile-topbar {
+    display: none;
+  }
+  .mobile-nav-fab {
     display: none;
   }
   /* Dashboard: desktop keeps the original hero, mobile-redesigned top is hidden */
