@@ -319,19 +319,19 @@ export default function SchedulePage() {
             )}
           </div>
 
-          {/* Date / time / duration */}
-          <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
+          {/* Date / time / duration — on mobile, date+time share a row; selects go full width */}
+          <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14, ...(isMobile ? { gridTemplateColumns: '1fr 1fr' } : {}) }}>
             <Field label="Дата" icon={Calendar} error={errors.date}>
-              <input className="field" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+              <input className="field" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
             <Field label="Початок" icon={Clock} error={errors.time}>
-              <input className="field" type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />
+              <input className="field" type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
-            <Field label="Тривалість" error={errors.duration}>
+            <Field label="Тривалість" error={errors.duration} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
               <Select value={String(form.duration)} onChange={(v) => set('duration', parseInt(v))}
                 options={[15, 30, 45, 60, 90, 120].map((d) => ({ value: String(d), label: `${d} хв` }))} />
             </Field>
-            <Field label="Часовий пояс" icon={Globe}>
+            <Field label="Часовий пояс" icon={Globe} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
               <Select value={form.timezone} onChange={(v) => set('timezone', v)} options={[
                 { value: 'Europe/Kyiv', label: 'Europe/Kyiv' },
                 { value: 'Europe/Warsaw', label: 'Europe/Warsaw' },
@@ -340,7 +340,7 @@ export default function SchedulePage() {
                 { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
               ]} />
             </Field>
-            <Field label="Повторення" icon={RefreshCw}>
+            <Field label="Повторення" icon={RefreshCw} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
               <Select value={form.recurring} onChange={(v) => set('recurring', v)} options={[
                 { value: 'none', label: 'Без повторення' },
                 { value: 'daily', label: 'Щодня (Пн-Пт)' },
@@ -492,9 +492,9 @@ function zonedWallTimeToUtcISO(dateStr: string, timeStr: string, tz: string): st
   }
 }
 
-function Field({ label, icon: Icon, error, children }: { label: string; icon?: any; error?: string; children: React.ReactNode }) {
+function Field({ label, icon: Icon, error, children, style }: { label: string; icon?: any; error?: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div>
+    <div style={style}>
       <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {Icon && <Icon size={12} />}{label}
       </label>
