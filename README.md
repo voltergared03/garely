@@ -17,7 +17,7 @@ reactions, and optional meeting recording.
 - **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (reminders, weekly digest, report-ready, mentions)
 - **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
 - **Admin panel**: users, workspace policies, integrations, usage/cost
-- **First-run setup wizard** (`/setup`): configure SSO, branding & integrations from the browser — zero config-file editing
+- **First-run setup wizard** (`/setup`): configure auth methods, branding & integrations from the browser — zero config-file editing
 
 ## Tech stack
 
@@ -92,10 +92,11 @@ Then finish setup in the browser — no SQL, no config files:
 
 1. Open `https://<your-domain>/setup`
 2. Paste the **setup token** from the logs above
-3. Set the workspace **name + domain**, then your **Google OAuth** client ID/secret
-   — the wizard shows the exact redirect URI to register in Google Cloud Console
-4. Click **Sign in with Google**: the first account to sign in becomes the
-   **admin**, and `/setup` locks itself permanently
+3. Set the workspace **name + domain**, then pick your **sign-in method(s)** —
+   **Google SSO**, **email + password**, or both
+4. Create the first **admin**: sign in with Google (the wizard shows the exact
+   redirect URI to authorize in Google Cloud Console) *or* create an email +
+   password admin inline. Either way `/setup` locks itself permanently afterward
 
 Optional services (SMTP, Deepgram, DeepSeek, S3) are configured afterwards from
 the dashboard **setup checklist** or admin **Settings** — the app already runs
@@ -128,6 +129,38 @@ certs with certbot (`certbot --nginx -d meet.example.com`).
 
 ---
 
+## Authentication
+
+Two sign-in methods, toggled per workspace in the **/setup** wizard or later in
+**Admin → Settings → Sign-in methods**. At least one stays active at all times —
+the UI refuses to disable both.
+
+| Method | Notes |
+|---|---|
+| **Google SSO** | OAuth 2.0 via NextAuth. On by default when Google credentials are present. |
+| **Email + password** | Passwords hashed with **scrypt** (no external service). Off by default. |
+
+**Admin-provisioned users** (Admin → Users → invite) get a temporary password
+and are forced to set their own on first login; an email is sent if SMTP is
+configured.
+
+### Self-registration (optional)
+
+With email + password enabled, you can let people request their own account.
+Requests are **never** auto-approved:
+
+- They appear in **Admin → Users → Registration requests** to approve or deny.
+- The applicant sets their own password when requesting; approval activates the
+  account as-is.
+- Optionally restrict sign-ups with an **email-domain allowlist**.
+- Pending requests **expire after 3 days** (configurable) and are swept by the
+  hourly `reg-cleanup` cron (see [Scheduled jobs](#recording-livekit-egress)).
+
+> **Backward-compatible:** existing SSO-only deployments are untouched — password
+> auth and self-registration remain **off** until an admin enables them.
+
+---
+
 ## Configuration
 
 **`.env`** — bootstrap secrets only (DB, Redis, NextAuth, LiveKit, URLs,
@@ -140,6 +173,7 @@ first-run **/setup** wizard and edited later in the **admin panel** (Settings):
 | Group | Keys |
 |---|---|
 | API | `DEEPSEEK_*`, `DEEPGRAM_*` (key / model / language / base URL) |
+| Auth | `GOOGLE_CLIENT_ID/SECRET`, `AUTH_GOOGLE_ENABLED`, `AUTH_PASSWORD_ENABLED`, `AUTH_SELFREG`, `AUTH_SELFREG_DOMAINS`, `AUTH_REQUEST_TTL_DAYS` |
 | SMTP | `SMTP_HOST/PORT/SECURE/USER/PASS/FROM/FROM_NAME` |
 | Workspace | `WS_NAME/TIMEZONE/LANGUAGE/GUEST_ACCESS/AI_SUMMARY/LIVE_TRANSCRIPTION/RECORD_ALL/REQUIRE_2FA/MAX_PARTICIPANTS/MAX_DURATION_MIN/RETENTION_DAYS` |
 | Pricing | `PRICE_DEEPSEEK_IN/OUT`, `PRICE_DEEPGRAM_MIN`, `EMAIL_LIMIT` |
@@ -222,6 +256,10 @@ docker compose exec eam-meet npx prisma db push
 
 - Real secrets live only in `.env`, `livekit.yaml`, `egress.yaml` — all
   **gitignored**. Commit only the `*.example` templates.
+- Email/password sign-in hashes passwords with **scrypt** (Node `crypto`, no
+  external service) and is rate-limited per account. Self-registration is
+  rate-limited per IP, supports a domain allowlist, avoids account enumeration,
+  and always requires explicit admin approval.
 - 2FA (TOTP) can be required for admins via `WS_REQUIRE_2FA`. Lockout recovery:
   `UPDATE "User" SET "totpEnabled"=false, "totpSecret"=NULL, "totpBackupCodes"=NULL WHERE email='…';`
 - Rotating `NEXTAUTH_SECRET` invalidates all sessions **and** all 2FA secrets /
