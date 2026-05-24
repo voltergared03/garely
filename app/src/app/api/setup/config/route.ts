@@ -4,7 +4,7 @@ import { writeConfig } from '@/lib/config';
 import { rateLimit } from '@/lib/rate-limit';
 
 // Only these config namespaces may be written through the setup flow.
-const ALLOW_PREFIX = ['WS_', 'GOOGLE_', 'DEEPSEEK_', 'DEEPGRAM_', 'SMTP_', 'S3_'];
+const ALLOW_PREFIX = ['WS_', 'AUTH_', 'GOOGLE_', 'DEEPSEEK_', 'DEEPGRAM_', 'SMTP_', 'S3_'];
 
 function ipOf(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';

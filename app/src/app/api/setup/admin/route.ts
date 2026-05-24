@@ -1,0 +1,48 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { verifySetupToken, markSetupComplete } from '@/lib/setup';
+import { hashPassword, passwordPolicyError } from '@/lib/password';
+import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+
+// POST /api/setup/admin { token, email, name, password }
+// Password-auth setup path: create the first admin from email+password and
+// finalize setup. (Google-auth setup uses /api/setup/complete instead.)
+export async function POST(req: NextRequest) {
+  const { token, email, name, password } = await req.json().catch(() => ({}));
+
+  if (!(await verifySetupToken(token))) {
+    return NextResponse.json({ error: 'Invalid or expired setup token' }, { status: 403 });
+  }
+
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) {
+    return NextResponse.json({ error: 'Вкажіть коректний email' }, { status: 400 });
+  }
+  const pwErr = passwordPolicyError(password);
+  if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
+
+  const existing = await prisma.user.findUnique({ where: { email: e } });
+  if (existing) {
+    return NextResponse.json({ error: 'Користувач із таким email вже існує' }, { status: 409 });
+  }
+
+  const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE']);
+  const passwordHash = await hashPassword(String(password));
+
+  await prisma.user.create({
+    data: {
+      email: e,
+      name: (name && String(name).trim()) || e.split('@')[0],
+      role: 'admin',
+      status: 'active',
+      passwordHash,
+      timezone: cfg.WS_TIMEZONE || CONFIG_DEFAULTS.WS_TIMEZONE,
+      preferences: { language: cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE },
+    } as any,
+  });
+
+  // Burns the setup token and flips SETUP_COMPLETE → /setup is now locked.
+  await markSetupComplete();
+
+  return NextResponse.json({ ok: true });
+}

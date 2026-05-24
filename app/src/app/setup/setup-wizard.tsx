@@ -29,7 +29,7 @@ interface Initial {
   hasGoogleId: boolean;
 }
 
-const STEPS = ['Токен', 'Простір', 'Google SSO', 'Адмін'];
+const STEPS = ['Токен', 'Простір', 'Вхід', 'Адмін'];
 
 export function SetupWizard({ initial }: { initial: Initial }) {
   const router = useRouter();
@@ -48,6 +48,15 @@ export function SetupWizard({ initial }: { initial: Initial }) {
   const [wsLanguage, setWsLanguage] = useState(initial.wsLanguage);
   const [googleId, setGoogleId] = useState('');
   const [googleSecret, setGoogleSecret] = useState('');
+  // Auth methods (step 3)
+  const [googleEnabled, setGoogleEnabled] = useState(true);
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [selfReg, setSelfReg] = useState(false);
+  const [selfRegDomains, setSelfRegDomains] = useState('');
+  // First admin via password (step 4, when password method is on)
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
 
   // Resume across refreshes / the Google OAuth round-trip.
   useEffect(() => {
@@ -117,13 +126,46 @@ export function SetupWizard({ initial }: { initial: Initial }) {
     finally { setBusy(false); }
   };
 
-  const saveSso = async () => {
-    if (!googleId.trim() || !googleSecret.trim()) { setErr('Вставте Client ID і Client Secret'); return; }
+  const saveAuth = async () => {
+    if (!googleEnabled && !passwordEnabled) { setErr('Увімкніть хоча б один спосіб входу'); return; }
+    if (googleEnabled && (!googleId.trim() || !googleSecret.trim())) { setErr('Для Google вставте Client ID і Client Secret'); return; }
     setErr(null); setBusy(true);
     try {
-      await saveConfig({ GOOGLE_CLIENT_ID: googleId.trim(), GOOGLE_CLIENT_SECRET: googleSecret.trim() });
+      const values: Record<string, string> = {
+        AUTH_GOOGLE_ENABLED: googleEnabled ? 'true' : 'false',
+        AUTH_PASSWORD_ENABLED: passwordEnabled ? 'true' : 'false',
+        AUTH_SELFREG: passwordEnabled && selfReg ? 'true' : 'false',
+        AUTH_SELFREG_DOMAINS: selfRegDomains.split(',').map((s) => s.trim()).filter(Boolean).join(','),
+      };
+      if (googleEnabled) {
+        values.GOOGLE_CLIENT_ID = googleId.trim();
+        values.GOOGLE_CLIENT_SECRET = googleSecret.trim();
+      }
+      await saveConfig(values);
       setStep(4);
     } catch (e: any) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  // Password-auth setup: create the admin from email+password, then auto-login.
+  const createPasswordAdmin = async () => {
+    if (!adminEmail.trim() || !adminPassword) { setErr('Вкажіть email і пароль'); return; }
+    if (adminPassword.length < 8) { setErr('Пароль — щонайменше 8 символів'); return; }
+    setErr(null); setBusy(true);
+    try {
+      const res = await fetch('/api/setup/admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email: adminEmail.trim(), name: adminName.trim(), password: adminPassword }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.ok) { setErr(d.error || 'Не вдалося створити адміна'); return; }
+      sessionStorage.removeItem(TOKEN_KEY);
+      const r = await signIn('credentials', {
+        email: adminEmail.trim().toLowerCase(), password: adminPassword, redirect: false,
+      });
+      if (r?.error) { router.push('/login'); return; }
+      router.push('/'); router.refresh();
+    } catch { setErr('Помилка мережі'); }
     finally { setBusy(false); }
   };
 
@@ -230,23 +272,43 @@ export function SetupWizard({ initial }: { initial: Initial }) {
             </>
           )}
 
-          {/* STEP 3 — Google SSO */}
+          {/* STEP 3 — auth methods */}
           {step === 3 && (
             <>
-              <StepHead icon={<Globe size={18} />} title="Google SSO" sub="Створіть OAuth-клієнт у Google Cloud Console і вставте дані сюди." />
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>
-                У Google Cloud → APIs &amp; Services → Credentials → <b>OAuth client ID</b> (Web application) додайте:
-              </div>
-              <CopyRow label="Authorized redirect URI" value={redirectUri} copied={copied === 'r'} onCopy={() => copy(redirectUri, 'r')} />
-              <CopyRow label="Authorized JavaScript origin" value={origin} copied={copied === 'o'} onCopy={() => copy(origin, 'o')} />
+              <StepHead icon={<Globe size={18} />} title="Способи входу" sub="Оберіть, як користувачі заходитимуть. Можна обидва способи разом." />
+              <WizToggle label="Google SSO" desc="Вхід через Google-акаунт" value={googleEnabled} onChange={setGoogleEnabled} />
+              <WizToggle label="Email + пароль" desc="Локальні акаунти, без зовнішніх сервісів" value={passwordEnabled} onChange={setPasswordEnabled} />
 
-              <FieldLabel style={{ marginTop: 16 }}>Client ID</FieldLabel>
-              <input className="field" value={googleId} placeholder="…apps.googleusercontent.com" onChange={(e) => setGoogleId(e.target.value)} />
-              <FieldLabel style={{ marginTop: 14 }}>Client Secret</FieldLabel>
-              <input className="field" type="password" value={googleSecret} placeholder="GOCSPX-…" onChange={(e) => setGoogleSecret(e.target.value)} />
+              {googleEnabled && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
+                    У Google Cloud → Credentials → <b>OAuth client ID</b> (Web application) додайте:
+                  </div>
+                  <CopyRow label="Authorized redirect URI" value={redirectUri} copied={copied === 'r'} onCopy={() => copy(redirectUri, 'r')} />
+                  <CopyRow label="Authorized JavaScript origin" value={origin} copied={copied === 'o'} onCopy={() => copy(origin, 'o')} />
+                  <FieldLabel style={{ marginTop: 14 }}>Client ID</FieldLabel>
+                  <input className="field" value={googleId} placeholder="…apps.googleusercontent.com" onChange={(e) => setGoogleId(e.target.value)} />
+                  <FieldLabel style={{ marginTop: 14 }}>Client Secret</FieldLabel>
+                  <input className="field" type="password" value={googleSecret} placeholder="GOCSPX-…" onChange={(e) => setGoogleSecret(e.target.value)} />
+                </div>
+              )}
+
+              {passwordEnabled && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <WizToggle label="Дозволити самореєстрацію" desc="Заявки з ручним підтвердженням адміна (висять 3 дні)" value={selfReg} onChange={setSelfReg} />
+                  {selfReg && (
+                    <>
+                      <FieldLabel style={{ marginTop: 12 }}>Дозволені домени (опційно, через кому)</FieldLabel>
+                      <input className="field" value={selfRegDomains} placeholder="company.com, team.com" onChange={(e) => setSelfRegDomains(e.target.value)} />
+                      <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0' }}>Порожньо — будь-який домен.</p>
+                    </>
+                  )}
+                </div>
+              )}
+
               <NavRow>
                 <GhostBtn onClick={() => { setErr(null); setStep(2); }}><ArrowLeft size={14} /> Назад</GhostBtn>
-                <PrimaryBtn onClick={saveSso} busy={busy}>Далі</PrimaryBtn>
+                <PrimaryBtn onClick={saveAuth} busy={busy}>Далі</PrimaryBtn>
               </NavRow>
             </>
           )}
@@ -254,8 +316,23 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           {/* STEP 4 — claim admin */}
           {step === 4 && (
             <>
-              <StepHead icon={<ShieldCheck size={18} />} title="Адміністратор" sub="Перший акаунт, що увійде через Google, стане адміністратором." />
-              {status === 'authenticated' ? (
+              <StepHead icon={<ShieldCheck size={18} />} title="Адміністратор" sub={passwordEnabled ? 'Створіть акаунт адміністратора (email + пароль).' : 'Перший акаунт, що увійде через Google, стане адміністратором.'} />
+              {passwordEnabled ? (
+                <>
+                  <FieldLabel>Email</FieldLabel>
+                  <input className="field" type="email" value={adminEmail} placeholder="admin@company.com" onChange={(e) => setAdminEmail(e.target.value)} />
+                  <FieldLabel style={{ marginTop: 14 }}>Імʼя</FieldLabel>
+                  <input className="field" value={adminName} placeholder="Адмін" onChange={(e) => setAdminName(e.target.value)} />
+                  <FieldLabel style={{ marginTop: 14 }}>Пароль</FieldLabel>
+                  <input className="field" type="password" value={adminPassword} placeholder="щонайменше 8 символів"
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') createPasswordAdmin(); }} />
+                  <NavRow>
+                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> Назад</GhostBtn>
+                    <PrimaryBtn onClick={createPasswordAdmin} busy={busy}>Завершити налаштування</PrimaryBtn>
+                  </NavRow>
+                </>
+              ) : status === 'authenticated' ? (
                 <>
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
@@ -342,6 +419,23 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: (
     <button className="btn btn-ghost" style={{ padding: '10px 14px', fontSize: 13, color: 'var(--muted)' }} onClick={onClick}>
       {children}
     </button>
+  );
+}
+
+function WizToggle({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', gap: 14 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>{label}</div>
+        {desc && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>}
+      </div>
+      <button type="button" aria-label={label} onClick={() => onChange(!value)} style={{
+        width: 38, height: 22, borderRadius: 999, border: 'none', flexShrink: 0,
+        background: value ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', cursor: 'pointer', transition: 'background .15s',
+      }}>
+        <span style={{ position: 'absolute', top: 3, left: value ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
+      </button>
+    </div>
   );
 }
 
