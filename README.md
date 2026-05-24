@@ -4,6 +4,9 @@ Self-hosted video-conferencing platform with AI meeting intelligence: live
 transcription, automatic summaries, action items, collaborative notes,
 reactions, and optional meeting recording.
 
+[![CI](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml/badge.svg)](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 ---
 
 ## Install
@@ -339,3 +342,12 @@ docker compose exec eam-meet npx prisma db push
 - Internal endpoints (transcript/report webhooks, key sync) are authenticated
   with a shared header derived from `NEXTAUTH_SECRET`; the agent sends it
   automatically.
+
+---
+
+## License
+
+EZmeet is licensed under the **GNU Affero General Public License v3.0** — see
+[`LICENSE`](LICENSE). You're free to use, study, modify and self-host it; if you
+run a modified version as a network service, you must make your source available
+to its users under the same license.
