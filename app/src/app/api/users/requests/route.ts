@@ -1,0 +1,91 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { sendEmail } from '@/lib/email';
+import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+
+export const dynamic = 'force-dynamic';
+
+async function admin() {
+  const session = await auth();
+  if (!session?.user || (session.user as any).role !== 'admin') return null;
+  return session;
+}
+
+// GET /api/users/requests — pending (non-expired) self-registration requests.
+export async function GET() {
+  if (!(await admin())) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const requests = await prisma.registrationRequest.findMany({
+    where: { status: 'pending', expiresAt: { gt: new Date() } },
+    select: { id: true, email: true, name: true, createdAt: true, expiresAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  return NextResponse.json(requests);
+}
+
+// POST /api/users/requests { id, action: 'approve' | 'deny' }
+export async function POST(req: NextRequest) {
+  const session = await admin();
+  if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const { id, action } = await req.json().catch(() => ({} as any));
+  const reqRow = await prisma.registrationRequest.findUnique({ where: { id: String(id || '') } });
+  if (!reqRow || reqRow.status !== 'pending') {
+    return NextResponse.json({ error: 'Заявку не знайдено' }, { status: 404 });
+  }
+
+  const decidedById = (session.user as any).id as string;
+  const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE', 'WS_NAME']);
+  const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
+  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const loginUrl = appUrl ? `${appUrl}/login` : '/login';
+
+  if (action === 'approve') {
+    // The applicant already chose their password — provision an active member.
+    const exists = await prisma.user.findUnique({ where: { email: reqRow.email }, select: { id: true } });
+    let user: any = null;
+    if (!exists) {
+      user = await prisma.user.create({
+        data: {
+          email: reqRow.email,
+          name: reqRow.name || reqRow.email.split('@')[0],
+          role: 'member',
+          status: 'active',
+          passwordHash: reqRow.passwordHash,
+          timezone: cfg.WS_TIMEZONE || CONFIG_DEFAULTS.WS_TIMEZONE,
+          preferences: { language: cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE },
+        } as any,
+        select: { id: true, name: true, email: true, image: true, role: true, lastLogin: true, createdAt: true },
+      });
+    }
+    await prisma.registrationRequest.update({
+      where: { id: reqRow.id },
+      data: { status: 'approved', decidedAt: new Date(), decidedById },
+    });
+    sendEmail({
+      to: reqRow.email,
+      template: 'registration-approved',
+      subject: `${wsName} — доступ підтверджено`,
+      text: `Вашу заявку схвалено. Увійдіть зі своїм паролем: ${loginUrl}`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0 0 16px">Вашу заявку схвалено — можете увійти зі своїм паролем.</p>${appUrl ? `<a href="${loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">Увійти →</a>` : ''}</div>`,
+    }).catch(() => {});
+    return NextResponse.json({ ok: true, user });
+  }
+
+  if (action === 'deny') {
+    await prisma.registrationRequest.update({
+      where: { id: reqRow.id },
+      data: { status: 'denied', decidedAt: new Date(), decidedById },
+    });
+    sendEmail({
+      to: reqRow.email,
+      template: 'registration-denied',
+      subject: `${wsName} — заявку відхилено`,
+      text: `На жаль, вашу заявку на реєстрацію відхилено.`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0">На жаль, вашу заявку на реєстрацію відхилено.</p></div>`,
+    }).catch(() => {});
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: 'Невідома дія' }, { status: 400 });
+}

@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashPassword, passwordPolicyError } from '@/lib/password';
+import { getAuthConfig, emailAllowedForSelfReg } from '@/lib/config';
+import { notify } from '@/lib/notify';
+import { rateLimit } from '@/lib/rate-limit';
+
+export const dynamic = 'force-dynamic';
+
+function ipOf(req: NextRequest): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
+}
+
+// POST /api/register { email, name, password } — PUBLIC self-registration.
+// Creates a pending RegistrationRequest for admin approval. Security-hardened:
+// rate-limited, domain-allowlisted, and anti-enumeration (never reveals whether
+// an email already exists).
+export async function POST(req: NextRequest) {
+  // Throttle hard — this is unauthenticated.
+  if (!rateLimit(`register:${ipOf(req)}`, 5, 10 * 60_000).ok) {
+    return NextResponse.json({ error: 'Забагато спроб. Спробуйте пізніше.' }, { status: 429 });
+  }
+
+  const authCfg = await getAuthConfig();
+  if (!authCfg.selfReg) {
+    return NextResponse.json({ error: 'Самореєстрація вимкнена' }, { status: 403 });
+  }
+
+  const body = await req.json().catch(() => ({} as any));
+  const email = String(body.email || '').trim().toLowerCase();
+  const name = String(body.name || '').trim().slice(0, 120) || null;
+  const password = String(body.password || '');
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return NextResponse.json({ error: 'Вкажіть коректний email' }, { status: 400 });
+  }
+  if (!emailAllowedForSelfReg(email, authCfg.selfRegDomains)) {
+    return NextResponse.json({ error: 'Реєстрація для цього домену недоступна' }, { status: 400 });
+  }
+  const pwErr = passwordPolicyError(password);
+  if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
+
+  // Anti-enumeration: if the email is already a user, pretend success without
+  // creating anything (don't leak account existence).
+  const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (existingUser) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const passwordHash = await hashPassword(password);
+  const expiresAt = new Date(Date.now() + authCfg.requestTtlDays * 86_400_000);
+
+  // Upsert so a re-submission refreshes the request instead of erroring.
+  await prisma.registrationRequest.upsert({
+    where: { email },
+    create: { email, name, passwordHash, status: 'pending', expiresAt },
+    update: { name, passwordHash, status: 'pending', expiresAt, decidedAt: null, decidedById: null },
+  });
+
+  // Notify admins (in-app + push + email-if-SMTP via notify()).
+  try {
+    const admins = await prisma.user.findMany({ where: { role: 'admin' }, select: { id: true } });
+    await notify({
+      userIds: admins.map((a) => a.id),
+      type: 'registration',
+      title: 'Нова заявка на реєстрацію',
+      body: email,
+      link: '/settings',
+    });
+  } catch {
+    /* non-fatal */
+  }
+
+  return NextResponse.json({ ok: true });
+}

@@ -315,6 +315,35 @@ function UsersTab() {
     return () => { cancelled = true; };
   }, [session]);
 
+  // Self-registration requests awaiting approval.
+  const [requests, setRequests] = useState<{ id: string; email: string; name: string | null; createdAt: string; expiresAt: string }[]>([]);
+  const [reqBusy, setReqBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/users/requests')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (Array.isArray(d)) setRequests(d); })
+      .catch(() => {});
+  }, []);
+
+  const decideRequest = async (id: string, action: 'approve' | 'deny') => {
+    setReqBusy(id);
+    try {
+      const res = await fetch('/api/users/requests', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setRequests((rs) => rs.filter((r) => r.id !== id));
+        if (action === 'approve' && d.user) {
+          setUsers((us) => (us.some((x) => x.id === d.user.id) ? us : [...us, d.user]));
+        }
+      }
+    } catch { /* ignore */ }
+    finally { setReqBusy(null); }
+  };
+
   const filtered = users.filter(
     (u) => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()),
   );
@@ -327,8 +356,35 @@ function UsersTab() {
           <input className="field" placeholder="Шукати користувача…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 34, height: 36 }} />
         </div>
         <div className="muted" style={{ fontSize: 12.5 }}>{filtered.length} з {users.length}</div>
-        <button className="btn btn-primary" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}><Plus size={14} /> Запросити</button>
+        <button className="btn btn-primary" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}><Plus size={14} /> Додати</button>
       </div>
+
+      {requests.length > 0 && (
+        <div className="card" style={{ padding: '16px 18px', marginBottom: 16, borderColor: 'color-mix(in oklab, var(--amber) 30%, var(--border))' }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            Заявки на реєстрацію
+            <span className="chip" style={{ background: 'color-mix(in oklab, var(--amber) 18%, transparent)', color: '#fde68a' }}>{requests.length}</span>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {requests.map((r) => {
+              const daysLeft = Math.max(0, Math.ceil((new Date(r.expiresAt).getTime() - Date.now()) / 86400000));
+              return (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'var(--surface-2)', borderRadius: 10, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name || r.email.split('@')[0]}</div>
+                    <div className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.email}</div>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{daysLeft} дн.</span>
+                  <button className="btn btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'deny')} style={{ color: 'var(--red)' }}>Відхилити</button>
+                  <button className="btn btn-primary btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'approve')}>
+                    {reqBusy === r.id ? <Loader2 size={13} className="spin" /> : 'Схвалити'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="admin-table-header" style={{ display: 'grid', padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
