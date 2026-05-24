@@ -607,6 +607,8 @@ function WorkspaceTab() {
   const [my2fa, setMy2fa] = useState<boolean | null>(null); // current admin's 2FA status
   const [show2faSetup, setShow2faSetup] = useState(false);
   const [saveErr, setSaveErr] = useState('');
+  const [authSaving, setAuthSaving] = useState(false);
+  const [authMsg, setAuthMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/settings/workspace')
@@ -634,6 +636,32 @@ function WorkspaceTab() {
       else { setSaveErr(d.error || 'Не вдалося зберегти'); }
     } catch (e) { setSaveErr('Помилка мережі'); }
     finally { setSaving(false); }
+  };
+
+  // Sign-in methods persist IMMEDIATELY on toggle (not via the global Save
+  // button further down the page), so enabling email+password / self-registration
+  // takes effect right away and can't be lost by forgetting to hit Save.
+  const setAuth = async (key: string, value: any) => {
+    const prev = ws;
+    const next = { ...ws, [key]: value };
+    if (key === 'AUTH_PASSWORD_ENABLED' && !value) next.AUTH_SELFREG = false; // self-reg needs password
+    setWs(next);
+    setAuthSaving(true); setAuthMsg(null);
+    try {
+      const res = await fetch('/api/settings/workspace', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          AUTH_GOOGLE_ENABLED: !!next.AUTH_GOOGLE_ENABLED,
+          AUTH_PASSWORD_ENABLED: !!next.AUTH_PASSWORD_ENABLED,
+          AUTH_SELFREG: !!next.AUTH_SELFREG,
+          AUTH_SELFREG_DOMAINS: next.AUTH_SELFREG_DOMAINS || '',
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) { setAuthMsg({ ok: true, text: 'Збережено' }); setTimeout(() => setAuthMsg(null), 2000); }
+      else { setWs(prev); setAuthMsg({ ok: false, text: d.error || 'Не вдалося зберегти' }); }
+    } catch { setWs(prev); setAuthMsg({ ok: false, text: 'Помилка мережі' }); }
+    finally { setAuthSaving(false); }
   };
 
   if (loading || !ws) {
@@ -670,17 +698,27 @@ function WorkspaceTab() {
 
       {/* Способи входу */}
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Способи входу</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Як користувачі авторизуються. Хоча б один має бути ввімкнено.</div>
-        <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => set('AUTH_GOOGLE_ENABLED', v)} />
-        <Toggle label="Email + пароль" value={ws.AUTH_PASSWORD_ENABLED} onChange={v => set('AUTH_PASSWORD_ENABLED', v)} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Способи входу</div>
+          {authSaving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />}
+          {authMsg && (
+            <span style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4, color: authMsg.ok ? 'var(--green)' : 'var(--red)' }}>
+              {authMsg.ok && <Check size={13} />}{authMsg.text}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Як користувачі авторизуються. Зберігається одразу. Хоча б один має лишатись увімкненим.</div>
+        <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => setAuth('AUTH_GOOGLE_ENABLED', v)} />
+        <Toggle label="Email + пароль" value={ws.AUTH_PASSWORD_ENABLED} onChange={v => setAuth('AUTH_PASSWORD_ENABLED', v)} />
         {ws.AUTH_PASSWORD_ENABLED && (
           <>
-            <Toggle label="Дозволити самореєстрацію (заявки з апрувом адміна)" value={ws.AUTH_SELFREG} onChange={v => set('AUTH_SELFREG', v)} />
+            <Toggle label="Дозволити самореєстрацію (заявки з апрувом адміна)" value={ws.AUTH_SELFREG} onChange={v => setAuth('AUTH_SELFREG', v)} />
             {ws.AUTH_SELFREG && (
               <div style={{ marginTop: 10 }}>
                 <FieldWrapper label="Дозволені домени (через кому, порожньо = будь-який)">
-                  <input className="field" value={ws.AUTH_SELFREG_DOMAINS || ''} placeholder="company.com, team.com" onChange={e => set('AUTH_SELFREG_DOMAINS', e.target.value)} />
+                  <input className="field" value={ws.AUTH_SELFREG_DOMAINS || ''} placeholder="company.com, team.com"
+                    onChange={e => set('AUTH_SELFREG_DOMAINS', e.target.value)}
+                    onBlur={e => setAuth('AUTH_SELFREG_DOMAINS', e.target.value)} />
                 </FieldWrapper>
               </div>
             )}
