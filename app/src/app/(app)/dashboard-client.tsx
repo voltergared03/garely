@@ -329,7 +329,7 @@ export function DashboardClient({
               <Video size={18} style={{ color: 'var(--accent)' }} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Ласкаво просимо до EAM Meet</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Ласкаво просимо до EZmeet</div>
               <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>Створіть свій перший мітинг, щоб почати</div>
             </div>
             <Link href="/schedule" className="btn btn-primary btn-sm" style={{ textDecoration: 'none', flexShrink: 0 }}>

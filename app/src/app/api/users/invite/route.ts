@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
   const sent = await sendEmail({
     to: email,
     template: 'invite',
-    subject: 'Запрошення до EAM Meet',
-    text: `${inviterName} запросив вас до EAM Meet (роль: ${roleLabel}). Увійдіть через Google: ${appUrl}/login`,
+    subject: 'Запрошення до EZmeet',
+    text: `${inviterName} запросив вас до EZmeet (роль: ${roleLabel}). Увійдіть через Google: ${appUrl}/login`,
     html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f1115;border-radius:16px;color:#e8eaed">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">Запрошення до EAM Meet</div>
+      <div style="font-size:22px;font-weight:700;margin-bottom:8px">Запрошення до EZmeet</div>
       <p style="color:#9aa0a6;line-height:1.5;margin:0 0 18px"><b style="color:#e8eaed">${inviterName}</b> запросив вас приєднатися (роль: <b style="color:#e8eaed">${roleLabel}</b>).</p>
       <a href="${appUrl}/login" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">Увійти через Google →</a>
     </div>`,

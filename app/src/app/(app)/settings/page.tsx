@@ -932,7 +932,7 @@ function IntegrationsTab() {
                   onChange={e => setSmtp(s => ({ ...s, from: e.target.value }))} />
               </FieldWrapper>
               <FieldWrapper label="Ім'я відправника">
-                <input className="field" value={smtp.fromName} placeholder="EAM Meet"
+                <input className="field" value={smtp.fromName} placeholder="EZmeet"
                   onChange={e => setSmtp(s => ({ ...s, fromName: e.target.value }))} />
               </FieldWrapper>
             </div>

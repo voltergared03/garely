@@ -40,7 +40,7 @@ export async function getGoogleConfig(): Promise<{ clientId: string; clientSecre
 
 /** Defaults for workspace + pricing config (used when a key is not set). */
 export const CONFIG_DEFAULTS: Record<string, string> = {
-  WS_NAME: 'EAM Meet',
+  WS_NAME: 'EZmeet',
   WS_DOMAIN: '',
   WS_TIMEZONE: 'Europe/Kyiv',
   WS_LANGUAGE: 'uk',

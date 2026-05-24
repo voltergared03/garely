@@ -1,5 +1,5 @@
 """
-EAM Meet — LiveKit Agent with Deepgram STT + DeepSeek Post-Meeting Analysis
+EZmeet — LiveKit Agent with Deepgram STT + DeepSeek Post-Meeting Analysis
 
 This agent:
 1. Joins LiveKit rooms automatically via webhook

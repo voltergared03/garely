@@ -1,4 +1,4 @@
-# EAM Meet
+# EZmeet
 
 Self-hosted video-conferencing platform with AI meeting intelligence: live
 transcription, automatic summaries, action items, collaborative notes,

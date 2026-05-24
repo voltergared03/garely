@@ -16,7 +16,7 @@ export async function POST() {
   const userId = session.user.id as string;
 
   const { sent, pruned } = await sendPushToUsers([userId], {
-    title: 'EAM Meet',
+    title: 'EZmeet',
     body: 'Тестове сповіщення ✓',
     url: '/',
     tag: 'eam-test',

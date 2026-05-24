@@ -299,7 +299,7 @@ export function SetupWizard({ initial }: { initial: Initial }) {
         </div>
 
         <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>
-          EAM Meet · self-hosted setup
+          EZmeet · self-hosted setup
         </div>
       </div>
     </div>

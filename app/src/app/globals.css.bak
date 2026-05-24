@@ -208,7 +208,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ═══════════════════════════════════════════════════════
-   EAM Meet — Mobile Responsive (< 768px)
+   EZmeet — Mobile Responsive (< 768px)
    ═══════════════════════════════════════════════════════ */
 
 /* ── Mobile bottom nav ───────────────────────── */

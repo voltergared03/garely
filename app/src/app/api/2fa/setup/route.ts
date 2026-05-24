@@ -24,7 +24,7 @@ export async function POST() {
   }
 
   const cfg = await readConfig(['WS_NAME']);
-  const issuer = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'EAM Meet';
+  const issuer = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'EZmeet';
   const account = user.email || user.name || userId;
 
   const secret = generateSecret();

@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     const text = `Щотижневий дайджест\n\nЦього тижня: ${meetingCount} мітингів.\nВідкриті задачі (${tasks.length}):\n${tasks.map((t) => `- ${t.title}`).join('\n')}${appUrl ? `\n\n${appUrl}/tasks` : ''}`;
 
-    const r = await sendEmail({ to: u.email, subject: 'EAM Meet — щотижневий дайджест', html, text, template: 'digest' });
+    const r = await sendEmail({ to: u.email, subject: 'EZmeet — щотижневий дайджест', html, text, template: 'digest' });
     if (r.ok) sent++;
   }
 

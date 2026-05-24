@@ -188,7 +188,7 @@ export function TwoFactorSetupFlow({
 
 function downloadCodes(codes: string[]) {
   return () => {
-    const blob = new Blob([`EAM Meet — резервні коди 2FA\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
+    const blob = new Blob([`EZmeet — резервні коди 2FA\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

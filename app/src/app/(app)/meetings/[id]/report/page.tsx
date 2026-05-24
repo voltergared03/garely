@@ -852,7 +852,7 @@ text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 <div class="wrap">
 <!-- ═══ COVER ═══ -->
 <div class="cover">
-  <div class="brand">EAM Meet · Звіт мітингу</div>
+  <div class="brand">EZmeet · Звіт мітингу</div>
   <h1>${esc(meeting.title)}</h1>
   <div class="cover-row">
     <div class="cmeta">
@@ -906,7 +906,7 @@ ${transcriptHtml ? `<div class="sec"><div class="sec-title">Транскрипт
 
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
-  <div class="foot-l">EAM Meet</div>
+  <div class="foot-l">EZmeet</div>
   <div class="foot-r">${esc(typeof window !== 'undefined' ? window.location.host : '')} &middot; ${esc(new Date().toLocaleDateString('uk-UA'))}</div>
 </div>
 

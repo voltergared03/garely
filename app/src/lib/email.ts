@@ -35,7 +35,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
     user,
     pass: map.SMTP_PASS || '',
     from: (map.SMTP_FROM || '').trim() || user,
-    fromName: (map.SMTP_FROM_NAME || '').trim() || 'EAM Meet',
+    fromName: (map.SMTP_FROM_NAME || '').trim() || 'EZmeet',
   };
 }
 
