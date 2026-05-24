@@ -31,7 +31,7 @@ export function Logo({ size = 18, withText = true }: { size?: number; withText?:
       </div>
       {withText && (
         <div style={{ fontWeight: 700, letterSpacing: '-0.01em', fontSize: 15 }}>
-          EAM <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Meet</span>
+          EZ<span style={{ color: 'var(--muted)', fontWeight: 500 }}>meet</span>
         </div>
       )}
     </div>
