@@ -5,6 +5,8 @@
 # livekit.yaml / egress.yaml hold real secrets — use the *.example.yaml templates
 livekit.yaml
 egress.yaml
+# Caddyfile is generated per-deployment by install.sh — use Caddyfile.example
+Caddyfile
 
 # Internal ops/handoff notes (server IPs, deploy specifics) — not for sharing
 SESSION_STATUS.md

@@ -1,0 +1,32 @@
+# docker-compose.caddy.yml — turnkey HTTPS reverse proxy for EZmeet.
+#
+# Adds a Caddy container that terminates TLS (automatic Let's Encrypt) and routes
+# traffic to the app + LiveKit. Compose it ALONGSIDE the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# (install.sh does this for you.) The base docker-compose.yml stays proxy-less,
+# so deployments that front EZmeet with their own nginx/Traefik are unaffected.
+#
+# Requires a ./Caddyfile — install.sh generates it, or: cp Caddyfile.example Caddyfile
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3 (QUIC)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # issued TLS certificates — must persist
+      - caddy-config:/config
+    depends_on:
+      - eam-meet
+      - livekit
+    networks:
+      - eam-meet
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -6,6 +6,34 @@ reactions, and optional meeting recording.
 
 ---
 
+## Install
+
+On a fresh Linux server with a domain pointed at it, **one command** installs
+everything — Docker, the full stack, and automatic HTTPS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/voltergared03/ezmeet/main/install.sh | sudo bash
+```
+
+It installs **Docker + Compose** if missing, asks for your **domain** (plus an
+optional Let's Encrypt email and AI / Google keys), generates **all secrets**,
+and starts the stack behind **Caddy** with an auto-provisioned TLS certificate —
+then prints the link to the first-run **`/setup`** wizard. Open it, paste the
+one-time token, and you're live. Re-running the command later **updates** the
+install in place (secrets and config are preserved).
+
+**Before running it:**
+
+- Point a **DNS A-record** for your domain at the server's public IP.
+- Open these ports to the internet: **`80`**, **`443`** (tcp + udp), and the
+  WebRTC media ports **`3478/udp`**, **`7881/tcp`**, **`50000–50200/udp`**.
+- **~2 GB RAM** minimum (**≥ 4 GB** if you'll enable recording).
+
+> Want your own nginx/Traefik, a custom layout, or no installer? Use the
+> [manual install](#manual-install) instead.
+
+---
+
 ## Features
 
 - **Video meetings** over WebRTC (LiveKit SFU), guest join links + waiting room
@@ -32,7 +60,7 @@ reactions, and optional meeting recording.
 | Cache / coordination | Redis 7 (LiveKit + Egress) |
 | Email / storage | SMTP (nodemailer) / S3-compatible (optional) |
 | PWA / push | Web App Manifest + service worker + Web Push (VAPID, `web-push`) |
-| Infra | Docker Compose, nginx (TLS reverse proxy) |
+| Infra | Docker Compose, Caddy *or* nginx (TLS reverse proxy) |
 
 ---
 
@@ -49,28 +77,35 @@ Services defined in `docker-compose.yml`:
 | `eam-meet-db` | PostgreSQL 16 |
 | `eam-meet-redis` | Redis — LiveKit ↔ Egress coordination |
 
-An nginx reverse proxy on the host terminates TLS and forwards `/` to the app
-and `/rtc` + `/twirp` to LiveKit. A sample config is in [`app/nginx.conf`](app/nginx.conf).
+The one-command [installer](#install) adds a **Caddy** container
+(`docker-compose.caddy.yml`) that terminates TLS with an automatic Let's Encrypt
+certificate and routes `/livekit/*` → LiveKit, everything else → the app.
+Alternatively, front EZmeet with your own host reverse proxy (terminate TLS,
+forward `/` → `127.0.0.1:3100` and `/livekit/` + `/twirp/` → LiveKit on
+`127.0.0.1:7880`); a sample nginx config is in [`app/nginx.conf`](app/nginx.conf).
 
 ---
 
 ## Prerequisites
 
-- A Linux server with **Docker** + **Docker Compose**
-- A **domain name** with DNS pointing at the server (e.g. `meet.example.com`)
-- **TLS** (nginx + Let's Encrypt / certbot, or your own certs)
-- A **Google OAuth 2.0 client** (for SSO)
-- A **Deepgram** API key (speech-to-text) and a **DeepSeek** API key (LLM)
+- A **Linux server** — the installer adds **Docker + Compose** if they're missing
+- A **domain name** with a DNS A-record pointing at the server (e.g. `meet.example.com`)
+- **TLS** — issued automatically by the installer's **Caddy** proxy, or bring your own (nginx + certbot)
+- A **Google OAuth 2.0 client** for SSO — *optional*, can be added later in `/setup`
+- **Deepgram** (STT) + **DeepSeek** (LLM) API keys for AI features — *optional*, add later in admin → Settings
 - **RAM**: ~2 GB for app + LiveKit + agent. **Recording adds ~2 GB** while a
   recording is active (Egress runs headless Chrome). Plan for ≥ 4 GB if you
   intend to enable recording, or keep it disabled.
 
 ---
 
-## Quick start
+## Manual install
+
+Prefer to set things up yourself, or front EZmeet with your own reverse proxy?
+The whole stack is plain Docker Compose:
 
 ```bash
-git clone <your-repo-url> ezmeet && cd ezmeet
+git clone https://github.com/voltergared03/ezmeet.git && cd ezmeet
 
 # 1. Secrets / config (never commit the real files — they are gitignored)
 cp .env.example .env                     # fill in all values

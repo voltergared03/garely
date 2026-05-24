@@ -1,0 +1,34 @@
+# EZmeet — Caddy reverse proxy with automatic HTTPS.
+#
+# install.sh generates the real ./Caddyfile from your answers. To set it up by
+# hand:  cp Caddyfile.example Caddyfile  then replace meet.example.com below.
+# Optional: prepend a global block for the Let's Encrypt account email:
+#
+#   {
+#       email you@example.com
+#   }
+#
+# Routing mirrors the production nginx setup: the browser reaches LiveKit's
+# signaling WebSocket at wss://<domain>/livekit (prefix stripped), and the
+# Next.js app serves everything else.
+
+meet.example.com {
+    encode zstd gzip
+    header Permissions-Policy "display-capture=(self)"
+    request_body {
+        max_size 50MB
+    }
+
+    # LiveKit signaling WebSocket + API (strip the /livekit prefix)
+    handle_path /livekit/* {
+        reverse_proxy livekit:7880
+    }
+    # LiveKit Twirp API
+    handle /twirp/* {
+        reverse_proxy livekit:7880
+    }
+    # Next.js app (everything else)
+    handle {
+        reverse_proxy eam-meet:3000
+    }
+}
