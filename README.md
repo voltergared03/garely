@@ -70,7 +70,7 @@ and `/rtc` + `/twirp` to LiveKit. A sample config is in [`app/nginx.conf`](app/n
 ## Quick start
 
 ```bash
-git clone <your-repo-url> eam-meet && cd eam-meet
+git clone <your-repo-url> ezmeet && cd ezmeet
 
 # 1. Secrets / config (never commit the real files — they are gitignored)
 cp .env.example .env                     # fill in all values
