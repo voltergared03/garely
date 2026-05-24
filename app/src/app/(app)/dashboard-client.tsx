@@ -53,6 +53,30 @@ interface DashTask {
   meeting?: { id: string; title: string; scheduledAt: string | null };
 }
 
+// Time-of-day greeting (mobile dashboard header).
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return 'Доброї ночі';
+  if (h < 12) return 'Доброго ранку';
+  if (h < 18) return 'Доброго дня';
+  return 'Доброго вечора';
+}
+
+// Short "time until" label for the mobile next-meeting hero.
+function untilLabel(d: string | null): string | null {
+  if (!d) return null;
+  const diff = new Date(d).getTime() - Date.now();
+  if (diff <= 60_000) return 'Зараз';
+  const mins = Math.round(diff / 60_000);
+  if (mins < 60) return `Через ${mins} хв`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) {
+    const rem = mins % 60;
+    return rem ? `Через ${hrs} год ${rem} хв` : `Через ${hrs} год`;
+  }
+  return null; // farther out — the date line covers it
+}
+
 function dueLabel(d: string | null): { txt: string; overdue: boolean; soon: boolean } | null {
   if (!d) return null;
   const due = new Date(d); due.setHours(0,0,0,0);
@@ -67,10 +91,12 @@ function dueLabel(d: string | null): { txt: string; overdue: boolean; soon: bool
 }
 
 export function DashboardClient({
+  userName,
   upcoming: initialUpcoming,
   past: initialPast,
   myTasks: initialMyTasks,
 }: {
+  userName?: string | null;
   upcoming: Meeting[];
   past: Meeting[];
   myTasks: DashTask[];
@@ -123,65 +149,139 @@ export function DashboardClient({
       <div className='page-container' style={{ maxWidth: 1100, margin: '0 auto' }}>
         <SetupChecklist />
         <InstallAppCard />
-        {/* Hero / Next meeting */}
-        <div className='dash-hero' style={{ display: 'grid', gap: 18, marginBottom: 24 }}>
-          <div
-            className="card"
-            style={{
-              padding: 24,
-              background:
-                'linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--surface)) 0%, var(--surface) 60%)',
-              borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--border))',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 14,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span
-                className="chip"
-                style={{
-                  background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-                  borderColor: 'color-mix(in oklab, var(--accent) 40%, transparent)',
-                  color: '#bfdbfe',
-                }}
-              >
-                <Sparkles size={11} /> Наступний мітинг
-              </span>
+        {/* ── Mobile-redesigned top: greeting + next-meeting hero + quick actions ── */}
+        <div className="dash-mobile-top">
+          {/* Greeting */}
+          <div style={{ marginBottom: 18 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
+              {greeting()}{userName ? `, ${userName.split(' ')[0]}` : ''}
+            </h1>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3, textTransform: 'capitalize' }}>
+              {new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
-            {nextMeeting ? (
-              <>
-                <div>
-                  <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
-                    {nextMeeting.title}
-                  </div>
-                  {nextMeeting.scheduledAt && (
-                    <div style={{ color: 'var(--text-2)', fontSize: 13.5 }}>
-                      {fmtRelative(new Date(nextMeeting.scheduledAt))} &bull;{' '}
-                      {fmtTime(new Date(nextMeeting.scheduledAt))} &bull; {nextMeeting.durationMin} хв
-                    </div>
-                  )}
-                </div>
-                {nextMeeting.description && (
-                  <div style={{ color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.55 }}>
-                    {nextMeeting.description}
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                  <AvatarStack users={getParticipantNames(nextMeeting)} max={6} size="md" />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
-                      <Video size={15} /> Приєднатися
-                    </Link>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div style={{ color: 'var(--muted)', padding: '20px 0' }}>Мітингів на сьогодні немає</div>
-            )}
           </div>
 
+          {/* Next meeting */}
+          {nextMeeting ? (
+            <div className="card" style={{
+              position: 'relative', overflow: 'hidden', padding: 20, marginBottom: 14,
+              display: 'flex', flexDirection: 'column', gap: 14,
+              background: 'linear-gradient(160deg, color-mix(in oklab, var(--accent) 20%, var(--surface)) 0%, var(--surface) 72%)',
+              borderColor: 'color-mix(in oklab, var(--accent) 34%, var(--border))',
+            }}>
+              <div aria-hidden style={{ position: 'absolute', top: -50, right: -40, width: 150, height: 150, borderRadius: '50%', background: 'color-mix(in oklab, var(--accent) 26%, transparent)', filter: 'blur(55px)', pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span className="chip" style={{ background: 'color-mix(in oklab, var(--accent) 22%, transparent)', borderColor: 'color-mix(in oklab, var(--accent) 45%, transparent)', color: '#bfdbfe' }}>
+                  <Sparkles size={11} /> Наступний
+                </span>
+                {untilLabel(nextMeeting.scheduledAt) && (
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt)}</span>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>{nextMeeting.title}</div>
+                {nextMeeting.scheduledAt && (
+                  <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
+                    {fmtRelative(new Date(nextMeeting.scheduledAt))} · {fmtTime(new Date(nextMeeting.scheduledAt))} · {nextMeeting.durationMin} хв
+                  </div>
+                )}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <AvatarStack users={getParticipantNames(nextMeeting)} max={5} size="md" />
+              </div>
+              <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ position: 'relative', textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '14px', fontWeight: 600, gap: 8 }}>
+                <Video size={16} /> Приєднатися
+              </Link>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: 24, marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CalendarIcon size={24} style={{ color: 'var(--accent)' }} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>На сьогодні зустрічей немає</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>Гарний момент, щоб запланувати наступну.</div>
+              <Link href="/schedule" className="btn btn-primary" style={{ textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '13px', marginTop: 4, gap: 8 }}>
+                <Plus size={15} /> Запланувати мітинг
+              </Link>
+            </div>
+          )}
 
+          {/* Quick actions */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
+            <Link href="/schedule" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Plus size={18} style={{ color: 'var(--accent)' }} />
+              </div>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Новий мітинг</span>
+            </Link>
+            <Link href="/calendar" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--green) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CalendarIcon size={18} style={{ color: 'var(--green)' }} />
+              </div>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Календар</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Desktop top: original hero (unchanged) ── */}
+        <div className="dash-desktop-top">
+          <div className='dash-hero' style={{ display: 'grid', gap: 18, marginBottom: 24 }}>
+            <div
+              className="card"
+              style={{
+                padding: 24,
+                background:
+                  'linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--surface)) 0%, var(--surface) 60%)',
+                borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--border))',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 14,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  className="chip"
+                  style={{
+                    background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
+                    borderColor: 'color-mix(in oklab, var(--accent) 40%, transparent)',
+                    color: '#bfdbfe',
+                  }}
+                >
+                  <Sparkles size={11} /> Наступний мітинг
+                </span>
+              </div>
+              {nextMeeting ? (
+                <>
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
+                      {nextMeeting.title}
+                    </div>
+                    {nextMeeting.scheduledAt && (
+                      <div style={{ color: 'var(--text-2)', fontSize: 13.5 }}>
+                        {fmtRelative(new Date(nextMeeting.scheduledAt))} &bull;{' '}
+                        {fmtTime(new Date(nextMeeting.scheduledAt))} &bull; {nextMeeting.durationMin} хв
+                      </div>
+                    )}
+                  </div>
+                  {nextMeeting.description && (
+                    <div style={{ color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.55 }}>
+                      {nextMeeting.description}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                    <AvatarStack users={getParticipantNames(nextMeeting)} max={6} size="md" />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                        <Video size={15} /> Приєднатися
+                      </Link>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: 'var(--muted)', padding: '20px 0' }}>Мітингів на сьогодні немає</div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* My Tasks */}

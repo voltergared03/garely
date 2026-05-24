@@ -66,6 +66,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      userName={(session.user as any).name || null}
       upcoming={JSON.parse(JSON.stringify(upcoming))}
       past={JSON.parse(JSON.stringify(past))}
       myTasks={JSON.parse(JSON.stringify(myTasks))}

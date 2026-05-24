@@ -358,6 +358,9 @@ h2 {
 }
 
 /* ── Dashboard — mobile: stacked ─────────────────────── */
+/* Mobile shows the redesigned top; desktop shows the original hero. */
+.dash-mobile-top { display: block; }
+.dash-desktop-top { display: none; }
 .dash-hero {
   grid-template-columns: 1fr;
 }
@@ -581,6 +584,13 @@ h2 {
   }
   .mobile-topbar {
     display: none;
+  }
+  /* Dashboard: desktop keeps the original hero, mobile-redesigned top is hidden */
+  .dash-mobile-top {
+    display: none;
+  }
+  .dash-desktop-top {
+    display: block;
   }
   .desktop-sidebar {
     display: flex;
