@@ -38,7 +38,23 @@ export function LoginClient({
         redirect: false,
       });
       if (r?.error) {
-        setErr('Невірний email або пароль');
+        // A pending/expired/denied self-registration has no account yet, so the
+        // sign-in fails generically — check for it and show a clearer message.
+        let msg = 'Невірний email або пароль';
+        try {
+          const sr = await fetch('/api/register/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+          });
+          const sd = await sr.json().catch(() => ({}));
+          if (sd.status === 'pending') msg = 'Вашу заявку на реєстрацію ще не підтвердив адміністратор. Зачекайте на схвалення.';
+          else if (sd.status === 'expired') msg = 'Термін дії заявки минув. Будь ласка, зареєструйтеся ще раз.';
+          else if (sd.status === 'denied') msg = 'Вашу заявку на реєстрацію відхилено.';
+        } catch {
+          /* keep the generic message */
+        }
+        setErr(msg);
         setBusy(false);
         return;
       }
