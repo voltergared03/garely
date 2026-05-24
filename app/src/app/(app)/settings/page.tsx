@@ -5,7 +5,7 @@ import {
   Globe, LogOut, Save, Check, Mic, Video as VideoIcon, Volume2,
   Users, Shield, ShieldAlert, Sparkles, Search, Plus,
   Video, Mail, Archive, Download, Settings as SettingsIcon,
-  Key, Eye, EyeOff, Loader2, Trash2, X,
+  Key, Eye, EyeOff, Loader2, Trash2, X, Copy,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
@@ -223,6 +223,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
 interface UserRecord {
   id: string; name: string; email: string; image?: string | null;
   role: 'admin' | 'member' | 'viewer'; lastLogin?: string | null; createdAt?: string;
+  hasPassword?: boolean;
 }
 
 function getUserStatus(lastLogin?: string | null): { label: string; color: string } {
@@ -255,6 +256,32 @@ function UsersTab() {
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Admin password reset for an existing user.
+  const [resetUser, setResetUser] = useState<UserRecord | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<{ password: string; emailed: boolean } | null>(null);
+  const [resetErr, setResetErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const openReset = (u: UserRecord) => {
+    setResetUser(u); setResetResult(null); setResetErr(null); setCopied(false);
+  };
+  const doReset = async () => {
+    if (!resetUser) return;
+    setResetting(true); setResetErr(null);
+    try {
+      const res = await fetch(`/api/users/${resetUser.id}/password`, { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.password) {
+        setResetResult({ password: d.password, emailed: !!d.emailed });
+        setUsers((us) => us.map((x) => (x.id === resetUser.id ? { ...x, hasPassword: true } : x)));
+      } else {
+        setResetErr(d.error || 'Не вдалося скинути пароль');
+      }
+    } catch { setResetErr('Помилка мережі'); }
+    finally { setResetting(false); }
+  };
+
   const sendInvite = async () => {
     if (!inviteEmail.trim()) return;
     const withPassword = invitePassword.trim().length > 0;
@@ -277,9 +304,10 @@ function UsersTab() {
           });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.user) {
+        const created = withPassword ? { ...d.user, hasPassword: true } : d.user;
         setUsers((us) => {
-          const exists = us.some((x) => x.id === d.user.id);
-          return exists ? us.map((x) => (x.id === d.user.id ? { ...x, ...d.user } : x)) : [...us, d.user];
+          const exists = us.some((x) => x.id === created.id);
+          return exists ? us.map((x) => (x.id === created.id ? { ...x, ...created } : x)) : [...us, created];
         });
         setInviteMsg({
           ok: true,
@@ -337,7 +365,8 @@ function UsersTab() {
       if (res.ok) {
         setRequests((rs) => rs.filter((r) => r.id !== id));
         if (action === 'approve' && d.user) {
-          setUsers((us) => (us.some((x) => x.id === d.user.id) ? us : [...us, d.user]));
+          const created = { ...d.user, hasPassword: true };
+          setUsers((us) => (us.some((x) => x.id === created.id) ? us : [...us, created]));
         }
       }
     } catch { /* ignore */ }
@@ -442,35 +471,45 @@ function UsersTab() {
                   );
                 })()}
               </div>
-              {isMe ? (
-                <div style={{ width: 30, height: 30 }} />
-              ) : (
-                <button
-                  className="btn btn-ghost btn-icon"
-                  title="Видалити користувача"
-                  disabled={deletingId === u.id}
-                  onClick={async () => {
-                    if (!window.confirm(`Видалити користувача ${u.name} (${u.email})?\n\nЙого мітинги та звіти перейдуть до вас. Таски й участі будуть відв'язані. Дію не можна скасувати.`)) return;
-                    setDeletingId(u.id);
-                    try {
-                      const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
-                      if (res.ok) {
-                        setUsers((us) => us.filter((x) => x.id !== u.id));
-                      } else {
-                        const err = await res.json().catch(() => ({}));
-                        alert(err.error || 'Не вдалося видалити користувача');
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                {!isMe && u.hasPassword && (
+                  <button
+                    className="btn btn-ghost btn-icon"
+                    title="Скинути пароль"
+                    onClick={() => openReset(u)}
+                    style={{ width: 30, height: 30 }}
+                  >
+                    <Key size={14} />
+                  </button>
+                )}
+                {!isMe && (
+                  <button
+                    className="btn btn-ghost btn-icon"
+                    title="Видалити користувача"
+                    disabled={deletingId === u.id}
+                    onClick={async () => {
+                      if (!window.confirm(`Видалити користувача ${u.name} (${u.email})?\n\nЙого мітинги та звіти перейдуть до вас. Таски й участі будуть відв'язані. Дію не можна скасувати.`)) return;
+                      setDeletingId(u.id);
+                      try {
+                        const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                          setUsers((us) => us.filter((x) => x.id !== u.id));
+                        } else {
+                          const err = await res.json().catch(() => ({}));
+                          alert(err.error || 'Не вдалося видалити користувача');
+                        }
+                      } catch {
+                        alert('Помилка мережі');
+                      } finally {
+                        setDeletingId(null);
                       }
-                    } catch {
-                      alert('Помилка мережі');
-                    } finally {
-                      setDeletingId(null);
-                    }
-                  }}
-                  style={{ width: 30, height: 30, color: 'var(--red)' }}
-                >
-                  {deletingId === u.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />}
-                </button>
-              )}
+                    }}
+                    style={{ width: 30, height: 30, color: 'var(--red)' }}
+                  >
+                    {deletingId === u.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -512,6 +551,45 @@ function UsersTab() {
                 {inviting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />} Надіслати
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {resetUser && (
+        <div onClick={() => setResetUser(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
+            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Скинути пароль</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>{resetUser.name} · {resetUser.email}</div>
+            {!resetResult ? (
+              <>
+                <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  Згенеруємо новий тимчасовий пароль. Користувач муситиме змінити його при першому вході. Активні сесії не завершуються.
+                </div>
+                {resetErr && <div style={{ marginTop: 12, fontSize: 12.5, color: '#f87171' }}>{resetErr}</div>}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-sm" onClick={() => setResetUser(null)}>Скасувати</button>
+                  <button className="btn btn-primary btn-sm" onClick={doReset} disabled={resetting}>
+                    {resetting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} Згенерувати
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>Новий тимчасовий пароль:</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <code className="mono" style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', fontSize: 15, fontWeight: 600, letterSpacing: '.04em', userSelect: 'all', wordBreak: 'break-all' }}>{resetResult.password}</code>
+                  <button className="btn btn-sm" title="Копіювати" onClick={() => { try { navigator.clipboard?.writeText(resetResult.password); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ flexShrink: 0 }}>
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <div style={{ marginTop: 12, fontSize: 12.5, color: resetResult.emailed ? 'var(--green)' : 'var(--muted)' }}>
+                  {resetResult.emailed ? 'Надіслано користувачу на пошту.' : 'SMTP не налаштовано — передайте пароль користувачу особисто.'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => setResetUser(null)}>Готово</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

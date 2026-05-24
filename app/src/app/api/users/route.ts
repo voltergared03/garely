@@ -21,11 +21,19 @@ export async function GET(req: NextRequest) {
       role: true,
       lastLogin: true,
       createdAt: true,
-    },
+      passwordHash: true,
+    } as any,
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(users);
+  // Expose only whether a password is set (for the "reset password" action) —
+  // never the hash itself.
+  const safe = (users as any[]).map(({ passwordHash, ...u }) => ({
+    ...u,
+    hasPassword: !!passwordHash,
+  }));
+
+  return NextResponse.json(safe);
 }
 
 // POST /api/users — admin creates a credentials (email+password) user.

@@ -59,3 +59,15 @@ export function passwordPolicyError(pw: unknown): string | null {
   if (pw.length > 200) return 'Пароль задовгий';
   return null;
 }
+
+/**
+ * Generate a readable temporary password (admin invites / resets). Excludes
+ * ambiguous characters (0/O, 1/l/I) so it's safe to read aloud or type by hand.
+ */
+export function generateTempPassword(length = 14): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
