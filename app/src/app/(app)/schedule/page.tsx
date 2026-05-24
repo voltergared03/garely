@@ -10,6 +10,7 @@ import {
   CheckCircle, Link2, Copy, Wand2, ListChecks, Loader2, Trash2, GripVertical,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 interface WsUser {
   id: string;
@@ -22,6 +23,7 @@ interface WsUser {
 export default function SchedulePage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const isMobile = useIsMobile();
   const [created, setCreated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -455,9 +457,11 @@ export default function SchedulePage() {
             <Toggle label="Дозволити гостям приєднуватись за лінком" value={form.allowGuests} onChange={(v) => set('allowGuests', v)} />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button className="btn" onClick={() => router.push('/')}>Скасувати</button>
-            <button className="btn btn-primary" onClick={submit} disabled={loading} style={{ fontWeight: 600 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <button className="btn" onClick={() => router.push('/')}
+              style={isMobile ? { width: '100%', justifyContent: 'center', padding: '13px' } : undefined}>Скасувати</button>
+            <button className="btn btn-primary" onClick={submit} disabled={loading}
+              style={{ fontWeight: 600, gap: 8, ...(isMobile ? { width: '100%', justifyContent: 'center', padding: '14px' } : {}) }}>
               <Send size={14} /> {loading ? 'Створення...' : 'Створити та запросити'}
             </button>
           </div>
