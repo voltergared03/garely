@@ -6,6 +6,7 @@ import { Search, X, Sparkles, ChevronRight, RefreshCw, Users, Trash2 } from 'luc
 import { useSession } from 'next-auth/react';
 import { AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, MONTHS_UA } from '@/lib/utils';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 interface Participant {
   user: { id: string; name: string | null; image: string | null } | null;
@@ -94,6 +95,7 @@ export default function ArchivePage() {
   const [confirmDelete, setConfirmDelete] = useState<Meeting | null>(null);
   const { data: session } = useSession();
   const isAdmin = (session?.user as any)?.role === 'admin';
+  const isMobile = useIsMobile();
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -351,7 +353,7 @@ export default function ArchivePage() {
               {/* Meeting rows */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {group.meetings.map((m) => (
-                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => setConfirmDelete(m)} />
+                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => setConfirmDelete(m)} mobile={isMobile} />
                 ))}
               </div>
             </div>
@@ -361,7 +363,7 @@ export default function ArchivePage() {
   );
 }
 
-function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meeting; searchQuery: string; isAdmin: boolean; onDelete: () => void }) {
+function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeting: Meeting; searchQuery: string; isAdmin: boolean; onDelete: () => void; mobile?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   const end = start ? new Date(start.getTime() + meeting.durationMin * 60000) : null;
@@ -393,17 +395,20 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meet
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Time + duration */}
-      <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
-        <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
-          {start ? fmtTime(start) : '--:--'}
-        </div>
-        <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-          {meeting.durationMin}хв
-        </div>
-      </div>
-
-      <div style={{ width: 1, height: 36, background: 'var(--border)', flexShrink: 0 }} />
+      {/* Time + duration — desktop: fixed left column; mobile: folded into the meta row */}
+      {!mobile && (
+        <>
+          <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
+            <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
+              {start ? fmtTime(start) : '--:--'}
+            </div>
+            <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+              {meeting.durationMin}хв
+            </div>
+          </div>
+          <div style={{ width: 1, height: 36, background: 'var(--border)', flexShrink: 0 }} />
+        </>
+      )}
 
       {/* Title + chips + transcript matches */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -442,7 +447,13 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete }: { meeting: Meet
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, minWidth: 0, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
+          {mobile && (
+            <>
+              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start) : '--:--'} · {meeting.durationMin}хв</span>
+              <span style={{ flexShrink: 0 }}>&middot;</span>
+            </>
+          )}
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <Users size={12} />
             {users.length} учасн.
