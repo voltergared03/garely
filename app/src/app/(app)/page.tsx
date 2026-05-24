@@ -13,12 +13,21 @@ export default async function DashboardPage() {
   weekEnd.setDate(weekEnd.getDate() + 7);
 
   const userId = (session.user as any).id;
+  const isAdmin = (session.user as any).role === 'admin';
+
+  // Non-admins only see meetings they created or participate in. Admins see all.
+  // (Keeps the dashboard consistent with the per-meeting access checks in the
+  // /api/meetings routes — otherwise it would surface reports a user can't open.)
+  const accessFilter = isAdmin
+    ? {}
+    : { OR: [{ createdById: userId }, { participants: { some: { userId } } }] };
 
   const [upcoming, past, myTasks] = await Promise.all([
     prisma.meeting.findMany({
       where: {
         status: { in: ['scheduled', 'live'] },
         scheduledAt: { gte: todayStart },
+        ...accessFilter,
       },
       include: {
         createdBy: { select: { id: true, name: true, image: true } },
@@ -30,7 +39,7 @@ export default async function DashboardPage() {
       take: 10,
     }),
     prisma.meeting.findMany({
-      where: { status: 'ended' },
+      where: { status: 'ended', ...accessFilter },
       include: {
         createdBy: { select: { id: true, name: true, image: true } },
         participants: {

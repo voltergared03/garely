@@ -37,6 +37,15 @@ export default async function AppLayout({
     select: { role: true, totpEnabled: true } as any,
   })) as any;
 
+  // The JWT points to a user that no longer exists — e.g. a stale session left
+  // over from before an account/SSO change. Rendering the app in that state
+  // looks "logged in" but every per-user API call fails (404 / empty lists).
+  // Force a clean re-login. (The login page renders unconditionally, so signing
+  // in mints a fresh JWT with the correct id — no redirect loop.)
+  if (!dbUser) {
+    redirect('/login');
+  }
+
   const cfg = await readConfig(['WS_NAME', 'WS_REQUIRE_2FA']);
   const workspaceName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
   const requireWs = cfg.WS_REQUIRE_2FA === 'true';
