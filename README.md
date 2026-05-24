@@ -13,7 +13,7 @@ reactions, and optional meeting recording.
 - **AI post-meeting reports** (DeepSeek): summary, decisions, action items, follow-ups
 - **Tasks** board, **collaborative notes** with @mentions, **reactions**, screen share
 - **Meeting recording** via LiveKit Egress (optional — see [Recording](#recording-livekit-egress))
-- **Auth**: Google SSO (NextAuth) + optional **2FA (TOTP)** for admins
+- **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
 - **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (reminders, weekly digest, report-ready, mentions)
 - **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
 - **Admin panel**: users, workspace policies, integrations, usage/cost
@@ -192,6 +192,7 @@ Scheduled jobs (add to the host crontab, using `CRON_SECRET` from `.env`):
 */5 * * * * curl -s "http://127.0.0.1:3100/api/cron/reminders?secret=$CRON_SECRET" >/dev/null 2>&1
 0   9 * * 1 curl -s "http://127.0.0.1:3100/api/cron/digest?secret=$CRON_SECRET"    >/dev/null 2>&1
 0   3 * * * curl -s "http://127.0.0.1:3100/api/cron/recordings?secret=$CRON_SECRET" >/dev/null 2>&1
+0   * * * * curl -s "http://127.0.0.1:3100/api/cron/reg-cleanup?secret=$CRON_SECRET" >/dev/null 2>&1
 ```
 
 ---
