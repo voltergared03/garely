@@ -37,6 +37,7 @@ import {
   fmtDateLong,
   pad,
 } from '@/lib/utils';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                             */
@@ -1302,8 +1303,94 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
 
 type ViewMode = 'week' | 'month';
 
+/* ------------------------------------------------------------------ */
+/*  AgendaView (mobile) — chronological upcoming meetings as cards     */
+/* ------------------------------------------------------------------ */
+function AgendaView({ meetings, today, onMeetingClick }: {
+  meetings: Meeting[];
+  today: Date;
+  onMeetingClick: (m: Meeting) => void;
+}) {
+  const groups = useMemo(() => {
+    const sorted = meetings
+      .filter((m) => m.scheduledAt)
+      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    const map = new Map<string, { date: Date; items: Meeting[] }>();
+    for (const m of sorted) {
+      const d = new Date(m.scheduledAt!);
+      d.setHours(0, 0, 0, 0);
+      const key = d.toISOString().slice(0, 10);
+      if (!map.has(key)) map.set(key, { date: d, items: [] });
+      map.get(key)!.items.push(m);
+    }
+    return Array.from(map.values());
+  }, [meetings]);
+
+  const dayLabel = (d: Date) => {
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (diff === 0) return 'Сьогодні';
+    if (diff === 1) return 'Завтра';
+    if (diff === -1) return 'Вчора';
+    return d.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+  };
+
+  if (groups.length === 0) {
+    return (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '48px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+        <Calendar size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>Немає запланованих мітингів</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>Натисніть «Створити», щоб запланувати перший.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '16px clamp(14px, 4vw, 28px) 90px' }}>
+      {groups.map((g) => {
+        const isToday = g.date.getTime() === today.getTime();
+        return (
+          <div key={g.date.toISOString()} style={{ marginBottom: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? 'var(--accent)' : 'var(--text-2)', textTransform: 'capitalize' }}>{dayLabel(g.date)}</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{g.items.length}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {g.items.map((m) => {
+                const start = new Date(m.scheduledAt!);
+                const users = m.participants.map((p) => ({ name: p.user?.name || p.guestName || 'Guest', image: p.user?.image || null }));
+                return (
+                  <button key={m.id} onClick={() => onMeetingClick(m)} className="card" style={{
+                    textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 14, alignItems: 'center', padding: 16, width: '100%',
+                  }}>
+                    <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 46 }}>
+                      <div className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{fmtTime(start)}</div>
+                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>{m.durationMin}хв</div>
+                    </div>
+                    <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', minHeight: 34 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <AvatarStack users={users} max={4} />
+                        {m.status === 'live' && (
+                          <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 18%, transparent)', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 35%, transparent)' }}>● Live</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function CalendarPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>('week');
@@ -1429,61 +1516,65 @@ export default function CalendarPage() {
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 600 }}>
-          {MONTHS_UA_NOM[currentMonth]} {currentYear}
+          {isMobile ? 'Календар' : `${MONTHS_UA_NOM[currentMonth]} ${currentYear}`}
         </div>
 
-        <div style={{ display: 'flex', gap: 6, marginLeft: 14 }}>
-          <button
-            className="btn btn-icon"
-            onClick={goPrev}
-            title="Назад"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <button
-            className="btn btn-sm"
-            onClick={goToday}
-            style={{ fontWeight: 600 }}
-          >
-            Сьогодні
-          </button>
-          <button
-            className="btn btn-icon"
-            onClick={goNext}
-            title="Вперед"
-          >
-            <ChevronRight size={15} />
-          </button>
-        </div>
+        {!isMobile && (
+          <div style={{ display: 'flex', gap: 6, marginLeft: 14 }}>
+            <button
+              className="btn btn-icon"
+              onClick={goPrev}
+              title="Назад"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={goToday}
+              style={{ fontWeight: 600 }}
+            >
+              Сьогодні
+            </button>
+            <button
+              className="btn btn-icon"
+              onClick={goNext}
+              title="Вперед"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          {/* View toggle */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 3,
-            }}
-          >
-            {(['week', 'month'] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className="btn btn-sm"
-                style={{
-                  background:
-                    view === v ? 'var(--surface-3)' : 'transparent',
-                  border: 'none',
-                  borderRadius: 7,
-                  fontWeight: view === v ? 600 : 500,
-                }}
-              >
-                {v === 'week' ? 'Тиждень' : 'Місяць'}
-              </button>
-            ))}
-          </div>
+          {/* View toggle (desktop only — mobile uses the agenda list) */}
+          {!isMobile && (
+            <div
+              style={{
+                display: 'flex',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: 3,
+              }}
+            >
+              {(['week', 'month'] as ViewMode[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="btn btn-sm"
+                  style={{
+                    background:
+                      view === v ? 'var(--surface-3)' : 'transparent',
+                    border: 'none',
+                    borderRadius: 7,
+                    fontWeight: view === v ? 600 : 500,
+                  }}
+                >
+                  {v === 'week' ? 'Тиждень' : 'Місяць'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <Link
             href="/schedule"
@@ -1513,6 +1604,12 @@ export default function CalendarPage() {
           />
           <span style={{ fontSize: 13 }}>Завантаження...</span>
         </div>
+      ) : isMobile ? (
+        <AgendaView
+          meetings={meetings}
+          today={today}
+          onMeetingClick={handleMeetingClick}
+        />
       ) : view === 'week' ? (
         <WeekView
           weekStart={weekStart}
