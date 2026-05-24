@@ -34,6 +34,24 @@ install in place (secrets and config are preserved).
 
 ---
 
+## Screenshots
+
+**Desktop**
+
+![Schedule a meeting with an AI-generated agenda](docs/screenshots/desktop-schedule.png)
+![Calendar with meeting details](docs/screenshots/desktop-calendar.png)
+![Tasks board — action items from meetings](docs/screenshots/desktop-tasks.png)
+
+**Mobile** — installable PWA
+
+<p align="left">
+  <img src="docs/screenshots/mobile-dashboard.png" width="240" alt="Mobile dashboard" />
+  <img src="docs/screenshots/mobile-calendar.png" width="240" alt="Mobile calendar (agenda)" />
+  <img src="docs/screenshots/mobile-tasks.png" width="240" alt="Mobile tasks" />
+</p>
+
+---
+
 ## Features
 
 - **Video meetings** over WebRTC (LiveKit SFU), guest join links + waiting room
