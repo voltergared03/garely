@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { readConfig, writeConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { readConfig, writeConfig, CONFIG_DEFAULTS, getAuthConfig } from '@/lib/config';
 
 const BOOL_KEYS = ['WS_GUEST_ACCESS', 'WS_AI_SUMMARY', 'WS_LIVE_TRANSCRIPTION', 'WS_RECORD_ALL', 'WS_REQUIRE_2FA'];
 const STR_KEYS = ['WS_NAME', 'WS_DOMAIN', 'WS_TIMEZONE', 'WS_LANGUAGE'];
@@ -20,6 +20,13 @@ export async function GET() {
   for (const k of STR_KEYS) out[k] = saved[k] ?? CONFIG_DEFAULTS[k];
   for (const k of BOOL_KEYS) out[k] = (saved[k] ?? CONFIG_DEFAULTS[k]) === 'true';
   for (const k of NUM_KEYS) out[k] = Number(saved[k] ?? CONFIG_DEFAULTS[k]);
+
+  // Auth methods (with backward-compatible defaults).
+  const authCfg = await getAuthConfig();
+  out.AUTH_GOOGLE_ENABLED = authCfg.googleEnabled;
+  out.AUTH_PASSWORD_ENABLED = authCfg.passwordEnabled;
+  out.AUTH_SELFREG = authCfg.selfReg;
+  out.AUTH_SELFREG_DOMAINS = authCfg.selfRegDomains.join(', ');
 
   return NextResponse.json(out);
 }
@@ -64,6 +71,27 @@ export async function PATCH(req: NextRequest) {
         );
       }
     }
+  }
+
+  // ── Auth methods ──────────────────────────────────────────
+  let touchedAuth = false;
+  for (const k of ['AUTH_GOOGLE_ENABLED', 'AUTH_PASSWORD_ENABLED', 'AUTH_SELFREG']) {
+    if (body[k] !== undefined) { updates[k] = body[k] ? 'true' : 'false'; touchedAuth = true; }
+  }
+  if (typeof body.AUTH_SELFREG_DOMAINS === 'string') {
+    updates.AUTH_SELFREG_DOMAINS = body.AUTH_SELFREG_DOMAINS
+      .split(',').map((s: string) => s.trim()).filter(Boolean).join(',');
+  }
+  if (touchedAuth) {
+    const cur = await getAuthConfig();
+    const googleOn = updates.AUTH_GOOGLE_ENABLED !== undefined ? updates.AUTH_GOOGLE_ENABLED === 'true' : cur.googleEnabled;
+    const pwOn = updates.AUTH_PASSWORD_ENABLED !== undefined ? updates.AUTH_PASSWORD_ENABLED === 'true' : cur.passwordEnabled;
+    // Never allow zero sign-in methods (total lockout).
+    if (!googleOn && !pwOn) {
+      return NextResponse.json({ error: 'Хоча б один спосіб входу має лишатися ввімкненим' }, { status: 400 });
+    }
+    // Self-registration requires the password method.
+    if (!pwOn) updates.AUTH_SELFREG = 'false';
   }
 
   await writeConfig(updates);

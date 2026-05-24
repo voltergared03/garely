@@ -251,26 +251,44 @@ function UsersTab() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
+  const [invitePassword, setInvitePassword] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const sendInvite = async () => {
     if (!inviteEmail.trim()) return;
+    const withPassword = invitePassword.trim().length > 0;
+    if (withPassword && invitePassword.length < 8) {
+      setInviteMsg({ ok: false, text: 'Пароль — щонайменше 8 символів' });
+      return;
+    }
     setInviting(true); setInviteMsg(null);
     try {
-      const res = await fetch('/api/users/invite', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      });
+      // With a temp password → create a credentials user (POST /api/users).
+      // Without → send the Google-SSO invite as before.
+      const res = withPassword
+        ? await fetch('/api/users', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, password: invitePassword }),
+          })
+        : await fetch('/api/users/invite', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+          });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.user) {
         setUsers((us) => {
           const exists = us.some((x) => x.id === d.user.id);
           return exists ? us.map((x) => (x.id === d.user.id ? { ...x, ...d.user } : x)) : [...us, d.user];
         });
-        setInviteMsg({ ok: true, text: d.emailSent ? 'Запрошення надіслано' : 'Додано (лист не надіслано — перевірте SMTP)' });
-        setInviteEmail('');
-        setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1600);
+        setInviteMsg({
+          ok: true,
+          text: withPassword
+            ? (d.emailed ? 'Створено · креди надіслано на пошту' : 'Створено · передайте пароль користувачу')
+            : (d.emailSent ? 'Запрошення надіслано' : 'Додано (лист не надіслано — перевірте SMTP)'),
+        });
+        setInviteEmail(''); setInvitePassword('');
+        setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1800);
       } else {
         setInviteMsg({ ok: false, text: d.error || 'Помилка' });
       }
@@ -405,8 +423,8 @@ function UsersTab() {
       {inviteOpen && (
         <div onClick={() => setInviteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Запросити користувача</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>Створимо акаунт і надішлемо лист з посиланням на вхід через Google.</div>
+            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Додати користувача</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>Google-запрошення або акаунт email+пароль (задайте тимчасовий пароль).</div>
             <FieldWrapper label="Email">
               <input className="field" type="email" value={inviteEmail} placeholder="user@example.com" autoFocus
                 onChange={(e) => setInviteEmail(e.target.value)}
@@ -420,6 +438,16 @@ function UsersTab() {
                   { value: 'viewer', label: 'Глядач' },
                 ]} />
               </FieldWrapper>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <FieldWrapper label="Тимчасовий пароль (опційно)">
+                <input className="field" type="text" value={invitePassword} placeholder="порожньо = Google-запрошення"
+                  onChange={(e) => setInvitePassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') sendInvite(); }} />
+              </FieldWrapper>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.45 }}>
+                Задасте пароль — створиться акаунт email+пароль (користувач змінить його при першому вході). Порожньо — надішлемо Google-запрошення.
+              </div>
             </div>
             {inviteMsg && <div style={{ marginTop: 12, fontSize: 12.5, color: inviteMsg.ok ? 'var(--green)' : '#f87171' }}>{inviteMsg.text}</div>}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
@@ -504,6 +532,26 @@ function WorkspaceTab() {
             ]} />
           </FieldWrapper>
         </div>
+      </div>
+
+      {/* Способи входу */}
+      <div className="card" style={{ padding: '18px 22px' }}>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Способи входу</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Як користувачі авторизуються. Хоча б один має бути ввімкнено.</div>
+        <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => set('AUTH_GOOGLE_ENABLED', v)} />
+        <Toggle label="Email + пароль" value={ws.AUTH_PASSWORD_ENABLED} onChange={v => set('AUTH_PASSWORD_ENABLED', v)} />
+        {ws.AUTH_PASSWORD_ENABLED && (
+          <>
+            <Toggle label="Дозволити самореєстрацію (заявки з апрувом адміна)" value={ws.AUTH_SELFREG} onChange={v => set('AUTH_SELFREG', v)} />
+            {ws.AUTH_SELFREG && (
+              <div style={{ marginTop: 10 }}>
+                <FieldWrapper label="Дозволені домени (через кому, порожньо = будь-який)">
+                  <input className="field" value={ws.AUTH_SELFREG_DOMAINS || ''} placeholder="company.com, team.com" onChange={e => set('AUTH_SELFREG_DOMAINS', e.target.value)} />
+                </FieldWrapper>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Політики */}
