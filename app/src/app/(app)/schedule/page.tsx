@@ -319,19 +319,19 @@ export default function SchedulePage() {
             )}
           </div>
 
-          {/* Date / time / duration — on mobile, date+time share a row; selects go full width */}
-          <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14, ...(isMobile ? { gridTemplateColumns: '1fr 1fr' } : {}) }}>
+          {/* Date / time / duration — each field on its own row on mobile (3 cols on desktop) */}
+          <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
             <Field label="Дата" icon={Calendar} error={errors.date}>
               <input className="field" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
             <Field label="Початок" icon={Clock} error={errors.time}>
               <input className="field" type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
-            <Field label="Тривалість" error={errors.duration} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+            <Field label="Тривалість" error={errors.duration}>
               <Select value={String(form.duration)} onChange={(v) => set('duration', parseInt(v))}
                 options={[15, 30, 45, 60, 90, 120].map((d) => ({ value: String(d), label: `${d} хв` }))} />
             </Field>
-            <Field label="Часовий пояс" icon={Globe} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+            <Field label="Часовий пояс" icon={Globe}>
               <Select value={form.timezone} onChange={(v) => set('timezone', v)} options={[
                 { value: 'Europe/Kyiv', label: 'Europe/Kyiv' },
                 { value: 'Europe/Warsaw', label: 'Europe/Warsaw' },
@@ -340,7 +340,7 @@ export default function SchedulePage() {
                 { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
               ]} />
             </Field>
-            <Field label="Повторення" icon={RefreshCw} style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+            <Field label="Повторення" icon={RefreshCw}>
               <Select value={form.recurring} onChange={(v) => set('recurring', v)} options={[
                 { value: 'none', label: 'Без повторення' },
                 { value: 'daily', label: 'Щодня (Пн-Пт)' },
