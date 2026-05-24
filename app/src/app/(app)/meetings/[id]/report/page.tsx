@@ -713,12 +713,6 @@ export default function MeetingReportPage() {
         ).join('')
       : '';
 
-    const transcriptHtml = (meeting.transcripts || []).length > 0
-      ? (meeting.transcripts || []).map(t =>
-          `<div class="tr-seg"><div class="tr-head"><span class="tr-ts">${esc(t.timestamp)}</span><span class="tr-who">${esc(t.speakerName)}</span><span class="tr-lang">${esc(t.language).toUpperCase()}</span></div><div class="tr-txt">${esc(t.text)}</div></div>`
-        ).join('')
-      : '';
-
     const avatarsHtml = participants.slice(0, 8).map(n =>
       `<span class="pav">${initials(n)}</span>`
     ).join('');
@@ -900,9 +894,6 @@ ${analytics ? `<div class="sec"><div class="sec-title">Аналітика</div>
   ${langsHtml ? `<div class="col"><div class="card"><div class="card-label">Мови</div>${langsHtml}</div></div>` : ''}
 </div>
 </div>` : ''}
-
-<!-- ═══ TRANSCRIPT ═══ -->
-${transcriptHtml ? `<div class="sec"><div class="sec-title">Транскрипт <span style="font-family:'DM Sans';font-size:8pt;color:#94a3b8;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">(${(meeting.transcripts || []).length} сегментів)</span></div><div class="card">${transcriptHtml}</div></div>` : ''}
 
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
