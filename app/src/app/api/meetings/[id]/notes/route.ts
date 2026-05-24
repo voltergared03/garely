@@ -86,8 +86,9 @@ export async function PATCH(
         await notify({
           userIds: [...matched],
           type: 'mention',
-          title: 'Вас згадали в нотатках',
-          body: `${session.user?.name || 'Хтось'} згадав(ла) вас у "${meeting?.title || 'мітингу'}"`,
+          titleKey: 'mentionTitle',
+          bodyKey: 'mentionBody',
+          values: { name: session.user?.name || 'Хтось', title: meeting?.title || 'мітингу' },
           link: `/meetings/${id}/report`,
           meetingId: id,
         });

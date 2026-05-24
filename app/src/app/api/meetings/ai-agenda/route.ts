@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { getDeepSeekConfig } from "@/lib/config";
+import { workspaceLocale } from "@/lib/i18n-server";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -8,7 +10,10 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const rl = rateLimit(`ai-agenda:${(session.user as any).id}`, 20, 5 * 60 * 1000);
-  if (!rl.ok) return NextResponse.json({ error: `Забагато запитів. Спробуйте через ${rl.retryAfter} с.` }, { status: 429 });
+  if (!rl.ok) {
+    const t = await getTranslations("errors");
+    return NextResponse.json({ error: t("rateLimited", { seconds: rl.retryAfter }) }, { status: 429 });
+  }
 
   const { title, description, currentAgenda } = await req.json();
   if (!title || title.trim().length < 3) {
@@ -18,19 +23,25 @@ export async function POST(req: Request) {
   const { apiKey, baseUrl, model } = await getDeepSeekConfig();
   if (!apiKey) return NextResponse.json({ error: "AI not configured" }, { status: 500 });
 
-  const systemPrompt = `Ти — асистент для підготовки мітингів. Генеруй список питань/тем для обговорення українською мовою.
-Кожен пункт — конкретне питання або тема, 1 коротке речення.
-Генеруй 4-7 пунктів залежно від складності теми.
-Поверни ТІЛЬКИ JSON масив рядків, наприклад: ["Питання 1", "Питання 2", "Питання 3"]
-Без маркдаун, без нумерації, без додаткового тексту — тільки JSON масив.`;
+  // Generated content follows the workspace (admin-chosen) language, not the
+  // requesting user's interface language.
+  const locale = await workspaceLocale();
+  const lang = locale === "uk" ? "Ukrainian" : "English";
 
-  let userPrompt = `Назва мітингу: "${title}"`;
-  if (description) userPrompt += `\nОпис: "${description}"`;
+  const systemPrompt = `You are a meeting-prep assistant. Generate a list of discussion questions/topics.
+Each item is a specific question or topic, one short sentence.
+Generate 4-7 items depending on the topic's complexity.
+Return ONLY a JSON array of strings, e.g. ["Question 1", "Question 2", "Question 3"].
+No markdown, no numbering, no extra text — just the JSON array.
+Respond in ${lang}.`;
+
+  let userPrompt = `Meeting title: "${title}"`;
+  if (description) userPrompt += `\nDescription: "${description}"`;
   if (currentAgenda && currentAgenda.length > 0) {
-    userPrompt += `\nПоточні питання: ${JSON.stringify(currentAgenda)}`;
-    userPrompt += `\n\nПерегенеруй список — зроби його кращим, конкретнішим. Поверни ТІЛЬКИ JSON масив.`;
+    userPrompt += `\nCurrent items: ${JSON.stringify(currentAgenda)}`;
+    userPrompt += `\n\nRegenerate the list — make it better and more specific. Return ONLY a JSON array.`;
   } else {
-    userPrompt += `\n\nСтвори список питань для обговорення. Поверни ТІЛЬКИ JSON масив.`;
+    userPrompt += `\n\nCreate a list of discussion questions. Return ONLY a JSON array.`;
   }
 
   try {

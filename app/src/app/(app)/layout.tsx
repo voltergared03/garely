@@ -9,6 +9,7 @@ import { Sidebar } from '@/components/sidebar';
 import { MobileNav } from '@/components/mobile-nav';
 import { Logo } from '@/components/ui/logo';
 import { NotificationBell } from '@/components/notifications';
+import { LocaleSync } from '@/components/locale-sync';
 
 // The whole (app) group is behind auth + a setup gate that can redirect. It must
 // never be statically prerendered (that bakes a build-time redirect into the
@@ -78,6 +79,7 @@ export default async function AppLayout({
 
   return (
     <div className="app-layout" style={{ height: '100vh', overflow: 'hidden' }}>
+      <LocaleSync />
       <Sidebar workspaceName={workspaceName} />
       <main className="app-main">
         <header className="mobile-topbar">

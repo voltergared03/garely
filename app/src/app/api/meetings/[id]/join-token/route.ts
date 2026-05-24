@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createLivekitToken, createRoom } from '@/lib/livekit';
@@ -14,6 +15,7 @@ export async function POST(
     const { id } = await params;
     const session = await auth();
     const body = await req.json().catch(() => ({}));
+    const t = await getTranslations('errors');
 
     let meeting: any;
 
@@ -25,7 +27,7 @@ export async function POST(
       const joinSlug = generateMeetingSlug();
       meeting = await prisma.meeting.create({
         data: {
-          title: 'Швидкий мітинг',
+          title: t('quickMeetingTitle'),
           createdById: (session.user as any).id,
           livekitRoom: roomName,
           joinToken: joinSlug,
@@ -79,7 +81,7 @@ export async function POST(
       if (reqId) {
         const jr = await (prisma as any).joinRequest.findUnique({ where: { id: reqId } });
         if (!jr || jr.meetingId !== meeting.id) {
-          return NextResponse.json({ error: 'Запит не знайдено' }, { status: 404 });
+          return NextResponse.json({ error: t('joinRequestNotFound') }, { status: 404 });
         }
         if (jr.status === 'denied') {
           return NextResponse.json({ denied: true }, { status: 403 });

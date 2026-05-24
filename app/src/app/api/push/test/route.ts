@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { sendPushToUsers } from '@/lib/push';
 
@@ -15,9 +16,10 @@ export async function POST() {
   }
   const userId = session.user.id as string;
 
+  const t = await getTranslations('push');
   const { sent, pruned } = await sendPushToUsers([userId], {
     title: 'EZmeet',
-    body: 'Тестове сповіщення ✓',
+    body: t('testBody'),
     url: '/',
     tag: 'eam-test',
     type: 'test',

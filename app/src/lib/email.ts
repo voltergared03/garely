@@ -86,11 +86,11 @@ export async function sendEmail(
   opts: SendEmailOptions,
 ): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   const t = await getTransporter();
-  if (!t) return { ok: false, error: 'SMTP не налаштовано' };
+  if (!t) return { ok: false, error: 'SMTP is not configured' };
 
   const { transporter, config } = t;
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean);
-  if (recipients.length === 0) return { ok: false, error: 'Немає одержувачів' };
+  if (recipients.length === 0) return { ok: false, error: 'No recipients' };
 
   const logAll = (status: string, messageId: string | null) =>
     Promise.all(

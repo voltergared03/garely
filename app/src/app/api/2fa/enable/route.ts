@@ -10,6 +10,7 @@ import {
   TWOFA_COOKIE_OPTS,
 } from '@/lib/twofactor';
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit';
+import { getTranslations } from 'next-intl/server';
 
 // POST /api/2fa/enable { code } — verify a code against the pending secret,
 // turn 2FA on, and return one-time backup codes (shown once).
@@ -18,9 +19,10 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = (session.user as any).id as string;
 
+  const t = await getTranslations('errors');
   const rl = rateLimit(`2fa-enable:${userId}`, 10, 5 * 60 * 1000);
   if (!rl.ok) {
-    return NextResponse.json({ error: `Забагато спроб. Спробуйте через ${rl.retryAfter} с.` }, { status: 429 });
+    return NextResponse.json({ error: t('tooManyAttemptsRetry', { seconds: rl.retryAfter }) }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({} as any));
@@ -31,12 +33,12 @@ export async function POST(req: NextRequest) {
     select: { totpSecret: true, totpEnabled: true } as any,
   }) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-  if (user.totpEnabled) return NextResponse.json({ error: '2FA вже увімкнено' }, { status: 400 });
+  if (user.totpEnabled) return NextResponse.json({ error: t('twoFaAlreadyEnabled') }, { status: 400 });
 
   const secret = decryptSecret(user.totpSecret);
-  if (!secret) return NextResponse.json({ error: 'Спершу почніть налаштування 2FA' }, { status: 400 });
+  if (!secret) return NextResponse.json({ error: t('twoFaStartSetupFirst') }, { status: 400 });
   if (!verifyTotp(secret, code)) {
-    return NextResponse.json({ error: 'Невірний код. Спробуйте ще раз.' }, { status: 400 });
+    return NextResponse.json({ error: t('invalidCodeRetry') }, { status: 400 });
   }
 
   const { plain, hashed } = generateBackupCodes();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isInternalAuthed } from '@/lib/internal-auth';
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const t = await getTranslations('errors');
   const configs = await (prisma as any).systemConfig.findMany({
     where: { key: { in: ALLOWED_KEYS } },
   });
@@ -35,8 +37,15 @@ export async function GET(req: NextRequest) {
   // Add missing keys with empty values
   for (const key of ALLOWED_KEYS) {
     if (!result[key]) {
-      result[key] = { value: '', masked: 'Не налаштовано', updatedAt: '' };
+      result[key] = { value: '', masked: t('notConfigured'), updatedAt: '' };
     }
+  }
+
+  // The Python agent needs the workspace language to generate reports / live
+  // notes / action items in the admin-chosen language. Internal callers only.
+  if (internal) {
+    const wsLang = await (prisma as any).systemConfig.findUnique({ where: { key: 'WS_LANGUAGE' } });
+    result['WS_LANGUAGE'] = { value: wsLang?.value || 'en', masked: '', updatedAt: '' };
   }
 
   return NextResponse.json(result);

@@ -126,7 +126,7 @@ export async function showTestNotification(): Promise<TestResult> {
   }
   if (perm !== 'granted') return { ok: false, reason: 'denied' };
 
-  const body = 'Тестове сповіщення ✓';
+  const body = 'Test notification ✓';
   const opts: NotificationOptions & { badge?: string } = {
     body,
     icon: '/icons/icon-192.png',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { getDeepSeekConfig } from '@/lib/config';
 
@@ -8,9 +9,10 @@ export async function POST() {
   if (!session?.user || (session.user as any).role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  const errT = await getTranslations('errors');
   const { apiKey, baseUrl, model } = await getDeepSeekConfig();
   if (!apiKey) {
-    return NextResponse.json({ error: 'DeepSeek API key не задано' }, { status: 400 });
+    return NextResponse.json({ error: errT('deepseekKeyMissing') }, { status: 400 });
   }
   try {
     const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -25,6 +27,6 @@ export async function POST() {
     }
     return NextResponse.json({ success: true, model });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Не вдалося підключитись' }, { status: 502 });
+    return NextResponse.json({ error: e?.message || errT('connectionFailed') }, { status: 502 });
   }
 }

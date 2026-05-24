@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useTranslations, useLocale } from "next-intl";
 import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import {
@@ -26,17 +27,34 @@ interface UserItem { id: string; name: string; email: string; image: string | nu
 interface MeetingOption { id: string; title: string; scheduledAt: string | null; }
 
 /* ─── Due date helper ───────────────────────────────────── */
-function dueLabel(d: string | null): { txt: string; overdue: boolean; soon: boolean } | null {
+type DueInfo =
+  | { kind: "today"; overdue: false; soon: true }
+  | { kind: "tomorrow"; overdue: false; soon: true }
+  | { kind: "overdue"; days: number; overdue: true; soon: false }
+  | { kind: "weekday"; date: string; overdue: false; soon: boolean }
+  | { kind: "date"; date: string; overdue: false; soon: false };
+
+function dueInfo(d: string | null): DueInfo | null {
   if (!d) return null;
   const due = new Date(d); due.setHours(0,0,0,0);
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return { txt: "Сьогодні", overdue: false, soon: true };
-  if (diff === 1) return { txt: "Завтра", overdue: false, soon: true };
-  if (diff === -1) return { txt: "Прострочено 1 день", overdue: true, soon: false };
-  if (diff < -1) return { txt: `Прострочено ${-diff} дн.`, overdue: true, soon: false };
-  if (diff < 7) return { txt: new Date(d).toLocaleDateString("uk", { weekday: "long" }), overdue: false, soon: diff < 3 };
-  return { txt: new Date(d).toLocaleDateString("uk", { day: "numeric", month: "short" }), overdue: false, soon: false };
+  if (diff === 0) return { kind: "today", overdue: false, soon: true };
+  if (diff === 1) return { kind: "tomorrow", overdue: false, soon: true };
+  if (diff < 0) return { kind: "overdue", days: -diff, overdue: true, soon: false };
+  if (diff < 7) return { kind: "weekday", date: d, overdue: false, soon: diff < 3 };
+  return { kind: "date", date: d, overdue: false, soon: false };
+}
+
+/** Resolve a localized due-date label. `tr`/`locale` come from the calling component. */
+function dueText(due: DueInfo, tr: ReturnType<typeof useTranslations>, locale: string): string {
+  switch (due.kind) {
+    case "today": return tr("common.today");
+    case "tomorrow": return tr("common.tomorrow");
+    case "overdue": return tr("tasks.overdueDays", { count: due.days });
+    case "weekday": return new Date(due.date).toLocaleDateString(locale, { weekday: "long" });
+    case "date": return new Date(due.date).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  }
 }
 
 /* ─── Highlight search matches ──────────────────────────── */
@@ -74,10 +92,11 @@ function PriorityDot({ p, size = 7 }: { p: string; size?: number }) {
   return <span style={{ width: size, height: size, borderRadius: "50%", background: c, flexShrink: 0, display: "inline-block" }} />;
 }
 function PriorityTag({ p }: { p: string }) {
+  const tr = useTranslations();
   const map: Record<string, { c: string; l: string }> = {
-    high: { c: "var(--red)", l: "Висок." },
-    medium: { c: "var(--amber)", l: "Серед." },
-    low: { c: "var(--muted)", l: "Низьк." },
+    high: { c: "var(--red)", l: tr("tasks.priorityShortHigh") },
+    medium: { c: "var(--amber)", l: tr("tasks.priorityShortMedium") },
+    low: { c: "var(--muted)", l: tr("tasks.priorityShortLow") },
   };
   const v = map[p] || map.medium;
   return (
@@ -145,7 +164,9 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
   t: Task; onEdit: () => void; onStatusChange: (status: string) => void;
   q: string; last: boolean; mobile?: boolean;
 }) {
-  const due = dueLabel(t.dueDate);
+  const tr = useTranslations();
+  const locale = useLocale();
+  const due = dueInfo(t.dueDate);
   const isOverdue = due?.overdue && t.status !== "done";
 
   const cycleStatus = (e: React.MouseEvent) => {
@@ -165,7 +186,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
         color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)",
         fontWeight: isOverdue ? 600 : 500,
       }}>
-        <Clock size={11} /> {due.txt}
+        <Clock size={11} /> {dueText(due, tr, locale)}
       </span>
     );
     return (
@@ -247,7 +268,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
             </Link>
           ) : !t.meetingId ? (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", fontSize: 11.5 }}>
-              <ListChecks size={11} /> Окрема задача
+              <ListChecks size={11} /> {tr("tasks.standaloneTask")}
             </span>
           ) : null}
         </div>
@@ -269,7 +290,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
             color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)",
             fontWeight: isOverdue ? 600 : 500,
           }}>
-            <Clock size={11} /> {due.txt}
+            <Clock size={11} /> {dueText(due, tr, locale)}
           </span>
         )}
       </div>
@@ -283,6 +304,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
 function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
 }) {
+  const tr = useTranslations();
   const groups = useMemo(() => ({
     open: tasks.filter(t => t.status === "open"),
     in_progress: tasks.filter(t => t.status === "in_progress"),
@@ -291,9 +313,9 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
   const [collapsedDone, setCollapsedDone] = useState(true);
 
   const sectionMeta: Record<string, { label: string; color: string }> = {
-    open: { label: "Відкриті", color: "var(--accent)" },
-    in_progress: { label: "У роботі", color: "var(--amber)" },
-    done: { label: "Виконано", color: "var(--green)" },
+    open: { label: tr("tasks.statusOpen"), color: "var(--accent)" },
+    in_progress: { label: tr("tasks.statusInProgress"), color: "var(--amber)" },
+    done: { label: tr("tasks.statusDone"), color: "var(--green)" },
   };
 
   return (
@@ -319,7 +341,7 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
                 <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 6 }} />
                 {status === "done" && (
                   <span style={{ color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
-                    {collapsed ? "Показати" : "Сховати"}
+                    {collapsed ? tr("tasks.show") : tr("tasks.hide")}
                     <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
                   </span>
                 )}
@@ -346,7 +368,9 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
 function KanbanCard({ t, onEdit, onDragStart, dragging }: {
   t: Task; onEdit: () => void; onDragStart: () => void; dragging: boolean;
 }) {
-  const due = dueLabel(t.dueDate);
+  const tr = useTranslations();
+  const locale = useLocale();
+  const due = dueInfo(t.dueDate);
   const isOverdue = due?.overdue && t.status !== "done";
   const isDone = t.status === "done";
 
@@ -378,7 +402,7 @@ function KanbanCard({ t, onEdit, onDragStart, dragging }: {
         </div>
       ) : !t.meetingId ? (
         <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--muted)", fontSize: 11.5, marginBottom: 10 }}>
-          <ListChecks size={11} /> Окрема задача
+          <ListChecks size={11} /> {tr("tasks.standaloneTask")}
         </div>
       ) : null}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -390,7 +414,7 @@ function KanbanCard({ t, onEdit, onDragStart, dragging }: {
             color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--muted)",
             fontWeight: isOverdue ? 600 : 500,
           }}>
-            <Clock size={10} /> {due.txt}
+            <Clock size={10} /> {dueText(due, tr, locale)}
           </span>
         )}
       </div>
@@ -401,10 +425,11 @@ function KanbanCard({ t, onEdit, onDragStart, dragging }: {
 function KanbanView({ tasks, onEdit, onStatusChange }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void;
 }) {
+  const tr = useTranslations();
   const cols = [
-    { id: "open", label: "Відкриті", color: "var(--accent)" },
-    { id: "in_progress", label: "У роботі", color: "var(--amber)" },
-    { id: "done", label: "Виконано", color: "var(--green)" },
+    { id: "open", label: tr("tasks.statusOpen"), color: "var(--accent)" },
+    { id: "in_progress", label: tr("tasks.statusInProgress"), color: "var(--amber)" },
+    { id: "done", label: tr("tasks.statusDone"), color: "var(--green)" },
   ];
   const grouped = useMemo(() => Object.fromEntries(cols.map(c => [c.id, tasks.filter(t => t.status === c.id)])), [tasks]);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -440,7 +465,7 @@ function KanbanView({ tasks, onEdit, onStatusChange }: {
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4, paddingBottom: 14 }}>
               {(grouped[col.id] || []).length === 0 ? (
                 <div style={{ border: "1px dashed var(--border)", borderRadius: 10, padding: "24px 14px", textAlign: "center", color: "var(--muted)", fontSize: 12.5 }}>
-                  Перетягніть таску сюди
+                  {tr("tasks.dropTaskHere")}
                 </div>
               ) : (grouped[col.id] || []).map(t => (
                 <KanbanCard key={t.id} t={t} onEdit={() => onEdit(t)}
@@ -458,6 +483,7 @@ function KanbanView({ tasks, onEdit, onStatusChange }: {
    EMPTY STATE
    ═══════════════════════════════════════════════════════════ */
 function EmptyState({ scope, q, onCreate }: { scope: string; q: string; onCreate: () => void }) {
+  const tr = useTranslations();
   return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ textAlign: "center", maxWidth: 380 }}>
@@ -466,13 +492,13 @@ function EmptyState({ scope, q, onCreate }: { scope: string; q: string; onCreate
           <ListChecks size={36} style={{ color: "var(--muted)" }} />
         </div>
         <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, letterSpacing: "-0.01em" }}>
-          {q ? "Нічого не знайдено" : scope === "mine" ? "У вас немає тасок" : "Тасок ще немає"}
+          {q ? tr("tasks.emptyNoResultsTitle") : scope === "mine" ? tr("tasks.emptyMineTitle") : tr("tasks.emptyAllTitle")}
         </div>
         <div style={{ color: "var(--muted)", fontSize: 13.5, lineHeight: 1.55, marginBottom: 18 }}>
-          {q ? `За запитом «${q}» нічого не знайшлося. Спробуйте інший запит.`
-            : "Запустіть мітинг — AI автоматично виокремить action items. Або створіть таску вручну."}
+          {q ? tr("tasks.emptyNoResultsDesc", { query: q })
+            : tr("tasks.emptyAllDesc")}
         </div>
-        {!q && <button className="btn btn-primary" onClick={onCreate}><Plus size={14} /> Створити таску</button>}
+        {!q && <button className="btn btn-primary" onClick={onCreate}><Plus size={14} /> {tr("tasks.createTask")}</button>}
       </div>
     </div>
   );
@@ -485,6 +511,8 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
   open: boolean; task: Task | null; meetings: MeetingOption[]; users: UserItem[];
   onClose: () => void; onSaved: () => void;
 }) {
+  const tr = useTranslations();
+  const locale = useLocale();
   const isNew = !task;
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -586,7 +614,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
           <div style={{ width: 28, height: 28, borderRadius: 8, background: "color-mix(in oklab, var(--accent) 18%, transparent)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ListChecks size={15} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{isNew ? "Нова таска" : "Редагувати таску"}</div>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>{isNew ? tr("tasks.newTask") : tr("tasks.editTask")}</div>
           {!isNew && task?.source === "ai" && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 8px", borderRadius: 6,
               background: "color-mix(in oklab, var(--accent) 14%, transparent)", color: "#bfdbfe" }}>
@@ -599,19 +627,19 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
         {/* Body */}
         <div style={{ padding: "18px 22px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
           <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
-            placeholder="Що треба зробити?"
+            placeholder={tr("tasks.titlePlaceholder")}
             style={{ fontSize: 17, fontWeight: 600, background: "transparent", border: "none", padding: "4px 0",
               borderBottom: "1px solid var(--border)", borderRadius: 0, outline: "none", color: "var(--text)", width: "100%" }} />
 
           <div style={{ position: "relative" }}>
             <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
-              placeholder="Опис (опціонально)"
+              placeholder={tr("tasks.descriptionPlaceholder")}
               style={{ resize: "vertical", fontSize: 13, lineHeight: 1.55, background: "var(--surface)", border: "1px solid var(--border)",
                 borderRadius: 10, padding: "10px 12px", paddingRight: 42, outline: "none", color: "var(--text)", width: "100%" }} />
             <button
               onClick={generateDesc}
               disabled={aiLoading || title.trim().length < 3}
-              title={desc.trim() ? "Перегенерувати опис за допомогою ШІ" : "Згенерувати опис за допомогою ШІ"}
+              title={desc.trim() ? tr("tasks.aiRegenerateDescription") : tr("tasks.aiGenerateDescription")}
               style={{
                 position: "absolute", top: 8, right: 8,
                 width: 30, height: 30, borderRadius: 8, border: "none", cursor: aiLoading || title.trim().length < 3 ? "not-allowed" : "pointer",
@@ -630,7 +658,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
 
           {/* Meeting picker */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Мітинг</label>
+            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.meeting")}</label>
             <button onClick={() => setMeetingOpen(o => !o)} className="btn" style={{
               width: "100%", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10,
               background: "var(--surface)", border: "1px solid var(--border)",
@@ -638,7 +666,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
               <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 {meetingId ? <Video size={13} style={{ color: "var(--muted)" }} /> : <ListChecks size={13} style={{ color: "var(--muted)" }} />}
                 <span style={{ fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {meeting?.title || (meetingId ? "Виберіть мітинг" : "Без мітингу")}
+                  {meeting?.title || (meetingId ? tr("tasks.selectMeeting") : tr("tasks.noMeeting"))}
                 </span>
               </span>
               <ChevronDown size={14} style={{ color: "var(--muted)", transform: meetingOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
@@ -647,7 +675,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
               <div style={{ marginTop: 6, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card, #181a20)" }}>
                 <div style={{ position: "relative" }}>
                   <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-                  <input autoFocus placeholder="Пошук мітингу…" value={meetingQ} onChange={e => setMeetingQ(e.target.value)}
+                  <input autoFocus placeholder={tr("tasks.searchMeeting")} value={meetingQ} onChange={e => setMeetingQ(e.target.value)}
                     style={{ paddingLeft: 32, border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0, height: 34,
                       background: "transparent", outline: "none", color: "var(--text)", width: "100%", fontSize: 13 }} />
                 </div>
@@ -660,7 +688,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
                     onMouseLeave={e => (e.currentTarget.style.background = !meetingId ? "var(--surface)" : "transparent")}
                   >
                     <span style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
-                      <ListChecks size={12} /> Без мітингу
+                      <ListChecks size={12} /> {tr("tasks.noMeeting")}
                     </span>
                     {!meetingId && <Check size={13} style={{ color: "var(--accent)" }} />}
                   </button>
@@ -673,11 +701,11 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
                     >
                       <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>{m.title}</span>
                       {m.scheduledAt && <span style={{ fontSize: 10.5, color: "var(--muted)", marginLeft: 8, fontFamily: "var(--font-mono, monospace)" }}>
-                        {new Date(m.scheduledAt).toLocaleDateString("uk", { day: "numeric", month: "short" })}
+                        {new Date(m.scheduledAt).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                       </span>}
                     </button>
                   ))}
-                  {meetingMatches.length === 0 && <div style={{ padding: "12px", color: "var(--muted)", fontSize: 13, textAlign: "center" }}>Нічого не знайдено</div>}
+                  {meetingMatches.length === 0 && <div style={{ padding: "12px", color: "var(--muted)", fontSize: 13, textAlign: "center" }}>{tr("tasks.nothingFound")}</div>}
                 </div>
               </div>
             )}
@@ -686,7 +714,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {/* Assignee */}
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Виконавець</label>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.assignee")}</label>
               <button onClick={() => setAssigneeOpen(o => !o)} className="btn" style={{
                 width: "100%", justifyContent: "space-between", padding: "8px 12px", borderRadius: 10,
                 background: "var(--surface)", border: "1px solid var(--border)",
@@ -695,7 +723,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
                   {assignee ? (
                     <><Avatar name={assignee.name} image={assignee.image} size="sm" /><span style={{ fontSize: 13 }}>{assignee.name}</span></>
                   ) : (
-                    <><User size={13} style={{ color: "var(--muted)" }} /><span style={{ fontSize: 13, color: "var(--muted)" }}>Не призначено</span></>
+                    <><User size={13} style={{ color: "var(--muted)" }} /><span style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.unassigned")}</span></>
                   )}
                 </span>
                 <ChevronDown size={14} style={{ color: "var(--muted)" }} />
@@ -711,7 +739,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
                       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
                       <User size={13} style={{ color: "var(--muted)" }} />
-                      <span style={{ fontSize: 13, color: "var(--muted)" }}>Не призначено</span>
+                      <span style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.unassigned")}</span>
                     </button>
                     {users.map(u => (
                       <button key={u.id} onClick={() => { setAssigneeId(u.id); setAssigneeOpen(false); }}
@@ -731,7 +759,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
             </div>
             {/* Due date */}
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Дедлайн</label>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.dueDate")}</label>
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
                 style={{ height: 38, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)",
                   border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: "100%" }} />
@@ -740,12 +768,12 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
 
           {/* Priority */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Пріоритет</label>
+            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.priority")}</label>
             <div style={{ display: "flex", gap: 6 }}>
               {[
-                { id: "high", label: "Високий", c: "var(--red)" },
-                { id: "medium", label: "Середній", c: "var(--amber)" },
-                { id: "low", label: "Низький", c: "var(--muted)" },
+                { id: "high", label: tr("tasks.priorityHigh"), c: "var(--red)" },
+                { id: "medium", label: tr("tasks.priorityMedium"), c: "var(--amber)" },
+                { id: "low", label: tr("tasks.priorityLow"), c: "var(--muted)" },
               ].map(p => {
                 const active = priority === p.id;
                 return (
@@ -765,12 +793,12 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
           {/* Status (edit only) */}
           {!isNew && (
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>Статус</label>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.status")}</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {[
-                  { id: "open", label: "Відкрита", c: "var(--accent)" },
-                  { id: "in_progress", label: "У роботі", c: "var(--amber)" },
-                  { id: "done", label: "Виконано", c: "var(--green)" },
+                  { id: "open", label: tr("tasks.statusOpenSingular"), c: "var(--accent)" },
+                  { id: "in_progress", label: tr("tasks.statusInProgress"), c: "var(--amber)" },
+                  { id: "done", label: tr("tasks.statusDone"), c: "var(--green)" },
                 ].map(s => {
                   const active = status === s.id;
                   return (
@@ -794,15 +822,15 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
           {!isNew && (
             <button className="btn btn-sm" onClick={handleDelete} disabled={saving}
               style={{ color: "var(--red)", borderColor: "color-mix(in oklab, var(--red) 30%, transparent)" }}>
-              <Trash2 size={13} /> Видалити
+              <Trash2 size={13} /> {tr("common.delete")}
             </button>
           )}
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            <button className="btn" onClick={onClose}>Скасувати</button>
+            <button className="btn" onClick={onClose}>{tr("common.cancel")}</button>
             <button className="btn btn-primary" disabled={!valid || saving} onClick={save}
               style={{ opacity: valid && !saving ? 1 : 0.5, fontWeight: 600 }}>
               {saving ? <Loader2 size={14} className="spin" /> : null}
-              {isNew ? "Створити таску" : "Зберегти"}
+              {isNew ? tr("tasks.createTask") : tr("common.save")}
             </button>
           </div>
         </div>
@@ -815,6 +843,7 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
 export default function TasksPage() {
+  const tr = useTranslations();
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -895,48 +924,48 @@ export default function TasksPage() {
       <div style={{ padding: "18px clamp(14px, 4vw, 28px) 16px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>Таски</h1>
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>Action items з мітингів та задачі команди.</div>
+            <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>{tr("tasks.pageTitle")}</h1>
+            <div style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.pageSubtitle")}</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
               <button onClick={() => setView("list")} className="btn btn-sm" style={{
                 background: view === "list" ? "var(--surface-2, #2a2a32)" : "transparent",
                 border: "none", borderRadius: 7, fontWeight: view === "list" ? 600 : 500,
-              }}><LayoutList size={14} /> Список</button>
+              }}><LayoutList size={14} /> {tr("tasks.viewList")}</button>
               <button onClick={() => setView("kanban")} className="btn btn-sm" style={{
                 background: view === "kanban" ? "var(--surface-2, #2a2a32)" : "transparent",
                 border: "none", borderRadius: 7, fontWeight: view === "kanban" ? 600 : 500,
-              }}><LayoutGrid size={14} /> Канбан</button>
+              }}><LayoutGrid size={14} /> {tr("tasks.viewKanban")}</button>
             </div>
             <button className="btn btn-primary" onClick={() => setEditing("new")} style={{ fontWeight: 600 }}>
-              <Plus size={15} /> Нова таска
+              <Plus size={15} /> {tr("tasks.newTask")}
             </button>
           </div>
         </div>
         {/* Filter row */}
         <div className="tasks-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <FilterPills value={scope} onChange={setScope} options={[
-            { id: "mine", label: "Мої", count: counts.mine },
-            { id: "all", label: "Усі", count: counts.all },
+            { id: "mine", label: tr("tasks.scopeMine"), count: counts.mine },
+            { id: "all", label: tr("tasks.scopeAll"), count: counts.all },
           ]} />
           <div className="tasks-filter-sep" style={{ width: 1, height: 24, background: "var(--border)" }} />
           <SelectChip icon={CalendarIcon} value={filterMeeting} onChange={setFilterMeeting}
-            options={[{ value: "all", label: "Усі мітинги" }, ...meetingOptions.map(m => ({ value: m.id, label: m.title }))]} />
+            options={[{ value: "all", label: tr("tasks.filterAllMeetings") }, ...meetingOptions.map(m => ({ value: m.id, label: m.title }))]} />
           <SelectChip icon={AlertCircle} value={filterPriority} onChange={setFilterPriority}
             options={[
-              { value: "all", label: "Будь-який пріоритет" },
-              { value: "high", label: "Високий" },
-              { value: "medium", label: "Середній" },
-              { value: "low", label: "Низький" },
+              { value: "all", label: tr("tasks.filterAnyPriority") },
+              { value: "high", label: tr("tasks.priorityHigh") },
+              { value: "medium", label: tr("tasks.priorityMedium") },
+              { value: "low", label: tr("tasks.priorityLow") },
             ]} />
           {isAdmin && (
             <SelectChip icon={User} value={filterAssignee} onChange={(v) => { setFilterAssignee(v); if (v !== "all") setScope("all"); }}
-              options={[{ value: "all", label: "Усі виконавці" }, ...users.map(u => ({ value: u.id, label: u.name || u.email }))]} />
+              options={[{ value: "all", label: tr("tasks.filterAllAssignees") }, ...users.map(u => ({ value: u.id, label: u.name || u.email }))]} />
           )}
           <div className="tasks-search" style={{ position: "relative" }}>
             <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-            <input placeholder="Пошук тасок…" value={q} onChange={e => setQ(e.target.value)}
+            <input placeholder={tr("tasks.searchPlaceholder")} value={q} onChange={e => setQ(e.target.value)}
               style={{ paddingLeft: 34, height: 34, fontSize: 13, width: "100%", background: "var(--surface)",
                 border: "1px solid var(--border)", borderRadius: 8, outline: "none", color: "var(--text)" }} />
             {q && <button onClick={() => setQ("")} className="btn btn-sm" style={{ position: "absolute", right: 4, top: 4, width: 26, height: 26, padding: 0 }}><X size={12} /></button>}

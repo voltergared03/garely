@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
+import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 // POST /api/settings/email/test — send a test email using the saved SMTP config
 export async function POST(req: NextRequest) {
@@ -9,23 +10,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Test email goes out in the workspace (admin-chosen) language.
+  const locale = await workspaceLocale();
+  const t = getTranslator(locale);
+
   const body = await req.json().catch(() => ({} as any));
   const to = String(body.to || (session.user as any).email || '').trim();
-  if (!to) return NextResponse.json({ error: 'Не вказано адресу одержувача' }, { status: 400 });
+  if (!to) return NextResponse.json({ error: t('emails.test.errors.noRecipient') }, { status: 400 });
 
   const result = await sendEmail({
     to,
     template: 'test',
-    subject: 'EZmeet — тестовий лист',
-    text: 'SMTP працює. Це тестовий лист з EZmeet.',
+    subject: t('emails.test.subject'),
+    text: t('emails.test.bodyText'),
     html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f1115;border-radius:16px;color:#e8eaed">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">SMTP працює ✅</div>
-      <p style="color:#9aa0a6;line-height:1.5;margin:0">Це тестовий лист з <b style="color:#e8eaed">EZmeet</b>. Якщо ти його бачиш — налаштування пошти збережені й коректні.</p>
+      <div style="font-size:22px;font-weight:700;margin-bottom:8px">${t('emails.test.heading')} ✅</div>
+      <p style="color:#9aa0a6;line-height:1.5;margin:0">${t.rich('emails.test.bodyHtml', { b: (c: any) => `<b style="color:#e8eaed">${c}</b>` })}</p>
     </div>`,
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error || 'Не вдалося надіслати' }, { status: 502 });
+    return NextResponse.json({ error: result.error || t('emails.common.sendFailed') }, { status: 502 });
   }
   return NextResponse.json({ success: true, messageId: result.messageId });
 }

@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Logo } from '@/components/ui/logo';
 import { Lock, Loader2 } from 'lucide-react';
 
 export function ChangePasswordClient({ forced }: { forced: boolean }) {
   const router = useRouter();
+  const t = useTranslations();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -16,8 +18,8 @@ export function ChangePasswordClient({ forced }: { forced: boolean }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    if (next.length < 8) { setErr('Пароль — щонайменше 8 символів'); return; }
-    if (next !== confirm) { setErr('Паролі не збігаються'); return; }
+    if (next.length < 8) { setErr(t('auth.errPasswordMin')); return; }
+    if (next !== confirm) { setErr(t('auth.errPasswordMismatch')); return; }
     setBusy(true);
     try {
       const res = await fetch('/api/account/password', {
@@ -26,11 +28,11 @@ export function ChangePasswordClient({ forced }: { forced: boolean }) {
         body: JSON.stringify({ currentPassword: forced ? undefined : current, newPassword: next }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { setErr(d.error || 'Не вдалося змінити пароль'); setBusy(false); return; }
+      if (!res.ok || !d.ok) { setErr(d.error || t('auth.errPasswordChangeFailed')); setBusy(false); return; }
       router.push('/');
       router.refresh();
     } catch {
-      setErr('Помилка мережі');
+      setErr(t('auth.errNetwork'));
       setBusy(false);
     }
   };
@@ -49,30 +51,30 @@ export function ChangePasswordClient({ forced }: { forced: boolean }) {
             <Logo size={22} />
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px', textAlign: 'center' }}>
-            {forced ? 'Встановіть новий пароль' : 'Зміна пароля'}
+            {forced ? t('auth.setNewPassword') : t('auth.changePassword')}
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 22px', textAlign: 'center', lineHeight: 1.5 }}>
             {forced
-              ? 'Це ваш перший вхід — задайте власний пароль, щоб продовжити.'
-              : 'Введіть поточний і новий пароль.'}
+              ? t('auth.setNewPasswordHint')
+              : t('auth.changePasswordHint')}
           </p>
 
           <form onSubmit={submit}>
             {!forced && (
               <input
                 className="field" type="password" autoComplete="current-password"
-                placeholder="Поточний пароль" value={current}
+                placeholder={t('auth.currentPassword')} value={current}
                 onChange={(e) => setCurrent(e.target.value)} style={{ marginBottom: 10 }}
               />
             )}
             <input
               className="field" type="password" autoComplete="new-password"
-              placeholder="Новий пароль (мін. 8 символів)" value={next}
+              placeholder={t('auth.newPasswordMinPlaceholder')} value={next}
               onChange={(e) => setNext(e.target.value)} style={{ marginBottom: 10 }}
             />
             <input
               className="field" type="password" autoComplete="new-password"
-              placeholder="Повторіть новий пароль" value={confirm}
+              placeholder={t('auth.repeatNewPassword')} value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
             {err && <div style={{ fontSize: 12.5, color: 'var(--red, #ef4444)', marginTop: 10 }}>{err}</div>}
@@ -80,7 +82,7 @@ export function ChangePasswordClient({ forced }: { forced: boolean }) {
               type="submit" className="btn btn-primary" disabled={busy}
               style={{ width: '100%', justifyContent: 'center', padding: '13px 16px', fontWeight: 600, marginTop: 16, gap: 8 }}
             >
-              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={15} />} Зберегти пароль
+              {busy ? <Loader2 size={16} className="spin" /> : <Lock size={15} />} {t('auth.savePassword')}
             </button>
           </form>
         </div>

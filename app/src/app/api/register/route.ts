@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
 import { getAuthConfig, emailAllowedForSelfReg } from '@/lib/config';
@@ -16,14 +17,16 @@ function ipOf(req: NextRequest): string {
 // rate-limited, domain-allowlisted, and anti-enumeration (never reveals whether
 // an email already exists).
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('errors');
+
   // Throttle hard — this is unauthenticated.
   if (!rateLimit(`register:${ipOf(req)}`, 5, 10 * 60_000).ok) {
-    return NextResponse.json({ error: 'Забагато спроб. Спробуйте пізніше.' }, { status: 429 });
+    return NextResponse.json({ error: t('tooManyAttempts') }, { status: 429 });
   }
 
   const authCfg = await getAuthConfig();
   if (!authCfg.selfReg) {
-    return NextResponse.json({ error: 'Самореєстрація вимкнена' }, { status: 403 });
+    return NextResponse.json({ error: t('selfRegDisabled') }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({} as any));
@@ -32,10 +35,10 @@ export async function POST(req: NextRequest) {
   const password = String(body.password || '');
 
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    return NextResponse.json({ error: 'Вкажіть коректний email' }, { status: 400 });
+    return NextResponse.json({ error: t('invalidEmail') }, { status: 400 });
   }
   if (!emailAllowedForSelfReg(email, authCfg.selfRegDomains)) {
-    return NextResponse.json({ error: 'Реєстрація для цього домену недоступна' }, { status: 400 });
+    return NextResponse.json({ error: t('domainNotAllowed') }, { status: 400 });
   }
   const pwErr = passwordPolicyError(password);
   if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
     await notify({
       userIds: admins.map((a) => a.id),
       type: 'registration',
-      title: 'Нова заявка на реєстрацію',
+      titleKey: 'registrationTitle',
       body: email,
       link: '/settings',
     });

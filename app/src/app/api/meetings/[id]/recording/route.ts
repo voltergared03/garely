@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { promises as fs } from 'fs';
@@ -46,8 +47,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json().catch(() => ({} as any));
   const permanent = !!body.permanent;
 
+  const t = await getTranslations('errors');
   const rec = await (prisma as any).recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
-  if (!rec) return NextResponse.json({ error: 'Запис не знайдено' }, { status: 404 });
+  if (!rec) return NextResponse.json({ error: t('recordingNotFound') }, { status: 404 });
 
   const expiresAt = permanent ? null : new Date(Date.now() + RETENTION_DAYS * 86400000);
   const updated = await (prisma as any).recording.update({
@@ -66,8 +68,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const t = await getTranslations('errors');
   const rec = await (prisma as any).recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
-  if (!rec) return NextResponse.json({ error: 'Запис не знайдено' }, { status: 404 });
+  if (!rec) return NextResponse.json({ error: t('recordingNotFound') }, { status: 404 });
 
   if (rec.filePath) await fs.unlink(rec.filePath).catch(() => {});
   await (prisma as any).recording.delete({ where: { id: rec.id } });

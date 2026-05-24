@@ -142,6 +142,7 @@ async def entrypoint(ctx: JobContext):
             keys = await fetch_api_keys()
             deepseek_key = keys.get("DEEPSEEK_API_KEY", "")
             deepseek_base = keys.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+            lang_name = "Ukrainian" if keys.get("WS_LANGUAGE", "en") == "uk" else "English"
             if not deepseek_key:
                 return
 
@@ -162,7 +163,7 @@ async def entrypoint(ctx: JobContext):
                         "model": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
                         "messages": [
                             {"role": "system", "content": "You are a live meeting analyst. Respond with valid JSON only. Be concise."},
-                            {"role": "user", "content": f"Analyze this partial meeting transcript. Respond in Ukrainian.\n\n{text}\n\nJSON format:\n{{\"summary\": \"1-2 речення про що зараз йде мова\", \"decisions\": [\"рішення\"], \"action_items\": [\"завдання\"]}}"},
+                            {"role": "user", "content": f"Analyze this partial meeting transcript. Respond in {lang_name}.\n\n{text}\n\nJSON format:\n{{\"summary\": \"1-2 sentence summary of the current discussion\", \"decisions\": [\"decision\"], \"action_items\": [\"task\"]}}"},
                         ],
                         "response_format": {"type": "json_object"},
                         "temperature": 0.3,
@@ -206,6 +207,7 @@ async def entrypoint(ctx: JobContext):
             keys = await fetch_api_keys()
             deepseek_key = keys.get("DEEPSEEK_API_KEY", "")
             deepseek_base = keys.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+            lang_name = "Ukrainian" if keys.get("WS_LANGUAGE", "en") == "uk" else "English"
             if not deepseek_key:
                 return
 
@@ -219,7 +221,7 @@ async def entrypoint(ctx: JobContext):
                     json={
                         "model": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
                         "messages": [
-                            {"role": "system", "content": "You detect action items from meeting speech. Return JSON. If the text does NOT contain an action item, return {\"is_action\": false}. If it does, return {\"is_action\": true, \"title\": \"concise task in Ukrainian\", \"assignee\": \"name or null\"}."},
+                            {"role": "system", "content": "You detect action items from meeting speech. Return JSON. If the text does NOT contain an action item, return {\"is_action\": false}. If it does, return {\"is_action\": true, \"title\": \"concise task in " + lang_name + "\", \"assignee\": \"name or null\"}."},
                             {"role": "user", "content": f"Speaker: {speaker}\nText: {text}"},
                         ],
                         "response_format": {"type": "json_object"},
@@ -440,6 +442,7 @@ async def generate_report(meeting_id: str, segments: list[dict]):
     keys = await fetch_api_keys()
     deepseek_key = keys.get("DEEPSEEK_API_KEY", "")
     deepseek_base = keys.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    lang_name = "Ukrainian" if keys.get("WS_LANGUAGE", "en") == "uk" else "English"
 
     if not deepseek_key:
         logger.error("No DeepSeek API key available, skipping report generation")
@@ -452,14 +455,14 @@ async def generate_report(meeting_id: str, segments: list[dict]):
 
     prompt = f"""Analyze this meeting transcript and provide a structured JSON response.
 The meeting was conducted in multiple languages (Ukrainian, English, Russian).
-Respond in Ukrainian.
+Respond in {lang_name}.
 
 TRANSCRIPT:
 {transcript_text}
 
 Provide a JSON response with this exact structure:
 {{
-  "summary": "2-3 paragraph TL;DR of the meeting in Ukrainian",
+  "summary": "2-3 paragraph TL;DR of the meeting in {lang_name}",
   "agenda": ["topic 1", "topic 2", ...],
   "decisions": ["decision 1", "decision 2", ...],
   "action_items": [

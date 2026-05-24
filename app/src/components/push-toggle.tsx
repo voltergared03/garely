@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { BellRing, BellOff, Loader2 } from 'lucide-react';
 import {
   getPushState,
@@ -17,6 +18,7 @@ import {
  * must run client-side and reflects only THIS device.
  */
 export function PushToggle() {
+  const t = useTranslations();
   const [state, setState] = useState<PushState | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -63,24 +65,21 @@ export function PushToggle() {
     setTesting(false);
 
     if (!local.ok && local.reason === 'denied') {
-      setTestMsg({ ok: false, text: 'Сповіщення заблоковано в браузері для цього сайту — дозвольте їх і спробуйте ще раз.' });
+      setTestMsg({ ok: false, text: t('push.testDenied') });
     } else if (server.sent === 0 && local.ok) {
       // OS accepted the local one, but the server found no live subscription.
-      setTestMsg({ ok: true, text: 'Локальне сповіщення надіслано. Якщо не бачите його — увімкніть сповіщення для браузера в налаштуваннях системи (macOS: Системні налаштування → Сповіщення) і вимкніть режим «Не турбувати».' });
+      setTestMsg({ ok: true, text: t('push.testLocalOnly') });
     } else if (local.ok || server.sent > 0) {
-      setTestMsg({ ok: true, text: 'Надіслано ✓ Не бачите банер? Перевірте, що сповіщення дозволені для браузера в налаштуваннях системи, і вимкнено режим «Не турбувати» / Focus.' });
+      setTestMsg({ ok: true, text: t('push.testSent') });
     } else {
-      setTestMsg({ ok: false, text: 'Не вдалося надіслати. Вимкніть і знову ввімкніть push, потім спробуйте ще раз.' });
+      setTestMsg({ ok: false, text: t('push.testFailed') });
     }
   };
 
-  let hint =
-    'Отримуйте сповіщення про мітинги та завдання навіть коли застосунок закрито.';
-  if (state === 'unsupported') hint = 'Цей браузер не підтримує push-сповіщення.';
-  else if (denied)
-    hint =
-      'Сповіщення заблоковано в налаштуваннях браузера — дозвольте їх вручну, щоб увімкнути.';
-  else if (enabled) hint = 'Увімкнено на цьому пристрої.';
+  let hint = t('push.hintDefault');
+  if (state === 'unsupported') hint = t('push.hintUnsupported');
+  else if (denied) hint = t('push.hintDenied');
+  else if (enabled) hint = t('push.hintEnabled');
 
   return (
     <div
@@ -110,7 +109,7 @@ export function PushToggle() {
           ) : (
             <BellOff size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
           )}
-          Push-сповіщення на цьому пристрої
+          {t('push.deviceTitle')}
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.45 }}>
           {hint}
@@ -124,7 +123,7 @@ export function PushToggle() {
               disabled={testing}
             >
               {testing ? <Loader2 size={12} className="spin" /> : null}
-              Надіслати тест
+              {t('push.sendTest')}
             </button>
             {testMsg && (
               <div
@@ -145,7 +144,7 @@ export function PushToggle() {
 
       <button
         type="button"
-        aria-label="Push-сповіщення"
+        aria-label={t('push.toggleAria')}
         disabled={locked}
         onClick={toggle}
         style={{

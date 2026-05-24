@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Select } from '@/components/ui/select';
 import { useSession } from 'next-auth/react';
 import {
@@ -22,6 +23,7 @@ interface WsUser {
 
 export default function SchedulePage() {
   const router = useRouter();
+  const t = useTranslations();
   const { data: session } = useSession();
   const isMobile = useIsMobile();
   const [created, setCreated] = useState(false);
@@ -128,10 +130,10 @@ export default function SchedulePage() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.title.trim()) e.title = "Назва обов'язкова";
-    if (form.title.length > 0 && form.title.length < 3) e.title = 'Закоротко — мінімум 3 символи';
-    if (!form.date) e.date = 'Виберіть дату';
-    if (!form.time) e.time = 'Виберіть час';
+    if (!form.title.trim()) e.title = t('schedule.errorTitleRequired');
+    if (form.title.length > 0 && form.title.length < 3) e.title = t('schedule.errorTitleTooShort');
+    if (!form.date) e.date = t('schedule.errorDateRequired');
+    if (!form.time) e.time = t('schedule.errorTimeRequired');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -182,16 +184,16 @@ export default function SchedulePage() {
             >
               <CheckCircle size={32} style={{ color: 'var(--green)' }} />
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Мітинг створено</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t('schedule.createdTitle')}</div>
             <div style={{ color: 'var(--text-2)', marginBottom: 24, fontSize: 14 }}>
               &laquo;{form.title}&raquo; &mdash; {form.date}, {form.time}
               {selectedUsers.length > 0 && (
-                <span> &bull; {selectedUsers.length} учасник{selectedUsers.length === 1 ? '' : 'ів'}</span>
+                <span> &bull; {t('common.participants', { count: selectedUsers.length })}</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button className="btn" onClick={() => router.push('/calendar')}>До календаря</button>
-              <button className="btn btn-primary" onClick={() => router.push('/')}>На дашборд</button>
+              <button className="btn" onClick={() => router.push('/calendar')}>{t('schedule.toCalendar')}</button>
+              <button className="btn btn-primary" onClick={() => router.push('/')}>{t('schedule.toDashboard')}</button>
             </div>
           </div>
         </div>
@@ -206,7 +208,7 @@ export default function SchedulePage() {
           <button className="btn btn-ghost btn-icon" onClick={() => router.push('/')}>
             <ChevronLeft size={16} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>Новий мітинг</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{t('nav.newMeeting')}</h1>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -214,7 +216,7 @@ export default function SchedulePage() {
           <div className="card" style={{ padding: '18px 22px' }}>
             <input
               className="field"
-              placeholder="Назва мітингу"
+              placeholder={t('schedule.titlePlaceholder')}
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
               style={{ fontSize: 18, fontWeight: 600, background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0 }}
@@ -223,7 +225,7 @@ export default function SchedulePage() {
             <textarea
               className="field"
               rows={2}
-              placeholder="Опис, агенда, посилання..."
+              placeholder={t('schedule.descriptionPlaceholder')}
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               style={{ background: 'transparent', border: 'none', resize: 'none', padding: '8px 0 0', fontSize: 13.5 }}
@@ -235,7 +237,7 @@ export default function SchedulePage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <ListChecks size={15} style={{ color: 'var(--accent)' }} />
-                <div style={{ fontWeight: 600, fontSize: 14 }}>Питання для обговорення</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{t('schedule.agendaHeading')}</div>
                 {agenda.length > 0 && (
                   <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 7px', borderRadius: 6 }}>
                     {agenda.length}
@@ -256,7 +258,7 @@ export default function SchedulePage() {
                 }}
               >
                 {aiAgendaLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={13} />}
-                {agenda.length > 0 ? 'Перегенерувати' : 'Згенерувати AI'}
+                {agenda.length > 0 ? t('schedule.regenerate') : t('schedule.generateAi')}
               </button>
             </div>
 
@@ -299,7 +301,7 @@ export default function SchedulePage() {
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 className="field"
-                placeholder="Додати питання..."
+                placeholder={t('meetingForm.addAgendaItem')}
                 value={newItem}
                 onChange={e => setNewItem(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAgendaItem(); } }}
@@ -308,30 +310,30 @@ export default function SchedulePage() {
               <button type="button" className="btn" onClick={addAgendaItem}
                 disabled={!newItem.trim()}
                 style={{ flexShrink: 0 }}>
-                <Plus size={14} /> Додати
+                <Plus size={14} /> {t('schedule.addItem')}
               </button>
             </div>
 
             {agenda.length === 0 && (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12, marginTop: 10, padding: '8px 0' }}>
-                Додайте питання вручну або згенеруйте за допомогою AI на основі назви мітингу
+                {t('schedule.agendaEmptyHint')}
               </div>
             )}
           </div>
 
           {/* Date / time / duration — each field on its own row on mobile (3 cols on desktop) */}
           <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
-            <Field label="Дата" icon={Calendar} error={errors.date}>
+            <Field label={t('meetingForm.date')} icon={Calendar} error={errors.date}>
               <input className="field" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
-            <Field label="Початок" icon={Clock} error={errors.time}>
+            <Field label={t('schedule.start')} icon={Clock} error={errors.time}>
               <input className="field" type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={{ textAlign: 'left' }} />
             </Field>
-            <Field label="Тривалість" error={errors.duration}>
+            <Field label={t('meetingForm.duration')} error={errors.duration}>
               <Select value={String(form.duration)} onChange={(v) => set('duration', parseInt(v))}
-                options={[15, 30, 45, 60, 90, 120].map((d) => ({ value: String(d), label: `${d} хв` }))} />
+                options={[15, 30, 45, 60, 90, 120].map((d) => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </Field>
-            <Field label="Часовий пояс" icon={Globe}>
+            <Field label={t('schedule.timezone')} icon={Globe}>
               <Select value={form.timezone} onChange={(v) => set('timezone', v)} options={[
                 { value: 'Europe/Kyiv', label: 'Europe/Kyiv' },
                 { value: 'Europe/Warsaw', label: 'Europe/Warsaw' },
@@ -340,13 +342,13 @@ export default function SchedulePage() {
                 { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
               ]} />
             </Field>
-            <Field label="Повторення" icon={RefreshCw}>
+            <Field label={t('schedule.recurrence')} icon={RefreshCw}>
               <Select value={form.recurring} onChange={(v) => set('recurring', v)} options={[
-                { value: 'none', label: 'Без повторення' },
-                { value: 'daily', label: 'Щодня (Пн-Пт)' },
-                { value: 'weekly', label: 'Щотижня' },
-                { value: 'biweekly', label: 'Раз на 2 тижні' },
-                { value: 'monthly', label: 'Щомісяця' },
+                { value: 'none', label: t('schedule.recurrenceNone') },
+                { value: 'daily', label: t('schedule.recurrenceDaily') },
+                { value: 'weekly', label: t('schedule.recurrenceWeekly') },
+                { value: 'biweekly', label: t('schedule.recurrenceBiweekly') },
+                { value: 'monthly', label: t('schedule.recurrenceMonthly') },
               ]} />
             </Field>
           </div>
@@ -355,9 +357,9 @@ export default function SchedulePage() {
           <div className="card" style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Users size={15} style={{ color: 'var(--accent)' }} />
-              <div style={{ fontWeight: 600, fontSize: 14 }}>Учасники</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{t('meetingForm.participants')}</div>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                ({selectedUsers.length + 1} включно з вами)
+                {t('schedule.participantsCountWithYou', { count: selectedUsers.length + 1 })}
               </span>
             </div>
 
@@ -368,10 +370,10 @@ export default function SchedulePage() {
             }}>
               <Avatar name={session?.user?.name || 'U'} image={session?.user?.image || null} size="sm" />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{session?.user?.name || 'Ви'}</div>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{session?.user?.name || t('schedule.you')}</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>{session?.user?.email}</div>
               </div>
-              <span className="chip" style={{ fontSize: 10 }}>Організатор</span>
+              <span className="chip" style={{ fontSize: 10 }}>{t('common.host')}</span>
             </div>
 
             {/* Selected participants */}
@@ -398,7 +400,7 @@ export default function SchedulePage() {
                 <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
                 <input
                   className="field"
-                  placeholder="Додати учасника..."
+                  placeholder={t('meetingForm.addParticipant')}
                   value={userSearch}
                   onChange={e => { setUserSearch(e.target.value); setShowUserDropdown(true); }}
                   onFocus={() => setShowUserDropdown(true)}
@@ -440,7 +442,7 @@ export default function SchedulePage() {
                   boxShadow: '0 8px 24px rgba(0,0,0,.3)',
                   fontSize: 13, color: 'var(--muted)', textAlign: 'center',
                 }}>
-                  Нікого не знайдено
+                  {t('schedule.noUsersFound')}
                 </div>
               )}
             </div>
@@ -450,19 +452,19 @@ export default function SchedulePage() {
           <div className="card" style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <Sparkles size={15} style={{ color: 'var(--accent)' }} />
-              <div style={{ fontWeight: 600, fontSize: 14 }}>AI та комунікація</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{t('schedule.aiSectionTitle')}</div>
             </div>
-            <Toggle label="Live transcription (Deepgram Nova-3, RU/UK/EN)" value={form.transcription} onChange={(v) => set('transcription', v)} />
-            <Toggle label="AI summary та action items після мітингу" value={form.aiReport} onChange={(v) => set('aiReport', v)} />
-            <Toggle label="Дозволити гостям приєднуватись за лінком" value={form.allowGuests} onChange={(v) => set('allowGuests', v)} />
+            <Toggle label={t('schedule.toggleTranscription')} value={form.transcription} onChange={(v) => set('transcription', v)} />
+            <Toggle label={t('schedule.toggleAiReport')} value={form.aiReport} onChange={(v) => set('aiReport', v)} />
+            <Toggle label={t('schedule.toggleAllowGuests')} value={form.allowGuests} onChange={(v) => set('allowGuests', v)} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: 10 }}>
             <button className="btn" onClick={() => router.push('/')}
-              style={isMobile ? { width: '100%', justifyContent: 'center', padding: '13px' } : undefined}>Скасувати</button>
+              style={isMobile ? { width: '100%', justifyContent: 'center', padding: '13px' } : undefined}>{t('common.cancel')}</button>
             <button className="btn btn-primary" onClick={submit} disabled={loading}
               style={{ fontWeight: 600, gap: 8, ...(isMobile ? { width: '100%', justifyContent: 'center', padding: '14px' } : {}) }}>
-              <Send size={14} /> {loading ? 'Створення...' : 'Створити та запросити'}
+              <Send size={14} /> {loading ? t('schedule.creating') : t('schedule.submit')}
             </button>
           </div>
         </div>

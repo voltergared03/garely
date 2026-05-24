@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import {
   Home, Calendar, ListChecks, Archive, Settings,
   Plus, Video, LogOut,
@@ -12,16 +13,17 @@ import { Avatar } from './ui/avatar';
 import { NotificationBell } from './notifications';
 
 const NAV_ITEMS = [
-  { id: '/', label: 'Дашборд', icon: Home, adminOnly: false },
-  { id: '/calendar', label: 'Календар', icon: Calendar, adminOnly: false },
-  { id: '/tasks', label: 'Таски', icon: ListChecks, adminOnly: false },
-  { id: '/archive', label: 'Архів', icon: Archive, adminOnly: false },
-  { id: '/settings', label: 'Налаштування', icon: Settings, adminOnly: false },
-];
+  { id: '/', labelKey: 'sidebar.dashboard', icon: Home, adminOnly: false },
+  { id: '/calendar', labelKey: 'nav.calendar', icon: Calendar, adminOnly: false },
+  { id: '/tasks', labelKey: 'nav.tasks', icon: ListChecks, adminOnly: false },
+  { id: '/archive', labelKey: 'nav.archive', icon: Archive, adminOnly: false },
+  { id: '/settings', labelKey: 'nav.settings', icon: Settings, adminOnly: false },
+] as const;
 
 export function Sidebar({ workspaceName }: { workspaceName?: string }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const t = useTranslations();
 
   return (
     <aside
@@ -52,10 +54,10 @@ export function Sidebar({ workspaceName }: { workspaceName?: string }) {
       </div>
 
       <Link href="/schedule" className="btn btn-primary" style={{ justifyContent: 'center', marginBottom: 6, fontWeight: 600, textDecoration: 'none' }}>
-        <Plus size={16} /> Новий мітинг
+        <Plus size={16} /> {t('sidebar.newMeeting')}
       </Link>
       <Link href="/lobby/quick" className="btn" style={{ justifyContent: 'center', marginBottom: 8, fontWeight: 500, textDecoration: 'none' }}>
-        <Video size={16} /> Швидкий мітинг
+        <Video size={16} /> {t('sidebar.quickMeeting')}
       </Link>
 
       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 8px' }} />
@@ -79,7 +81,7 @@ export function Sidebar({ workspaceName }: { workspaceName?: string }) {
               textDecoration: 'none',
             }}
           >
-            <Icon size={17} /> {it.label}
+            <Icon size={17} /> {t(it.labelKey)}
           </Link>
         );
       })}
@@ -126,7 +128,7 @@ export function Sidebar({ workspaceName }: { workspaceName?: string }) {
               <NotificationBell />
               <button
                 className="btn btn-ghost btn-icon"
-                title="Вийти"
+                title={t('sidebar.signOut')}
                 style={{ width: 30, height: 30 }}
                 onClick={() => signOut()}
               >

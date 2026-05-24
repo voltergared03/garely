@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, X, Sparkles, ChevronRight, RefreshCw, Users, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useTranslations, useLocale } from 'next-intl';
 import { AvatarStack } from '@/components/ui/avatar';
-import { fmtTime, fmtRelative, MONTHS_UA } from '@/lib/utils';
+import { fmtTime, fmtRelative } from '@/lib/utils';
 import { useIsMobile } from '@/lib/use-is-mobile';
 
 interface Participant {
@@ -33,13 +34,13 @@ interface Meeting {
 
 type FilterTab = 'all' | 'my' | 'recurring';
 
-const FILTER_TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all', label: 'Усі' },
-  { key: 'my', label: 'Мої' },
-  { key: 'recurring', label: 'Регулярні' },
+const FILTER_TABS: { key: FilterTab; labelKey: string }[] = [
+  { key: 'all', labelKey: 'archive.filterAll' },
+  { key: 'my', labelKey: 'archive.filterMy' },
+  { key: 'recurring', labelKey: 'archive.filterRecurring' },
 ];
 
-function groupByDay(meetings: Meeting[]): { label: string; date: Date; meetings: Meeting[] }[] {
+function groupByDay(meetings: Meeting[], locale: string): { label: string; date: Date; meetings: Meeting[] }[] {
   const groups = new Map<string, { label: string; date: Date; meetings: Meeting[] }>();
 
   for (const m of meetings) {
@@ -47,7 +48,7 @@ function groupByDay(meetings: Meeting[]): { label: string; date: Date; meetings:
     const d = new Date(m.scheduledAt);
     const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     if (!groups.has(dayKey)) {
-      groups.set(dayKey, { label: fmtRelative(d), date: d, meetings: [] });
+      groups.set(dayKey, { label: fmtRelative(d, locale), date: d, meetings: [] });
     }
     groups.get(dayKey)!.meetings.push(m);
   }
@@ -96,6 +97,8 @@ export default function ArchivePage() {
   const { data: session } = useSession();
   const isAdmin = (session?.user as any)?.role === 'admin';
   const isMobile = useIsMobile();
+  const t = useTranslations();
+  const locale = useLocale();
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -143,7 +146,7 @@ export default function ArchivePage() {
     return list;
   }, [meetings, search, filter]);
 
-  const groups = useMemo(() => groupByDay(filtered), [filtered]);
+  const groups = useMemo(() => groupByDay(filtered, locale), [filtered, locale]);
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -158,10 +161,10 @@ export default function ArchivePage() {
               margin: '0 0 6px',
             }}
           >
-            Архів мітингів
+            {t('archive.title')}
           </h1>
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, lineHeight: 1.5 }}>
-            Пошук по назві, учасниках та транскриптах завершених мітингів
+            {t('archive.subtitle')}
           </p>
         </div>
 
@@ -184,7 +187,7 @@ export default function ArchivePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Пошук мітингів..."
+              placeholder={t('archive.searchPlaceholder')}
               style={{
                 flex: 1,
                 background: 'transparent',
@@ -242,7 +245,7 @@ export default function ArchivePage() {
                   boxShadow: filter === tab.key ? '0 1px 3px rgba(0,0,0,.12)' : 'none',
                 }}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
@@ -255,7 +258,7 @@ export default function ArchivePage() {
               size={24}
               style={{ animation: 'spin 1s linear infinite', marginBottom: 12, opacity: 0.5 }}
             />
-            <div style={{ fontSize: 14 }}>Завантаження...</div>
+            <div style={{ fontSize: 14 }}>{t('common.loading')}</div>
             <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -275,12 +278,12 @@ export default function ArchivePage() {
           >
             <Search size={48} style={{ color: 'var(--muted)', opacity: 0.3 }} />
             <div style={{ fontSize: 16, fontWeight: 600 }}>
-              {search.trim() ? 'Нічого не знайдено' : 'Архів порожній'}
+              {search.trim() ? t('archive.emptySearchTitle') : t('archive.emptyTitle')}
             </div>
             <div style={{ color: 'var(--muted)', fontSize: 14, maxWidth: 360 }}>
               {search.trim()
-                ? `За запитом "${search}" не знайдено жодного мітингу. Спробуйте інший пошуковий запит.`
-                : 'Завершені мітинги з AI-звітами зʼявляться тут автоматично.'}
+                ? t('archive.emptySearchDesc', { query: search })
+                : t('archive.emptyDesc')}
             </div>
           </div>
         )}
@@ -293,15 +296,15 @@ export default function ArchivePage() {
           }} onClick={() => setConfirmDelete(null)}>
             <div className="card" style={{ maxWidth: 420, width: '100%', padding: '28px 24px' }}
               onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Видалити мітинг?</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{t('archive.deleteConfirmTitle')}</div>
               <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
-                {'Ви впевнені що хочете видалити \u00ab' + confirmDelete.title + '\u00bb? Всі дані мітингу (транскрипти, звіти, таски) будуть видалені назавжди.'}
+                {t('archive.deleteConfirmBody', { title: confirmDelete.title })}
               </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button className="btn" onClick={() => setConfirmDelete(null)}>Скасувати</button>
+                <button className="btn" onClick={() => setConfirmDelete(null)}>{t('common.cancel')}</button>
                 <button className="btn" onClick={handleDelete} disabled={!!deletingId}
                   style={{ background: 'color-mix(in oklab, var(--red) 22%, var(--surface))', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 40%, var(--border))' }}>
-                  <Trash2 size={14} /> {deletingId ? 'Видалення...' : 'Видалити'}
+                  <Trash2 size={14} /> {deletingId ? t('archive.deleting') : t('common.delete')}
                 </button>
               </div>
             </div>
@@ -345,8 +348,7 @@ export default function ArchivePage() {
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {group.meetings.length} мітинг
-                  {group.meetings.length === 1 ? '' : group.meetings.length < 5 ? 'и' : 'ів'}
+                  {t('common.meetings', { count: group.meetings.length })}
                 </span>
               </div>
 
@@ -364,6 +366,7 @@ export default function ArchivePage() {
 }
 
 function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeting: Meeting; searchQuery: string; isAdmin: boolean; onDelete: () => void; mobile?: boolean }) {
+  const t = useTranslations();
   const [hovered, setHovered] = useState(false);
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   const end = start ? new Date(start.getTime() + meeting.durationMin * 60000) : null;
@@ -403,7 +406,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
               {start ? fmtTime(start) : '--:--'}
             </div>
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-              {meeting.durationMin}хв
+              {t('common.minutes', { count: meeting.durationMin })}
             </div>
           </div>
           <div style={{ width: 1, height: 36, background: 'var(--border)', flexShrink: 0 }} />
@@ -429,7 +432,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
               className="chip"
               style={{ flexShrink: 0 }}
             >
-              <RefreshCw size={10} /> Регулярний
+              <RefreshCw size={10} /> {t('archive.recurringBadge')}
             </span>
           )}
           {hasReport && (
@@ -442,7 +445,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
                 color: 'var(--accent-2)',
               }}
             >
-              <Sparkles size={10} /> AI звіт
+              <Sparkles size={10} /> {t('archive.aiReportBadge')}
             </span>
           )}
         </div>
@@ -450,13 +453,13 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, minWidth: 0, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
           {mobile && (
             <>
-              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start) : '--:--'} · {meeting.durationMin}хв</span>
+              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start) : '--:--'} · {t('common.minutes', { count: meeting.durationMin })}</span>
               <span style={{ flexShrink: 0 }}>&middot;</span>
             </>
           )}
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             <Users size={12} />
-            {users.length} учасн.
+            {t('common.participants', { count: users.length })}
           </span>
           <span style={{ flexShrink: 0 }}>&middot;</span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{meeting.createdBy.name || 'Unknown'}</span>
@@ -473,7 +476,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
                 fontWeight: 500,
               }}
             >
-              Знайдено в transcript ({totalSnippets}):
+              {t('archive.foundInTranscript', { count: totalSnippets })}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
               {matches.map((tm) => (
@@ -516,7 +519,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
           className="btn btn-ghost btn-icon archive-del-btn"
-          title="Видалити мітинг"
+          title={t('archive.deleteMeeting')}
           style={{
             width: 30, height: 30, flexShrink: 0, color: 'var(--muted)',
             opacity: hovered ? 1 : 0,

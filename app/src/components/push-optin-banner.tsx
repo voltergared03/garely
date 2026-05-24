@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { BellRing, X } from 'lucide-react';
 import { getPushState, subscribeToPush, type PushState } from '@/lib/push-client';
 
@@ -12,6 +13,7 @@ const DISMISS_KEY = 'eam_push_banner_dismissed';
  * null in every other state so it never nags a subscribed/denied user.
  */
 export function PushOptInBanner() {
+  const t = useTranslations();
   const [state, setState] = useState<PushState | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(true);
@@ -73,10 +75,10 @@ export function PushOptInBanner() {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
-          Увімкнути push-сповіщення
+          {t('push.bannerTitle')}
         </div>
         <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-          Навіть коли вкладку закрито
+          {t('push.bannerSubtitle')}
         </div>
       </div>
       <button
@@ -85,12 +87,12 @@ export function PushOptInBanner() {
         disabled={busy}
         style={{ fontSize: 11.5, padding: '5px 10px', flexShrink: 0 }}
       >
-        {busy ? '…' : 'Увімкнути'}
+        {busy ? '…' : t('push.bannerEnable')}
       </button>
       <button
         className="btn btn-ghost btn-icon"
         onClick={dismiss}
-        aria-label="Сховати"
+        aria-label={t('common.close')}
         style={{ width: 24, height: 24, flexShrink: 0 }}
       >
         <X size={12} />

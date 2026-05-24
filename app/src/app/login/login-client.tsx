@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/logo';
 import { Globe, Lock, Loader2 } from 'lucide-react';
@@ -21,6 +22,7 @@ export function LoginClient({
   selfReg: boolean;
 }) {
   const router = useRouter();
+  const t = useTranslations();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,7 +42,7 @@ export function LoginClient({
       if (r?.error) {
         // A pending/expired/denied self-registration has no account yet, so the
         // sign-in fails generically — check for it and show a clearer message.
-        let msg = 'Невірний email або пароль';
+        let msg = t('auth.errInvalidCredentials');
         try {
           const sr = await fetch('/api/register/status', {
             method: 'POST',
@@ -48,9 +50,9 @@ export function LoginClient({
             body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
           });
           const sd = await sr.json().catch(() => ({}));
-          if (sd.status === 'pending') msg = 'Вашу заявку на реєстрацію ще не підтвердив адміністратор. Зачекайте на схвалення.';
-          else if (sd.status === 'expired') msg = 'Термін дії заявки минув. Будь ласка, зареєструйтеся ще раз.';
-          else if (sd.status === 'denied') msg = 'Вашу заявку на реєстрацію відхилено.';
+          if (sd.status === 'pending') msg = t('auth.errRegPending');
+          else if (sd.status === 'expired') msg = t('auth.errRegExpired');
+          else if (sd.status === 'denied') msg = t('auth.errRegDenied');
         } catch {
           /* keep the generic message */
         }
@@ -61,7 +63,7 @@ export function LoginClient({
       router.push('/');
       router.refresh();
     } catch {
-      setErr('Помилка мережі');
+      setErr(t('auth.errNetwork'));
       setBusy(false);
     }
   };
@@ -86,10 +88,10 @@ export function LoginClient({
           </div>
 
           <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-            Вітаємо в {wsName}
+            {t('auth.welcome', { name: wsName })}
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 28px', lineHeight: 1.5 }}>
-            Self-hosted video conferencing з AI-транскрипцією та автоматичними звітами
+            {t('auth.tagline')}
           </p>
 
           {passwordEnabled && (
@@ -98,7 +100,7 @@ export function LoginClient({
                 className="field"
                 type="email"
                 autoComplete="username"
-                placeholder="Email"
+                placeholder={t('auth.email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ marginBottom: 10 }}
@@ -107,7 +109,7 @@ export function LoginClient({
                 className="field"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Пароль"
+                placeholder={t('auth.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -120,13 +122,13 @@ export function LoginClient({
                 disabled={busy || !email.trim() || !password}
                 style={{ width: '100%', justifyContent: 'center', padding: '13px 16px', fontWeight: 600, marginTop: 14, gap: 8 }}
               >
-                {busy ? <Loader2 size={16} className="spin" /> : <Lock size={15} />} Увійти
+                {busy ? <Loader2 size={16} className="spin" /> : <Lock size={15} />} {t('auth.signIn')}
               </button>
               {selfReg && (
                 <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'var(--muted)' }}>
-                  Немає акаунту?{' '}
+                  {t('auth.noAccount')}{' '}
                   <Link href="/register" style={{ color: 'var(--accent)', fontWeight: 600 }}>
-                    Зареєструватися
+                    {t('auth.register')}
                   </Link>
                 </div>
               )}
@@ -136,7 +138,7 @@ export function LoginClient({
           {googleEnabled && passwordEnabled && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '4px 0 18px', color: 'var(--muted-2)', fontSize: 11.5 }}>
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              або
+              {t('auth.or')}
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
           )}
@@ -147,12 +149,12 @@ export function LoginClient({
               className="btn"
               style={{ width: '100%', padding: '14px 16px', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}
             >
-              <Globe size={16} /> Увійти через Google
+              <Globe size={16} /> {t('auth.signInWithGoogle')}
             </button>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, justifyContent: 'center', marginTop: 18 }}>
-            <Lock size={12} /> Self-hosted{wsDomain ? ` · ${wsDomain}` : ''}
+            <Lock size={12} /> {t('auth.selfHosted')}{wsDomain ? ` · ${wsDomain}` : ''}
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig, getDeepSeekConfig } from '@/lib/config';
@@ -11,6 +12,8 @@ export async function GET() {
   if (!session?.user || (session.user as any).role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+
+  const t = await getTranslations('integrations');
 
   // PostgreSQL: ping + size
   let dbStatus: 'connected' | 'error' = 'error';
@@ -40,13 +43,13 @@ export async function GET() {
   const googleOk = !!process.env.GOOGLE_CLIENT_ID;
 
   const integrations = [
-    { name: 'LiveKit', desc: 'WebRTC SFU', status: livekitOk ? 'connected' : 'not_configured', metric: liveMeetings > 0 ? `${liveMeetings} активних` : 'self-hosted' },
+    { name: 'LiveKit', desc: 'WebRTC SFU', status: livekitOk ? 'connected' : 'not_configured', metric: liveMeetings > 0 ? t('liveMeetings', { count: liveMeetings }) : 'self-hosted' },
     { name: 'Deepgram', desc: 'Multilingual STT', status: deepgramOk ? 'connected' : 'not_configured', metric: keys.DEEPGRAM_MODEL || 'nova-3' },
     { name: 'DeepSeek', desc: 'LLM · summary, action items', status: deepseekOk ? 'connected' : 'not_configured', metric: ds.model },
-    { name: 'SMTP Email', desc: 'Транзакційна пошта · nodemailer', status: smtp ? 'connected' : 'not_configured', metric: smtp ? smtp.host : 'не налаштовано' },
-    { name: 'Google OAuth', desc: 'SSO для команди', status: googleOk ? 'connected' : 'not_configured', metric: `${userCount} ${userCount === 1 ? 'юзер' : userCount < 5 ? 'юзери' : 'юзерів'}` },
+    { name: 'SMTP Email', desc: t('descSmtp'), status: smtp ? 'connected' : 'not_configured', metric: smtp ? smtp.host : t('notConfiguredMetric') },
+    { name: 'Google OAuth', desc: t('descGoogle'), status: googleOk ? 'connected' : 'not_configured', metric: t('users', { count: userCount }) },
     { name: 'PostgreSQL', desc: 'Prisma · self-hosted', status: dbStatus, metric: dbSize },
-    { name: 'S3 Storage', desc: 'Записи мітингів', status: s3 ? 'connected' : 'not_configured', metric: s3 ? s3.bucket : 'не налаштовано' },
+    { name: 'S3 Storage', desc: t('descS3'), status: s3 ? 'connected' : 'not_configured', metric: s3 ? s3.bucket : t('notConfiguredMetric') },
   ];
 
   return NextResponse.json({ integrations });

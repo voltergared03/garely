@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, verifyPassword, passwordPolicyError } from '@/lib/password';
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest) {
   // password yet can set one directly — the authenticated session authorizes it.
   if (!user.mustChangePassword && user.passwordHash) {
     if (!(await verifyPassword(String(currentPassword || ''), user.passwordHash))) {
-      return NextResponse.json({ error: 'Невірний поточний пароль' }, { status: 400 });
+      const t = await getTranslations('errors');
+      return NextResponse.json({ error: t('invalidCurrentPassword') }, { status: 400 });
     }
   }
 

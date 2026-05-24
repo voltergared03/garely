@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { readConfig } from '@/lib/config';
 
@@ -8,10 +9,11 @@ export async function POST() {
   if (!session?.user || (session.user as any).role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  const t = await getTranslations('errors');
   const m = await readConfig(['DEEPGRAM_API_KEY']);
   const key = m.DEEPGRAM_API_KEY || process.env.DEEPGRAM_API_KEY || '';
   if (!key) {
-    return NextResponse.json({ error: 'Deepgram API key не задано' }, { status: 400 });
+    return NextResponse.json({ error: t('deepgramKeyMissing') }, { status: 400 });
   }
   try {
     const res = await fetch('https://api.deepgram.com/v1/projects', {
@@ -23,6 +25,6 @@ export async function POST() {
     }
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Не вдалося підключитись' }, { status: 502 });
+    return NextResponse.json({ error: e?.message || t('connectionFailed') }, { status: 502 });
   }
 }

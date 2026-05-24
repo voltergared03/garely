@@ -5,19 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const MONTHS_UA = [
-  'січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
-  'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня',
-];
-
-export const MONTHS_UA_NOM = [
-  'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
-  'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень',
-];
-
-export const DOW_UA = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-export const DOW_FULL = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'Пʼятниця', 'Субота', 'Неділя'];
-
 export function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
@@ -26,21 +13,39 @@ export function fmtTime(d: Date): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function fmtDateLong(d: Date): string {
-  return `${d.getDate()} ${MONTHS_UA[d.getMonth()]}`;
-}
-
-export function fmtRelative(d: Date): string {
+/** Whole-day offset from today (0 = today, 1 = tomorrow, -1 = yesterday). */
+export function dayDiff(d: Date): number {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d);
   day.setHours(0, 0, 0, 0);
-  const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return 'Сьогодні';
-  if (diff === 1) return 'Завтра';
-  if (diff === -1) return 'Вчора';
-  if (diff > 1 && diff < 7) return DOW_FULL[(day.getDay() + 6) % 7];
-  return fmtDateLong(d);
+  return Math.round((day.getTime() - today.getTime()) / 86400000);
+}
+
+/** String-independent "is this date today?" — use for logic, never compare formatted labels. */
+export function isToday(d: Date): boolean {
+  return dayDiff(d) === 0;
+}
+
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+// `locale` defaults to 'uk' so existing call sites keep their behaviour until
+// they're swept to pass the active UI locale.
+export function fmtDateLong(d: Date, locale: string = 'uk'): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).format(d);
+}
+
+export function fmtRelative(d: Date, locale: string = 'uk'): string {
+  const diff = dayDiff(d);
+  if (diff >= -1 && diff <= 1) {
+    return capitalize(new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(diff, 'day'));
+  }
+  if (diff > 1 && diff < 7) {
+    return capitalize(new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(d));
+  }
+  return fmtDateLong(d, locale);
 }
 
 export function generateMeetingSlug(): string {

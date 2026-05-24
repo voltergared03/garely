@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Select } from '@/components/ui/select';
 import {
   LiveKitRoom,
@@ -65,6 +66,7 @@ const REACTIONS = ['👍', '👏', '😂', '❤️', '🔥', '✋', '🎉', '�
    ROOM CONTENT — rendered inside <LiveKitRoom>
    ══════════════════════════════════════════════════════════ */
 function AdmissionPanel({ meetingId }: { meetingId: string }) {
+  const t = useTranslations();
   const [pending, setPending] = useState<{ id: string; guestName: string }[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -98,11 +100,11 @@ function AdmissionPanel({ meetingId }: { meetingId: string }) {
       {pending.map((p) => (
         <div key={p.id} style={{ background: 'rgba(20,22,28,.97)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 12px 40px rgba(0,0,0,.5)' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>Гість хоче приєднатися</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{t('room.guestWantsToJoin')}</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.guestName}</div>
           </div>
-          <button onClick={() => decide(p.id, 'deny')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.15)', background: 'transparent', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13 }}>Відхилити</button>
-          <button onClick={() => decide(p.id, 'approve')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Впустити</button>
+          <button onClick={() => decide(p.id, 'deny')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.15)', background: 'transparent', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13 }}>{t('room.deny')}</button>
+          <button onClick={() => decide(p.id, 'approve')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{t('room.admit')}</button>
         </div>
       ))}
     </div>
@@ -112,6 +114,8 @@ function AdmissionPanel({ meetingId }: { meetingId: string }) {
 function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }: {
   meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean;
 }) {
+  const tr = useTranslations();
+  const locale = useLocale();
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const participants = useParticipants();
@@ -140,7 +144,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
 
   /* ── kick participant ──────────────── */
   const kickParticipant = useCallback(async (identity: string) => {
-    if (!confirm('Видалити цього учасника з мітингу?')) return;
+    if (!confirm(tr('room.kickConfirm'))) return;
     setKickingId(identity);
     try {
       const res = await fetch(`/api/meetings/${meetingId}/kick`, {
@@ -150,10 +154,10 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Не вдалося видалити учасника');
+        alert(data.error || tr('room.kickFailed'));
       }
     } catch {
-      alert('Помилка з\'єднання');
+      alert(tr('room.connectionError'));
     } finally {
       setKickingId(null);
     }
@@ -322,7 +326,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: value }),
         });
-        setNotesLastSaved(new Date().toLocaleTimeString('uk', { hour: '2-digit', minute: '2-digit' }));
+        setNotesLastSaved(new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }));
       } catch { /* skip */ }
       setNotesSaving(false);
     }, 1500);
@@ -529,7 +533,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
             borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,.6)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Запросити учасників</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{tr('room.inviteParticipants')}</div>
               <button onClick={() => setShowSharePopup(false)} style={{
                 width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: 'rgba(255,255,255,.08)', color: 'rgba(255,255,255,.5)',
@@ -537,7 +541,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
               }}><X size={14} /></button>
             </div>
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 16, lineHeight: 1.5 }}>
-              Поділіться цим посиланням — гості зможуть приєднатися без реєстрації
+              {tr('room.inviteHint')}
             </div>
             <div style={{
               display: 'flex', gap: 8, alignItems: 'center',
@@ -557,7 +561,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
               background: linkCopied ? '#22c55e' : '#3b82f6', color: '#fff',
               fontSize: 14, fontWeight: 600, transition: 'background .15s',
             }}>
-              {linkCopied ? <><Check size={15} /> Посилання скопійовано!</> : <><Link2 size={15} /> Копіювати посилання</>}
+              {linkCopied ? <><Check size={15} /> {tr('room.linkCopied')}</> : <><Link2 size={15} /> {tr('room.copyLink')}</>}
             </button>
           </div>
         </div>
@@ -615,7 +619,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                     background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(8px)',
                     fontSize: 12, color: '#fff',
                   }}>
-                    📺 {mainScreen?.participant?.name || 'Демонстрація'}
+                    📺 {mainScreen?.participant?.name || tr('room.screenShare')}
                   </div>
                 </div>
                 <div className="room-filmstrip" style={{
@@ -650,43 +654,43 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
             background: '#1a1d23', borderTop: '1px solid rgba(255,255,255,.06)',
           }}>
             <ControlBtn active={micOn} onClick={toggleMic} danger={!micOn}
-              icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={micOn ? 'Мікрофон' : 'Увімкнути'} />
+              icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={micOn ? tr('room.microphone') : tr('room.turnOn')} />
             <ControlBtn active={camOn} onClick={toggleCam} danger={!camOn}
-              icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={camOn ? 'Камера' : 'Увімкнути'} />
+              icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={camOn ? tr('room.camera') : tr('room.turnOn')} />
             <ControlBtn active={screenOn} onClick={toggleScreen}
-              icon={screenOn ? <MonitorOff size={20} /> : <Monitor size={20} />} label="Екран" className="room-screen-btn" />
+              icon={screenOn ? <MonitorOff size={20} /> : <Monitor size={20} />} label={tr('room.screen')} className="room-screen-btn" />
 
             <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
 
             {!isGuest && (
               <ControlBtn active={showSharePopup} onClick={() => setShowSharePopup(!showSharePopup)}
-                icon={<UserPlus size={20} />} label="Запросити" />
+                icon={<UserPlus size={20} />} label={tr('room.invite')} />
             )}
 
             {/* Participants panel */}
             <ControlBtn active={sidePanel === 'participants'}
               onClick={() => setSidePanel(sidePanel === 'participants' ? null : 'participants')}
-              icon={<Users size={20} />} label="Учасники"
+              icon={<Users size={20} />} label={tr('room.participants')}
               badge={humanCount > 1 ? humanCount : undefined} />
 
             <ControlBtn active={sidePanel === 'chat'} onClick={() => setSidePanel(sidePanel === 'chat' ? null : 'chat')}
-              icon={<MessageSquare size={20} />} label="Чат"
+              icon={<MessageSquare size={20} />} label={tr('room.chat')}
               badge={chatMessages.length > 0 ? chatMessages.length : undefined} />
             <ControlBtn active={sidePanel === 'transcript'} onClick={() => setSidePanel(sidePanel === 'transcript' ? null : 'transcript')}
-              icon={<FileText size={20} />} label="Текст" />
+              icon={<FileText size={20} />} label={tr('room.text')} />
 
             {/* Notes panel */}
             <ControlBtn active={sidePanel === 'notes'} onClick={() => setSidePanel(sidePanel === 'notes' ? null : 'notes')}
-              icon={<StickyNote size={20} />} label="Нотатки" />
+              icon={<StickyNote size={20} />} label={tr('room.notes')} />
 
             {/* AI Notes panel */}
             <ControlBtn active={sidePanel === 'ai-notes'} onClick={() => setSidePanel(sidePanel === 'ai-notes' ? null : 'ai-notes')}
-              icon={<Sparkles size={20} />} label="AI" />
+              icon={<Sparkles size={20} />} label={tr('room.ai')} />
 
             {/* Reactions */}
             <div style={{ position: 'relative' }}>
               <ControlBtn active={showReactionPicker} onClick={() => setShowReactionPicker(!showReactionPicker)}
-                icon={<Smile size={20} />} label="Реакції" />
+                icon={<Smile size={20} />} label={tr('room.reactions')} />
               {showReactionPicker && (
                 <>
                   <div onClick={() => setShowReactionPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
@@ -719,7 +723,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
             <div style={{ position: 'relative' }}>
               <ControlBtn active={showDevicePicker}
                 onClick={() => { enumerateDevices(); setShowDevicePicker(!showDevicePicker); }}
-                icon={<Settings size={20} />} label="Пристрої" />
+                icon={<Settings size={20} />} label={tr('room.devices')} />
               {showDevicePicker && (
                 <>
                   <div onClick={() => setShowDevicePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
@@ -729,14 +733,14 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                     background: '#1e2028', border: '1px solid rgba(255,255,255,.12)',
                     borderRadius: 14, boxShadow: '0 20px 50px rgba(0,0,0,.6)',
                   }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 12 }}>Пристрої</div>
-                    <RoomDeviceSelect label="Мікрофон" icon={<Mic size={13} />}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 12 }}>{tr('room.devices')}</div>
+                    <RoomDeviceSelect label={tr('room.microphone')} icon={<Mic size={13} />}
                       devices={devices.filter(d => d.kind === 'audioinput')}
                       value={selectedMic} onChange={switchMic} />
-                    <RoomDeviceSelect label="Камера" icon={<Video size={13} />}
+                    <RoomDeviceSelect label={tr('room.camera')} icon={<Video size={13} />}
                       devices={devices.filter(d => d.kind === 'videoinput')}
                       value={selectedCam} onChange={switchCam} />
-                    <RoomDeviceSelect label="Динаміки" icon={<Volume2 size={13} />}
+                    <RoomDeviceSelect label={tr('room.speakers')} icon={<Volume2 size={13} />}
                       devices={devices.filter(d => d.kind === 'audiooutput')}
                       value={selectedSpeaker} onChange={switchSpeaker} />
                   </div>
@@ -753,7 +757,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
               fontSize: 14, fontWeight: 600, transition: 'background .15s', flexShrink: 0,
             }}>
               <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
-              <span className="room-leave-label">Вийти</span>
+              <span className="room-leave-label">{tr('room.leave')}</span>
             </button>
           </div>
         </div>
@@ -769,7 +773,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
               borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
             }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
-                {sidePanel === 'chat' ? 'Чат' : sidePanel === 'transcript' ? 'Транскрипція' : sidePanel === 'participants' ? 'Учасники' : sidePanel === 'notes' ? 'Нотатки' : 'AI Нотатки'}
+                {sidePanel === 'chat' ? tr('room.chat') : sidePanel === 'transcript' ? tr('room.transcription') : sidePanel === 'participants' ? tr('room.participants') : sidePanel === 'notes' ? tr('room.notes') : tr('room.aiNotes')}
               </span>
               <button onClick={() => setSidePanel(null)} style={{
                 background: 'none', border: 'none', color: 'rgba(255,255,255,.4)',
@@ -819,13 +823,13 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                             <span style={{
                               fontSize: 10, padding: '1px 5px', borderRadius: 4,
                               background: 'rgba(59,130,246,.2)', color: '#93c5fd',
-                            }}>Ви</span>
+                            }}>{tr('room.you')}</span>
                           )}
                           {isGuestUser && (
                             <span style={{
                               fontSize: 10, padding: '1px 5px', borderRadius: 4,
                               background: 'rgba(99,102,241,.2)', color: '#a5b4fc',
-                            }}>Гість</span>
+                            }}>{tr('room.guest')}</span>
                           )}
                         </div>
                         {/* Media status */}
@@ -848,7 +852,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                         <button
                           onClick={() => kickParticipant(identity)}
                           disabled={kickingId === identity}
-                          title="Видалити з мітингу"
+                          title={tr('room.removeFromMeeting')}
                           style={{
                             width: 32, height: 32, borderRadius: 8,
                             border: '1px solid rgba(239,68,68,.2)',
@@ -871,7 +875,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                 {humanCount === 0 && (
                   <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40 }}>
                     <Users size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
-                    <div>Немає учасників</div>
+                    <div>{tr('room.noParticipants')}</div>
                   </div>
                 )}
 
@@ -884,7 +888,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                     fontSize: 11.5, color: 'rgba(255,255,255,.35)',
                   }}>
                     <Shield size={13} style={{ flexShrink: 0 }} />
-                    <span>Ви можете видаляти учасників з мітингу</span>
+                    <span>{tr('room.canRemoveParticipants')}</span>
                   </div>
                 )}
               </div>
@@ -900,17 +904,17 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                   {chatMessages.length === 0 && (
                     <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40 }}>
                       <MessageSquare size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
-                      <div>Повідомлень поки немає</div>
+                      <div>{tr('room.noMessages')}</div>
                     </div>
                   )}
                   {chatMessages.map((m, i) => (
                     <div key={i}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>
-                          {m.from?.name || m.from?.identity || 'Ви'}
+                          {m.from?.name || m.from?.identity || tr('room.you')}
                         </span>
                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
-                          {new Date(m.timestamp).toLocaleTimeString('uk', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(m.timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', lineHeight: 1.45 }}>{m.message}</div>
@@ -924,7 +928,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                 }}>
                   <input value={chatInput} onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                    placeholder="Написати повідомлення..."
+                    placeholder={tr('room.messagePlaceholder')}
                     style={{
                       flex: 1, padding: '8px 12px', borderRadius: 8,
                       background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)',
@@ -949,8 +953,8 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                 {transcripts.length === 0 && Object.keys(interimRef.current).length === 0 && (
                   <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40, lineHeight: 1.6 }}>
                     <Languages size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
-                    <div>Транскрипція з&apos;явиться,</div>
-                    <div>коли учасники почнуть говорити</div>
+                    <div>{tr('room.transcriptEmptyLine1')}</div>
+                    <div>{tr('room.transcriptEmptyLine2')}</div>
                   </div>
                 )}
                 {transcripts.map(e => (
@@ -981,17 +985,17 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                   fontSize: 11, color: 'rgba(255,255,255,.35)',
                 }}>
                   {notesSaving ? (
-                    <><Save size={11} style={{ animation: 'spin .8s linear infinite' }} /> Збереження...</>
+                    <><Save size={11} style={{ animation: 'spin .8s linear infinite' }} /> {tr('common.saving')}</>
                   ) : notesLastSaved ? (
-                    <><Check size={11} /> Збережено о {notesLastSaved}</>
+                    <><Check size={11} /> {tr('room.savedAt', { time: notesLastSaved })}</>
                   ) : (
-                    <><StickyNote size={11} /> Спільні нотатки для всіх учасників</>
+                    <><StickyNote size={11} /> {tr('room.sharedNotesHint')}</>
                   )}
                 </div>
                 <textarea
                   value={notesContent}
                   onChange={e => handleNotesChange(e.target.value)}
-                  placeholder="Записуйте ключові моменти зустрічі тут...&#10;&#10;Нотатки синхронізуються для всіх учасників."
+                  placeholder={tr('room.notesPlaceholder')}
                   style={{
                     flex: 1, resize: 'none', border: 'none', outline: 'none',
                     padding: '14px 14px', fontSize: 13, lineHeight: 1.6,
@@ -1008,10 +1012,10 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                 {!liveAiNotes ? (
                   <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40, lineHeight: 1.6 }}>
                     <Sparkles size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
-                    <div>AI аналіз з&apos;явиться</div>
-                    <div>після кількох хвилин розмови</div>
+                    <div>{tr('room.aiEmptyLine1')}</div>
+                    <div>{tr('room.aiEmptyLine2')}</div>
                     <div style={{ fontSize: 11, marginTop: 12, color: 'rgba(255,255,255,.15)' }}>
-                      Оновлюється автоматично
+                      {tr('room.aiUpdatesAuto')}
                     </div>
                   </div>
                 ) : (
@@ -1024,7 +1028,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                           textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
                           display: 'flex', alignItems: 'center', gap: 5,
                         }}>
-                          <Sparkles size={11} /> Резюме
+                          <Sparkles size={11} /> {tr('room.summary')}
                         </div>
                         <div style={{
                           fontSize: 13, color: 'rgba(255,255,255,.75)', lineHeight: 1.6,
@@ -1044,7 +1048,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                           textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
                           display: 'flex', alignItems: 'center', gap: 5,
                         }}>
-                          <Check size={11} /> Рішення
+                          <Check size={11} /> {tr('room.decisions')}
                         </div>
                         {liveAiNotes.decisions.map((d, i) => (
                           <div key={i} style={{
@@ -1087,7 +1091,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                       fontSize: 10, color: 'rgba(255,255,255,.2)', textAlign: 'center',
                       marginTop: 8,
                     }}>
-                      Оновлено {new Date(liveAiNotes.updatedAt).toLocaleTimeString('uk', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {tr('room.updatedAt', { time: new Date(liveAiNotes.updatedAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}
                     </div>
                   </>
                 )}
@@ -1137,6 +1141,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
    PARTICIPANT TILE
    ══════════════════════════════════════════════════════════ */
 function ParticipantTile({ track, small, fill }: { track: any; small?: boolean; fill?: boolean }) {
+  const t = useTranslations();
   const p = track.participant;
   const isCamOn = p.isCameraEnabled;
   const isMicOn = p.isMicrophoneEnabled;
@@ -1190,7 +1195,7 @@ function ParticipantTile({ track, small, fill }: { track: any; small?: boolean; 
           fontSize: small ? 11 : 13, color: '#fff', fontWeight: 500,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {p.name || p.identity}{isLocal ? ' (Ви)' : ''}
+          {p.name || p.identity}{isLocal ? ` (${t('room.you')})` : ''}
         </span>
       </div>
     </div>
@@ -1204,6 +1209,7 @@ function RoomDeviceSelect({ label, icon, devices, value, onChange }: {
   label: string; icon: React.ReactNode; devices: MediaDeviceInfo[];
   value: string; onChange: (id: string) => void;
 }) {
+  const t = useTranslations();
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
@@ -1212,9 +1218,9 @@ function RoomDeviceSelect({ label, icon, devices, value, onChange }: {
       <Select
         value={value}
         onChange={onChange}
-        placeholder="Не знайдено"
+        placeholder={t('room.notFound')}
         style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: '#fff', padding: '7px 9px', fontSize: 12.5 }}
-        options={devices.map(d => ({ value: d.deviceId, label: d.label || `Device ${d.deviceId.slice(0, 6)}` }))}
+        options={devices.map(d => ({ value: d.deviceId, label: d.label || t('room.deviceFallback', { id: d.deviceId.slice(0, 6) }) }))}
       />
     </div>
   );
@@ -1262,6 +1268,7 @@ function ControlBtn({ active, onClick, icon, label, danger, badge, className }: 
    MAIN PAGE
    ══════════════════════════════════════════════════════════ */
 export default function MeetingRoomPage() {
+  const t = useTranslations();
   const { id } = useParams();
   const searchParams = useSearchParams();
   const startWithVideo = searchParams.get('cam') !== '0';
@@ -1304,7 +1311,7 @@ export default function MeetingRoomPage() {
         }
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.denied ? 'Доступ відхилено організатором' : (errData.error || 'Не вдалося отримати токен'));
+          throw new Error(errData.denied ? t('room.accessDenied') : (errData.error || t('room.tokenFailed')));
         }
         const data = await res.json();
         if (cancelled) return;
@@ -1327,11 +1334,11 @@ export default function MeetingRoomPage() {
     return (
       <div style={{ position: 'fixed', inset: 0, background: '#111317', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', padding: 20 }}>
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Помилка</div>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{t('room.error')}</div>
           <div style={{ color: '#999', marginBottom: 16, maxWidth: 360 }}>{error}</div>
           <button onClick={() => router.push('/')} style={{
             padding: '10px 20px', borderRadius: 10, background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer',
-          }}>На головну</button>
+          }}>{t('room.goHome')}</button>
         </div>
       </div>
     );
@@ -1346,8 +1353,8 @@ export default function MeetingRoomPage() {
             borderTop: '3px solid #3b82f6', borderRadius: '50%',
             animation: 'spin .8s linear infinite', margin: '0 auto 18px',
           }} />
-          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>Очікування підтвердження</div>
-          <div style={{ color: 'rgba(255,255,255,.6)', fontSize: 14, lineHeight: 1.5 }}>Організатор має впустити вас у мітинг. Зачекайте, будь ласка...</div>
+          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{t('room.waitingTitle')}</div>
+          <div style={{ color: 'rgba(255,255,255,.6)', fontSize: 14, lineHeight: 1.5 }}>{t('room.waitingDesc')}</div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -1363,7 +1370,7 @@ export default function MeetingRoomPage() {
             borderTop: '3px solid #3b82f6', borderRadius: '50%',
             animation: 'spin .8s linear infinite',
           }} />
-          <span style={{ fontSize: 15, color: 'rgba(255,255,255,.6)' }}>Підключення до кімнати...</span>
+          <span style={{ fontSize: 15, color: 'rgba(255,255,255,.6)' }}>{t('room.connecting')}</span>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>

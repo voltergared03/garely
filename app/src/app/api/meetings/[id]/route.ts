@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -105,7 +106,8 @@ export async function PATCH(
   // Validate status against the allowed set
   const VALID_STATUS = ['scheduled', 'live', 'ended', 'cancelled'];
   if ('status' in meetingData && !VALID_STATUS.includes(meetingData.status)) {
-    return NextResponse.json({ error: 'Невалідний статус' }, { status: 400 });
+    const t = await getTranslations('errors');
+    return NextResponse.json({ error: t('invalidStatus') }, { status: 400 });
   }
 
   // Update meeting fields

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 import { generateSecret, otpauthURL } from '@/lib/totp';
 import { encryptSecret } from '@/lib/twofactor';
+import { getTranslations } from 'next-intl/server';
 
 // POST /api/2fa/setup — generate a fresh TOTP secret + QR (not yet enabled).
 // The secret is stored encrypted with totpEnabled still false; it only takes
@@ -14,13 +15,14 @@ export async function POST() {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = (session.user as any).id as string;
 
+  const t = await getTranslations('errors');
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { email: true, name: true, totpEnabled: true } as any,
   }) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
   if (user.totpEnabled) {
-    return NextResponse.json({ error: '2FA вже увімкнено. Спершу вимкніть.' }, { status: 400 });
+    return NextResponse.json({ error: t('twoFaAlreadyEnabledDisableFirst') }, { status: 400 });
   }
 
   const cfg = await readConfig(['WS_NAME']);

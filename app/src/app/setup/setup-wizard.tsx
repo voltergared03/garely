@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import { Select } from '@/components/ui/select';
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locales';
 import {
   Check, Copy, ArrowRight, ArrowLeft, Loader2, KeyRound, Building2, Globe, ShieldCheck,
 } from 'lucide-react';
@@ -17,8 +19,8 @@ const TZ_OPTIONS = [
 ].map((v) => ({ value: v, label: v }));
 
 const LANG_OPTIONS = [
-  { value: 'uk', label: 'Українська' },
   { value: 'en', label: 'English' },
+  { value: 'uk', label: 'Українська' },
 ];
 
 interface Initial {
@@ -29,11 +31,12 @@ interface Initial {
   hasGoogleId: boolean;
 }
 
-const STEPS = ['Токен', 'Простір', 'Вхід', 'Адмін'];
-
 export function SetupWizard({ initial }: { initial: Initial }) {
+  const t = useTranslations();
   const router = useRouter();
   const { status } = useSession();
+
+  const STEPS = [t('setup.stepToken'), t('setup.stepSpace'), t('setup.stepLogin'), t('setup.stepAdmin')];
 
   const [token, setToken] = useState('');
   const [tokenInput, setTokenInput] = useState('');
@@ -81,6 +84,14 @@ export function SetupWizard({ initial }: { initial: Initial }) {
     });
   };
 
+  // Picking the workspace language is the first setup choice — it sets the
+  // system default for everyone AND switches the wizard itself live.
+  const changeWizardLanguage = (v: string) => {
+    setWsLanguage(v);
+    document.cookie = `${LOCALE_COOKIE}=${v}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;
+    router.refresh();
+  };
+
   const saveConfig = useCallback(async (values: Record<string, string>) => {
     const res = await fetch('/api/setup/config', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -88,9 +99,9 @@ export function SetupWizard({ initial }: { initial: Initial }) {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || 'Не вдалося зберегти');
+      throw new Error(d.error || t('setup.errSaveFailed'));
     }
-  }, [token]);
+  }, [token, t]);
 
   const verifyToken = async () => {
     setErr(null); setBusy(true);
@@ -105,14 +116,14 @@ export function SetupWizard({ initial }: { initial: Initial }) {
         sessionStorage.setItem(TOKEN_KEY, tokenInput.trim());
         setStep(2);
       } else {
-        setErr('Невірний токен. Перевірте логи контейнера (docker compose logs).');
+        setErr(t('setup.errInvalidToken'));
       }
-    } catch { setErr('Помилка мережі'); }
+    } catch { setErr(t('setup.errNetwork')); }
     finally { setBusy(false); }
   };
 
   const saveIdentity = async () => {
-    if (!wsName.trim() || !cleanDomain) { setErr('Заповніть назву та домен'); return; }
+    if (!wsName.trim() || !cleanDomain) { setErr(t('setup.errNameDomainRequired')); return; }
     setErr(null); setBusy(true);
     try {
       await saveConfig({
@@ -127,8 +138,8 @@ export function SetupWizard({ initial }: { initial: Initial }) {
   };
 
   const saveAuth = async () => {
-    if (!googleEnabled && !passwordEnabled) { setErr('Увімкніть хоча б один спосіб входу'); return; }
-    if (googleEnabled && (!googleId.trim() || !googleSecret.trim())) { setErr('Для Google вставте Client ID і Client Secret'); return; }
+    if (!googleEnabled && !passwordEnabled) { setErr(t('setup.errPickOneMethod')); return; }
+    if (googleEnabled && (!googleId.trim() || !googleSecret.trim())) { setErr(t('setup.errGoogleCredsRequired')); return; }
     setErr(null); setBusy(true);
     try {
       const values: Record<string, string> = {
@@ -149,8 +160,8 @@ export function SetupWizard({ initial }: { initial: Initial }) {
 
   // Password-auth setup: create the admin from email+password, then auto-login.
   const createPasswordAdmin = async () => {
-    if (!adminEmail.trim() || !adminPassword) { setErr('Вкажіть email і пароль'); return; }
-    if (adminPassword.length < 8) { setErr('Пароль — щонайменше 8 символів'); return; }
+    if (!adminEmail.trim() || !adminPassword) { setErr(t('setup.errEmailPasswordRequired')); return; }
+    if (adminPassword.length < 8) { setErr(t('setup.errPasswordTooShort')); return; }
     setErr(null); setBusy(true);
     try {
       const res = await fetch('/api/setup/admin', {
@@ -158,14 +169,14 @@ export function SetupWizard({ initial }: { initial: Initial }) {
         body: JSON.stringify({ token, email: adminEmail.trim(), name: adminName.trim(), password: adminPassword }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || !d.ok) { setErr(d.error || 'Не вдалося створити адміна'); return; }
+      if (!res.ok || !d.ok) { setErr(d.error || t('setup.errCreateAdminFailed')); return; }
       sessionStorage.removeItem(TOKEN_KEY);
       const r = await signIn('credentials', {
         email: adminEmail.trim().toLowerCase(), password: adminPassword, redirect: false,
       });
       if (r?.error) { router.push('/login'); return; }
       router.push('/'); router.refresh();
-    } catch { setErr('Помилка мережі'); }
+    } catch { setErr(t('setup.errNetwork')); }
     finally { setBusy(false); }
   };
 
@@ -182,9 +193,9 @@ export function SetupWizard({ initial }: { initial: Initial }) {
         router.push('/');
         router.refresh();
       } else {
-        setErr(d.error || 'Не вдалося завершити');
+        setErr(d.error || t('setup.errCompleteFailed'));
       }
-    } catch { setErr('Помилка мережі'); }
+    } catch { setErr(t('setup.errNetwork')); }
     finally { setBusy(false); }
   };
 
@@ -227,22 +238,22 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           {/* STEP 1 — token */}
           {step === 1 && (
             <>
-              <StepHead icon={<KeyRound size={18} />} title="Перший запуск" sub="Введіть setup-токен із логів контейнера, щоб розпочати налаштування." />
-              <FieldLabel>Setup-токен</FieldLabel>
+              <StepHead icon={<KeyRound size={18} />} title={t('setup.tokenTitle')} sub={t('setup.tokenSub')} />
+              <FieldLabel>{t('setup.tokenLabel')}</FieldLabel>
               <input
                 className="field" autoFocus value={tokenInput}
-                placeholder="напр. r4nd0m-t0k3n…" onChange={(e) => setTokenInput(e.target.value)}
+                placeholder={t('setup.tokenPlaceholder')} onChange={(e) => setTokenInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') verifyToken(); }}
               />
               <p style={{ fontSize: 12, color: 'var(--muted)', margin: '10px 0 0', lineHeight: 1.5 }}>
-                Токен друкується у вивід контейнера при першому старті:
+                {t('setup.tokenHint')}
                 <code style={{ display: 'block', marginTop: 6, padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 11.5 }}>
                   docker compose logs eam-meet | grep -A2 &quot;SETUP&quot;
                 </code>
               </p>
               <NavRow>
                 <span />
-                <PrimaryBtn onClick={verifyToken} busy={busy} disabled={!tokenInput.trim()}>Далі</PrimaryBtn>
+                <PrimaryBtn onClick={verifyToken} busy={busy} disabled={!tokenInput.trim()}>{t('setup.next')}</PrimaryBtn>
               </NavRow>
             </>
           )}
@@ -250,24 +261,19 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           {/* STEP 2 — identity */}
           {step === 2 && (
             <>
-              <StepHead icon={<Building2 size={18} />} title="Робочий простір" sub="Назва та домен використовуються в інтерфейсі, листах і OAuth-редіректах." />
-              <FieldLabel>Назва</FieldLabel>
-              <input className="field" value={wsName} placeholder="My Company Meet" onChange={(e) => setWsName(e.target.value)} />
-              <FieldLabel style={{ marginTop: 14 }}>Домен (без https://)</FieldLabel>
-              <input className="field" value={wsDomain} placeholder="meet.yourcompany.com" onChange={(e) => setWsDomain(e.target.value)} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
-                <div>
-                  <FieldLabel>Часовий пояс</FieldLabel>
-                  <Select value={wsTimezone} onChange={setWsTimezone} options={TZ_OPTIONS} style={{ height: 38 }} />
-                </div>
-                <div>
-                  <FieldLabel>Мова</FieldLabel>
-                  <Select value={wsLanguage} onChange={setWsLanguage} options={LANG_OPTIONS} style={{ height: 38 }} />
-                </div>
-              </div>
+              <StepHead icon={<Building2 size={18} />} title={t('setup.identityTitle')} sub={t('setup.identitySub')} />
+              <FieldLabel>{t('setup.languageLabel')}</FieldLabel>
+              <Select value={wsLanguage} onChange={changeWizardLanguage} options={LANG_OPTIONS} style={{ height: 38 }} />
+              <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0', lineHeight: 1.55 }}>{t('setup.languageHint')}</p>
+              <FieldLabel style={{ marginTop: 14 }}>{t('setup.nameLabel')}</FieldLabel>
+              <input className="field" value={wsName} placeholder={t('setup.namePlaceholder')} onChange={(e) => setWsName(e.target.value)} />
+              <FieldLabel style={{ marginTop: 14 }}>{t('setup.domainLabel')}</FieldLabel>
+              <input className="field" value={wsDomain} placeholder={t('setup.domainPlaceholder')} onChange={(e) => setWsDomain(e.target.value)} />
+              <FieldLabel style={{ marginTop: 14 }}>{t('setup.timezoneLabel')}</FieldLabel>
+              <Select value={wsTimezone} onChange={setWsTimezone} options={TZ_OPTIONS} style={{ height: 38 }} />
               <NavRow>
                 <span />
-                <PrimaryBtn onClick={saveIdentity} busy={busy}>Далі</PrimaryBtn>
+                <PrimaryBtn onClick={saveIdentity} busy={busy}>{t('setup.next')}</PrimaryBtn>
               </NavRow>
             </>
           )}
@@ -275,40 +281,40 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           {/* STEP 3 — auth methods */}
           {step === 3 && (
             <>
-              <StepHead icon={<Globe size={18} />} title="Способи входу" sub="Оберіть, як користувачі заходитимуть. Можна обидва способи разом." />
-              <WizToggle label="Google SSO" desc="Вхід через Google-акаунт" value={googleEnabled} onChange={setGoogleEnabled} />
-              <WizToggle label="Email + пароль" desc="Локальні акаунти, без зовнішніх сервісів" value={passwordEnabled} onChange={setPasswordEnabled} />
+              <StepHead icon={<Globe size={18} />} title={t('setup.authTitle')} sub={t('setup.authSub')} />
+              <WizToggle label={t('setup.googleSso')} desc={t('setup.googleSsoDesc')} value={googleEnabled} onChange={setGoogleEnabled} />
+              <WizToggle label={t('setup.emailPassword')} desc={t('setup.emailPasswordDesc')} value={passwordEnabled} onChange={setPasswordEnabled} />
 
               {googleEnabled && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
-                    У Google Cloud → Credentials → <b>OAuth client ID</b> (Web application) додайте:
+                    {t.rich('setup.googleSetupHint', { b: (chunks) => <b>{chunks}</b> })}
                   </div>
-                  <CopyRow label="Authorized redirect URI" value={redirectUri} copied={copied === 'r'} onCopy={() => copy(redirectUri, 'r')} />
-                  <CopyRow label="Authorized JavaScript origin" value={origin} copied={copied === 'o'} onCopy={() => copy(origin, 'o')} />
-                  <FieldLabel style={{ marginTop: 14 }}>Client ID</FieldLabel>
+                  <CopyRow label={t('setup.redirectUriLabel')} value={redirectUri} copied={copied === 'r'} onCopy={() => copy(redirectUri, 'r')} />
+                  <CopyRow label={t('setup.jsOriginLabel')} value={origin} copied={copied === 'o'} onCopy={() => copy(origin, 'o')} />
+                  <FieldLabel style={{ marginTop: 14 }}>{t('setup.clientIdLabel')}</FieldLabel>
                   <input className="field" value={googleId} placeholder="…apps.googleusercontent.com" onChange={(e) => setGoogleId(e.target.value)} />
-                  <FieldLabel style={{ marginTop: 14 }}>Client Secret</FieldLabel>
+                  <FieldLabel style={{ marginTop: 14 }}>{t('setup.clientSecretLabel')}</FieldLabel>
                   <input className="field" type="password" value={googleSecret} placeholder="GOCSPX-…" onChange={(e) => setGoogleSecret(e.target.value)} />
                 </div>
               )}
 
               {passwordEnabled && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <WizToggle label="Дозволити самореєстрацію" desc="Заявки з ручним підтвердженням адміна (висять 3 дні)" value={selfReg} onChange={setSelfReg} />
+                  <WizToggle label={t('setup.selfRegLabel')} desc={t('setup.selfRegDesc')} value={selfReg} onChange={setSelfReg} />
                   {selfReg && (
                     <>
-                      <FieldLabel style={{ marginTop: 12 }}>Дозволені домени (опційно, через кому)</FieldLabel>
+                      <FieldLabel style={{ marginTop: 12 }}>{t('setup.allowedDomainsLabel')}</FieldLabel>
                       <input className="field" value={selfRegDomains} placeholder="company.com, team.com" onChange={(e) => setSelfRegDomains(e.target.value)} />
-                      <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0' }}>Порожньо — будь-який домен.</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0' }}>{t('setup.allowedDomainsHint')}</p>
                     </>
                   )}
                 </div>
               )}
 
               <NavRow>
-                <GhostBtn onClick={() => { setErr(null); setStep(2); }}><ArrowLeft size={14} /> Назад</GhostBtn>
-                <PrimaryBtn onClick={saveAuth} busy={busy}>Далі</PrimaryBtn>
+                <GhostBtn onClick={() => { setErr(null); setStep(2); }}><ArrowLeft size={14} /> {t('common.back')}</GhostBtn>
+                <PrimaryBtn onClick={saveAuth} busy={busy}>{t('setup.next')}</PrimaryBtn>
               </NavRow>
             </>
           )}
@@ -316,20 +322,20 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           {/* STEP 4 — claim admin */}
           {step === 4 && (
             <>
-              <StepHead icon={<ShieldCheck size={18} />} title="Адміністратор" sub={passwordEnabled ? 'Створіть акаунт адміністратора (email + пароль).' : 'Перший акаунт, що увійде через Google, стане адміністратором.'} />
+              <StepHead icon={<ShieldCheck size={18} />} title={t('setup.adminTitle')} sub={passwordEnabled ? t('setup.adminSubPassword') : t('setup.adminSubGoogle')} />
               {passwordEnabled ? (
                 <>
-                  <FieldLabel>Email</FieldLabel>
+                  <FieldLabel>{t('setup.emailLabel')}</FieldLabel>
                   <input className="field" type="email" value={adminEmail} placeholder="admin@company.com" onChange={(e) => setAdminEmail(e.target.value)} />
-                  <FieldLabel style={{ marginTop: 14 }}>Імʼя</FieldLabel>
-                  <input className="field" value={adminName} placeholder="Адмін" onChange={(e) => setAdminName(e.target.value)} />
-                  <FieldLabel style={{ marginTop: 14 }}>Пароль</FieldLabel>
-                  <input className="field" type="password" value={adminPassword} placeholder="щонайменше 8 символів"
+                  <FieldLabel style={{ marginTop: 14 }}>{t('setup.nameFieldLabel')}</FieldLabel>
+                  <input className="field" value={adminName} placeholder={t('setup.adminNamePlaceholder')} onChange={(e) => setAdminName(e.target.value)} />
+                  <FieldLabel style={{ marginTop: 14 }}>{t('setup.passwordLabel')}</FieldLabel>
+                  <input className="field" type="password" value={adminPassword} placeholder={t('setup.passwordPlaceholder')}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') createPasswordAdmin(); }} />
                   <NavRow>
-                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> Назад</GhostBtn>
-                    <PrimaryBtn onClick={createPasswordAdmin} busy={busy}>Завершити налаштування</PrimaryBtn>
+                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> {t('common.back')}</GhostBtn>
+                    <PrimaryBtn onClick={createPasswordAdmin} busy={busy}>{t('setup.finish')}</PrimaryBtn>
                   </NavRow>
                 </>
               ) : status === 'authenticated' ? (
@@ -340,27 +346,27 @@ export function SetupWizard({ initial }: { initial: Initial }) {
                     border: '1px solid color-mix(in oklab, var(--green) 30%, transparent)',
                     borderRadius: 10, fontSize: 13, marginBottom: 16,
                   }}>
-                    <Check size={16} style={{ color: 'var(--green)' }} /> Ви увійшли через Google
+                    <Check size={16} style={{ color: 'var(--green)' }} /> {t('setup.signedInGoogle')}
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-                    Завершіть налаштування — ваш акаунт отримає роль адміністратора, а сторінка <code>/setup</code> закриється назавжди.
+                    {t.rich('setup.finishHint', { code: (chunks) => <code>{chunks}</code> })}
                   </p>
                   <NavRow>
-                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> Назад</GhostBtn>
-                    <PrimaryBtn onClick={finish} busy={busy}>Завершити налаштування</PrimaryBtn>
+                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> {t('common.back')}</GhostBtn>
+                    <PrimaryBtn onClick={finish} busy={busy}>{t('setup.finish')}</PrimaryBtn>
                   </NavRow>
                 </>
               ) : (
                 <>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-                    Тисніть «Увійти через Google» — після повернення завершите налаштування.
+                    {t('setup.signInGooglePrompt')}
                   </p>
                   <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px 16px', fontWeight: 600 }}
                     onClick={() => { sessionStorage.setItem(TOKEN_KEY, token); signIn('google', { callbackUrl: '/setup' }); }}>
-                    <Globe size={16} /> Увійти через Google
+                    <Globe size={16} /> {t('setup.signInGoogle')}
                   </button>
                   <NavRow>
-                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> Назад</GhostBtn>
+                    <GhostBtn onClick={() => { setErr(null); setStep(3); }}><ArrowLeft size={14} /> {t('common.back')}</GhostBtn>
                     <span />
                   </NavRow>
                 </>
@@ -376,7 +382,7 @@ export function SetupWizard({ initial }: { initial: Initial }) {
         </div>
 
         <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>
-          EZmeet · self-hosted setup
+          {t('setup.footer')}
         </div>
       </div>
     </div>
@@ -440,12 +446,13 @@ function WizToggle({ label, desc, value, onChange }: { label: string; desc?: str
 }
 
 function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
+  const t = useTranslations();
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 8, padding: '8px 10px' }}>
         <code style={{ flex: 1, fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</code>
-        <button className="btn btn-ghost btn-icon" style={{ flexShrink: 0, height: 26, width: 26 }} title="Копіювати" onClick={onCopy}>
+        <button className="btn btn-ghost btn-icon" style={{ flexShrink: 0, height: 26, width: 26 }} title={t('setup.copy')} onClick={onCopy}>
           {copied ? <Check size={13} style={{ color: 'var(--green)' }} /> : <Copy size={13} />}
         </button>
       </div>

@@ -93,7 +93,7 @@ export const CONFIG_DEFAULTS: Record<string, string> = {
   WS_NAME: 'EZmeet',
   WS_DOMAIN: '',
   WS_TIMEZONE: 'Europe/Kyiv',
-  WS_LANGUAGE: 'uk',
+  WS_LANGUAGE: 'en',
   WS_GUEST_ACCESS: 'true',
   WS_AI_SUMMARY: 'true',
   WS_LIVE_TRANSCRIPTION: 'true',

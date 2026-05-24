@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, Copy, Check, Loader2, KeyRound, Download } from 'lucide-react';
 
 /**
@@ -19,6 +20,7 @@ export function TwoFactorSetupFlow({
   onCancel?: () => void;
   redirectTo?: string;
 }) {
+  const t = useTranslations();
   const router = useRouter();
   const { update } = useSession();
   const [step, setStep] = useState<'loading' | 'scan' | 'backup'>('loading');
@@ -36,14 +38,14 @@ export function TwoFactorSetupFlow({
     try {
       const r = await fetch('/api/2fa/setup', { method: 'POST' });
       const d = await r.json();
-      if (!r.ok) { setError(d.error || 'Не вдалося почати налаштування'); return; }
+      if (!r.ok) { setError(d.error || t('twofa.setupFailed')); return; }
       setQr(d.qr);
       setSecret(d.secret);
       setStep('scan');
     } catch {
-      setError('Помилка мережі');
+      setError(t('twofa.networkError'));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { start(); }, [start]);
 
@@ -58,11 +60,11 @@ export function TwoFactorSetupFlow({
         body: JSON.stringify({ code }),
       });
       const d = await r.json();
-      if (!r.ok) { setError(d.error || 'Невірний код'); setBusy(false); return; }
+      if (!r.ok) { setError(d.error || t('twofa.invalidCode')); setBusy(false); return; }
       setBackupCodes(d.backupCodes || []);
       setStep('backup');
     } catch {
-      setError('Помилка мережі');
+      setError(t('twofa.networkError'));
     } finally {
       setBusy(false);
     }
@@ -92,8 +94,8 @@ export function TwoFactorSetupFlow({
     return (
       <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)' }}>
         <Loader2 size={22} className="spin" style={{ marginBottom: 8 }} />
-        <div style={{ fontSize: 13 }}>Готуємо ключ…</div>
-        {error && <ErrorLine text={error} retry={start} />}
+        <div style={{ fontSize: 13 }}>{t('twofa.preparingKey')}</div>
+        {error && <ErrorLine text={error} retry={start} retryLabel={t('twofa.retry')} />}
       </div>
     );
   }
@@ -101,10 +103,9 @@ export function TwoFactorSetupFlow({
   if (step === 'backup') {
     return (
       <div>
-        <Header icon={<KeyRound size={18} />} title="Резервні коди" />
+        <Header icon={<KeyRound size={18} />} title={t('twofa.backupCodesTitle')} />
         <p style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55, margin: '0 0 14px' }}>
-          Збережіть ці коди в безпечному місці. Кожен працює <b>один раз</b> і знадобиться,
-          якщо ви втратите доступ до додатку-автентифікатора.
+          {t.rich('twofa.backupCodesIntro', { b: (chunks) => <b>{chunks}</b> })}
         </p>
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,
@@ -117,14 +118,14 @@ export function TwoFactorSetupFlow({
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button className="btn btn-sm" onClick={copyCodes} style={{ flex: 1, justifyContent: 'center' }}>
-            {copied ? <><Check size={14} /> Скопійовано</> : <><Copy size={14} /> Копіювати</>}
+            {copied ? <><Check size={14} /> {t('twofa.copied')}</> : <><Copy size={14} /> {t('twofa.copy')}</>}
           </button>
-          <button className="btn btn-sm" onClick={downloadCodes(backupCodes)} style={{ flex: 1, justifyContent: 'center' }}>
-            <Download size={14} /> Завантажити
+          <button className="btn btn-sm" onClick={downloadCodes(backupCodes, t('twofa.backupFileHeader'))} style={{ flex: 1, justifyContent: 'center' }}>
+            <Download size={14} /> {t('twofa.download')}
           </button>
         </div>
         <button className="btn btn-primary" onClick={finish} style={{ width: '100%', justifyContent: 'center', fontWeight: 600 }}>
-          Я зберіг коди — завершити
+          {t('twofa.savedCodesFinish')}
         </button>
       </div>
     );
@@ -133,20 +134,20 @@ export function TwoFactorSetupFlow({
   // step === 'scan'
   return (
     <div>
-      <Header icon={<ShieldCheck size={18} />} title="Підключення 2FA" />
+      <Header icon={<ShieldCheck size={18} />} title={t('twofa.connectTitle')} />
       <p style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55, margin: '0 0 16px' }}>
-        Відскануйте QR-код у додатку (Google Authenticator, Authy, 1Password) або введіть ключ вручну.
+        {t('twofa.scanInstructions')}
       </p>
 
       {qr && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qr} alt="2FA QR" width={208} height={208} style={{ borderRadius: 12, background: '#fff', padding: 8 }} />
+          <img src={qr} alt={t('twofa.qrAlt')} width={208} height={208} style={{ borderRadius: 12, background: '#fff', padding: 8 }} />
         </div>
       )}
 
       <div style={{ marginBottom: 16 }}>
-        <div className="field-label">Ключ для ручного введення</div>
+        <div className="field-label">{t('twofa.manualKeyLabel')}</div>
         <div className="mono" style={{
           fontSize: 13, letterSpacing: '0.08em', wordBreak: 'break-all',
           background: 'var(--surface-2)', border: '1px solid var(--border)',
@@ -154,7 +155,7 @@ export function TwoFactorSetupFlow({
         }}>{prettySecret}</div>
       </div>
 
-      <div className="field-label">Код з додатку</div>
+      <div className="field-label">{t('twofa.appCodeLabel')}</div>
       <input
         className="field mono"
         inputMode="numeric"
@@ -171,7 +172,7 @@ export function TwoFactorSetupFlow({
 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         {onCancel && (
-          <button className="btn" onClick={onCancel} style={{ flex: '0 0 auto' }}>Скасувати</button>
+          <button className="btn" onClick={onCancel} style={{ flex: '0 0 auto' }}>{t('common.cancel')}</button>
         )}
         <button
           className="btn btn-primary"
@@ -179,16 +180,16 @@ export function TwoFactorSetupFlow({
           disabled={busy || code.length !== 6}
           style={{ flex: 1, justifyContent: 'center', fontWeight: 600, opacity: code.length !== 6 ? 0.6 : 1 }}
         >
-          {busy ? <Loader2 size={15} className="spin" /> : 'Увімкнути 2FA'}
+          {busy ? <Loader2 size={15} className="spin" /> : t('twofa.enable2FA')}
         </button>
       </div>
     </div>
   );
 }
 
-function downloadCodes(codes: string[]) {
+function downloadCodes(codes: string[], header: string) {
   return () => {
-    const blob = new Blob([`EZmeet — резервні коди 2FA\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
+    const blob = new Blob([`${header}\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -210,11 +211,11 @@ function Header({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-function ErrorLine({ text, retry }: { text: string; retry?: () => void }) {
+function ErrorLine({ text, retry, retryLabel }: { text: string; retry?: () => void; retryLabel?: string }) {
   return (
     <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--red)', display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
       {text}
-      {retry && <button className="btn btn-sm" onClick={retry}>Повторити</button>}
+      {retry && <button className="btn btn-sm" onClick={retry}>{retryLabel}</button>}
     </div>
   );
 }

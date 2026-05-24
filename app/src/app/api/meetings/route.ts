@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateMeetingSlug } from '@/lib/utils';
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const t = await getTranslations('errors');
   try {
     const body = await req.json();
     const {
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const cleanTitle = typeof title === 'string' ? title.trim() : '';
     if (!cleanTitle) {
-      return NextResponse.json({ error: "Назва обов'язкова" }, { status: 400 });
+      return NextResponse.json({ error: t('titleRequired') }, { status: 400 });
     }
 
     // Apply workspace policy defaults when the client doesn't explicitly set them
@@ -149,6 +151,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(meeting, { status: 201 });
   } catch (e) {
     console.error('create meeting error:', e);
-    return NextResponse.json({ error: 'Не вдалося створити мітинг' }, { status: 500 });
+    return NextResponse.json({ error: t('createMeetingFailed') }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Globe, LogOut, Save, Check, Mic, Video as VideoIcon, Volume2,
   Users, Shield, ShieldAlert, Sparkles, Search, Plus,
@@ -13,6 +15,7 @@ import { TwoFactorSecurity } from '@/components/twofa/security-card';
 import { TwoFactorSetupFlow } from '@/components/twofa/setup-flow';
 import { PushToggle } from '@/components/push-toggle';
 import { useSession, signOut } from 'next-auth/react';
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locales';
 
 /* ── Shared UI ────────────────────────────────── */
 
@@ -70,14 +73,14 @@ function UsageRow({ label, value, pct }: { label: string; value: string; pct: nu
 
 type TabKey = 'profile' | 'users' | 'workspace' | 'integrations' | 'billing';
 
-interface TabDef { key: TabKey; label: string; icon: React.ReactNode; adminOnly: boolean }
+interface TabDef { key: TabKey; labelKey: string; icon: React.ReactNode; adminOnly: boolean }
 
 const TABS: TabDef[] = [
-  { key: 'profile', label: 'Профіль', icon: <SettingsIcon size={14} />, adminOnly: false },
-  { key: 'users', label: 'Користувачі', icon: <Users size={14} />, adminOnly: true },
-  { key: 'workspace', label: 'Workspace', icon: <Shield size={14} />, adminOnly: true },
-  { key: 'integrations', label: 'Інтеграції', icon: <Globe size={14} />, adminOnly: true },
-  { key: 'billing', label: 'Використання', icon: <Sparkles size={14} />, adminOnly: true },
+  { key: 'profile', labelKey: 'settings.tabProfile', icon: <SettingsIcon size={14} />, adminOnly: false },
+  { key: 'users', labelKey: 'settings.tabUsers', icon: <Users size={14} />, adminOnly: true },
+  { key: 'workspace', labelKey: 'settings.tabWorkspace', icon: <Shield size={14} />, adminOnly: true },
+  { key: 'integrations', labelKey: 'settings.tabIntegrations', icon: <Globe size={14} />, adminOnly: true },
+  { key: 'billing', labelKey: 'settings.tabBilling', icon: <Sparkles size={14} />, adminOnly: true },
 ];
 
 /* ── ProfileTab ───────────────────────────────── */
@@ -85,6 +88,7 @@ const TABS: TabDef[] = [
 // Set or change your own login password. SSO-only accounts (no password yet)
 // can set one without a current password — the authenticated session authorizes it.
 function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) {
+  const t = useTranslations();
   const [has, setHas] = useState(initialHas);
   const [open, setOpen] = useState(false);
   const [cur, setCur] = useState('');
@@ -93,7 +97,7 @@ function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) 
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const submit = async () => {
-    if (next.length < 8) { setMsg({ ok: false, text: 'Пароль — щонайменше 8 символів' }); return; }
+    if (next.length < 8) { setMsg({ ok: false, text: t('settings.passwordMin8') }); return; }
     setBusy(true); setMsg(null);
     try {
       const res = await fetch('/api/account/password', {
@@ -102,13 +106,13 @@ function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) 
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
-        setMsg({ ok: true, text: has ? 'Пароль змінено' : 'Пароль встановлено' });
+        setMsg({ ok: true, text: has ? t('settings.passwordChanged') : t('settings.passwordSet') });
         setHas(true); setCur(''); setNext('');
         setTimeout(() => { setOpen(false); setMsg(null); }, 1800);
       } else {
-        setMsg({ ok: false, text: d.error || 'Не вдалося зберегти' });
+        setMsg({ ok: false, text: d.error || t('settings.saveFailed') });
       }
-    } catch { setMsg({ ok: false, text: 'Помилка мережі' }); }
+    } catch { setMsg({ ok: false, text: t('settings.networkError') }); }
     finally { setBusy(false); }
   };
 
@@ -116,31 +120,31 @@ function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) 
     <div style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 500 }}>Пароль для входу</div>
+          <div style={{ fontSize: 13.5, fontWeight: 500 }}>{t('settings.loginPassword')}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {has ? 'Можна входити через email + пароль' : 'Задайте пароль, щоб входити без Google'}
+            {has ? t('settings.loginPasswordHasDesc') : t('settings.loginPasswordSetDesc')}
           </div>
         </div>
         {!open && (
           <button className="btn btn-sm" onClick={() => { setOpen(true); setMsg(null); }} style={{ gap: 6, flexShrink: 0 }}>
-            <Key size={13} /> {has ? 'Змінити' : 'Задати пароль'}
+            <Key size={13} /> {has ? t('common.edit') : t('settings.setPassword')}
           </button>
         )}
       </div>
       {open && (
         <div style={{ marginTop: 12, display: 'grid', gap: 10, maxWidth: 360 }}>
           {has && (
-            <input className="field" type="password" autoComplete="current-password" placeholder="Поточний пароль"
+            <input className="field" type="password" autoComplete="current-password" placeholder={t('settings.currentPassword')}
               value={cur} onChange={(e) => setCur(e.target.value)} />
           )}
-          <input className="field" type="password" autoComplete="new-password" placeholder="Новий пароль (мін. 8 символів)"
+          <input className="field" type="password" autoComplete="new-password" placeholder={t('settings.newPasswordMin8')}
             value={next} onChange={(e) => setNext(e.target.value)} />
           {msg && <div style={{ fontSize: 12.5, color: msg.ok ? 'var(--green)' : 'var(--red)' }}>{msg.text}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-primary btn-sm" onClick={submit} disabled={busy || !next || (has && !cur)} style={{ gap: 6 }}>
-              {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} Зберегти
+              {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} {t('common.save')}
             </button>
-            <button className="btn btn-sm" onClick={() => { setOpen(false); setCur(''); setNext(''); setMsg(null); }}>Скасувати</button>
+            <button className="btn btn-sm" onClick={() => { setOpen(false); setCur(''); setNext(''); setMsg(null); }}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
@@ -149,7 +153,9 @@ function PasswordSection({ hasPassword: initialHas }: { hasPassword: boolean }) 
 }
 
 function ProfileTab({ session: sess, updateSession }: { session: any; updateSession: any }) {
+  const t = useTranslations();
   const user = sess?.user;
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -210,13 +216,30 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
     finally { setSaving(false); }
   }, [name, timezone, displayRole, language, micOnJoin, camOnJoin, liveTranscript, emailReminder, emailReport, actionItemNotif, weeklyDigest, user?.name, updateSession]);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Завантаження...</div>;
+  // Interface language switches instantly: persist the preference, drop the
+  // `locale` cookie that drives server rendering, refresh the session token,
+  // then re-render the whole app in the chosen language.
+  const changeLanguage = useCallback(async (v: string) => {
+    setLanguage(v);
+    document.cookie = `${LOCALE_COOKIE}=${v}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;
+    try {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: { language: v } }),
+      });
+      await updateSession();
+    } catch (e) { console.error(e); }
+    router.refresh();
+  }, [updateSession, router]);
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>{t('common.loading')}</div>;
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 18 }}>
         <button className={saved ? 'btn' : 'btn btn-primary'} onClick={saveSettings} disabled={saving} style={{ fontWeight: 600 }}>
-          {saved ? <><Check size={15} /> Збережено</> : saving ? 'Збереження...' : <><Save size={15} /> Зберегти</>}
+          {saved ? <><Check size={15} /> {t('common.saved')}</> : saving ? t('common.saving') : <><Save size={15} /> {t('common.save')}</>}
         </button>
       </div>
 
@@ -234,17 +257,17 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
           </div>
         </div>
         <div className="settings-grid-2" style={{ display: 'grid', gap: 14 }}>
-          <FieldWrapper label="Ім'я"><input className="field" value={name} onChange={(e) => setName(e.target.value)} /></FieldWrapper>
-          <FieldWrapper label="Роль"><input className="field" value={displayRole} onChange={(e) => setDisplayRole(e.target.value)} placeholder="Product Manager" /></FieldWrapper>
-          <FieldWrapper label="Часовий пояс">
+          <FieldWrapper label={t('settings.name')}><input className="field" value={name} onChange={(e) => setName(e.target.value)} /></FieldWrapper>
+          <FieldWrapper label={t('settings.role')}><input className="field" value={displayRole} onChange={(e) => setDisplayRole(e.target.value)} placeholder="Product Manager" /></FieldWrapper>
+          <FieldWrapper label={t('settings.timezone')}>
             <Select value={timezone} onChange={setTimezone} options={[
               { value: 'Europe/Kyiv', label: 'Europe/Kyiv (UTC+3)' },
               { value: 'Europe/Warsaw', label: 'Europe/Warsaw (UTC+2)' },
               { value: 'America/New_York', label: 'America/New_York (UTC-4)' },
             ]} />
           </FieldWrapper>
-          <FieldWrapper label="Мова інтерфейсу">
-            <Select value={language} onChange={setLanguage} options={[
+          <FieldWrapper label={t('settings.interfaceLanguage')}>
+            <Select value={language} onChange={changeLanguage} options={[
               { value: 'uk', label: 'Українська' },
               { value: 'en', label: 'English' },
             ]} />
@@ -253,33 +276,33 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
       </div>
 
       <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Аудіо & відео</div>
-        <Toggle label="Заходити в мітинг з увімкненим мікрофоном" value={micOnJoin} onChange={setMicOnJoin} />
-        <Toggle label="Заходити в мітинг з увімкненою камерою" value={camOnJoin} onChange={setCamOnJoin} />
-        <Toggle label="Live transcription за замовчуванням" value={liveTranscript} onChange={setLiveTranscript} />
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.audioVideo')}</div>
+        <Toggle label={t('settings.micOnJoin')} value={micOnJoin} onChange={setMicOnJoin} />
+        <Toggle label={t('settings.camOnJoin')} value={camOnJoin} onChange={setCamOnJoin} />
+        <Toggle label={t('settings.liveTranscriptDefault')} value={liveTranscript} onChange={setLiveTranscript} />
 
       </div>
 
       <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Нотифікації</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.notifications')}</div>
         <PushToggle />
-        <Toggle label="Email-нагадування за 15 хв до мітингу" value={emailReminder} onChange={setEmailReminder} />
-        <Toggle label="Email зі звітом після мітингу" value={emailReport} onChange={setEmailReport} />
-        <Toggle label="Нотифікація, коли вам призначено action item" value={actionItemNotif} onChange={setActionItemNotif} />
-        <Toggle label="Щотижневий дайджест" value={weeklyDigest} onChange={setWeeklyDigest} />
+        <Toggle label={t('settings.emailReminder')} value={emailReminder} onChange={setEmailReminder} />
+        <Toggle label={t('settings.emailReport')} value={emailReport} onChange={setEmailReport} />
+        <Toggle label={t('settings.actionItemNotif')} value={actionItemNotif} onChange={setActionItemNotif} />
+        <Toggle label={t('settings.weeklyDigest')} value={weeklyDigest} onChange={setWeeklyDigest} />
       </div>
 
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>Безпека</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.security')}</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
         <PasswordSection hasPassword={hasPassword} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--red)' }}>Вийти з акаунту</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Завершити поточну сесію</div>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--red)' }}>{t('settings.signOutTitle')}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('settings.signOutDesc')}</div>
           </div>
           <button className="btn btn-sm" onClick={() => signOut()} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--red)', borderColor: 'color-mix(in oklab, var(--red) 30%, var(--border))' }}>
-            <LogOut size={13} /> Вийти
+            <LogOut size={13} /> {t('sidebar.signOut')}
           </button>
         </div>
       </div>
@@ -295,25 +318,25 @@ interface UserRecord {
   hasPassword?: boolean;
 }
 
-function getUserStatus(lastLogin?: string | null): { label: string; color: string } {
-  if (!lastLogin) return { label: 'Не входив', color: 'var(--muted)' };
+type UserStatus =
+  | { kind: 'never'; color: string }
+  | { kind: 'online'; color: string }
+  | { kind: 'minutes' | 'hours' | 'days'; value: number; color: string };
+
+function getUserStatus(lastLogin?: string | null): UserStatus {
+  if (!lastLogin) return { kind: 'never', color: 'var(--muted)' };
   const diff = Date.now() - new Date(lastLogin).getTime();
   const mins = diff / 60000;
-  if (mins < 10) return { label: 'Online', color: 'var(--green)' };
-  if (mins < 60) return { label: `${Math.round(mins)} хв тому`, color: 'var(--amber)' };
+  if (mins < 10) return { kind: 'online', color: 'var(--green)' };
+  if (mins < 60) return { kind: 'minutes', value: Math.round(mins), color: 'var(--amber)' };
   const hours = Math.round(mins / 60);
-  if (hours < 24) return { label: `${hours} год тому`, color: 'var(--muted)' };
+  if (hours < 24) return { kind: 'hours', value: hours, color: 'var(--muted)' };
   const days = Math.round(hours / 24);
-  return { label: `${days} дн тому`, color: 'var(--muted)' };
+  return { kind: 'days', value: days, color: 'var(--muted)' };
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Адмін',
-  member: 'Учасник',
-  viewer: 'Глядач',
-};
-
 function UsersTab() {
+  const t = useTranslations();
   const { data: session } = useSession();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -345,9 +368,9 @@ function UsersTab() {
         setResetResult({ password: d.password, emailed: !!d.emailed });
         setUsers((us) => us.map((x) => (x.id === resetUser.id ? { ...x, hasPassword: true } : x)));
       } else {
-        setResetErr(d.error || 'Не вдалося скинути пароль');
+        setResetErr(d.error || t('settings.resetPasswordFailed'));
       }
-    } catch { setResetErr('Помилка мережі'); }
+    } catch { setResetErr(t('settings.networkError')); }
     finally { setResetting(false); }
   };
 
@@ -355,7 +378,7 @@ function UsersTab() {
     if (!inviteEmail.trim()) return;
     const withPassword = invitePassword.trim().length > 0;
     if (withPassword && invitePassword.length < 8) {
-      setInviteMsg({ ok: false, text: 'Пароль — щонайменше 8 символів' });
+      setInviteMsg({ ok: false, text: t('settings.passwordMin8') });
       return;
     }
     setInviting(true); setInviteMsg(null);
@@ -381,15 +404,15 @@ function UsersTab() {
         setInviteMsg({
           ok: true,
           text: withPassword
-            ? (d.emailed ? 'Створено · креди надіслано на пошту' : 'Створено · передайте пароль користувачу')
-            : (d.emailSent ? 'Запрошення надіслано' : 'Додано (лист не надіслано — перевірте SMTP)'),
+            ? (d.emailed ? t('settings.inviteCreatedEmailed') : t('settings.inviteCreatedManual'))
+            : (d.emailSent ? t('settings.inviteSent') : t('settings.inviteAddedNoEmail')),
         });
         setInviteEmail(''); setInvitePassword('');
         setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1800);
       } else {
-        setInviteMsg({ ok: false, text: d.error || 'Помилка' });
+        setInviteMsg({ ok: false, text: d.error || t('settings.error') });
       }
-    } catch { setInviteMsg({ ok: false, text: 'Помилка мережі' }); }
+    } catch { setInviteMsg({ ok: false, text: t('settings.networkError') }); }
     finally { setInviting(false); }
   };
 
@@ -402,7 +425,7 @@ function UsersTab() {
         if (!cancelled && session?.user) {
           setUsers([{
             id: (session.user as any).id ?? '1',
-            name: session.user.name ?? 'Ви',
+            name: session.user.name ?? t('settings.you'),
             email: session.user.email ?? '',
             image: session.user.image,
             role: 'admin', lastLogin: new Date().toISOString(),
@@ -451,16 +474,16 @@ function UsersTab() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="tasks-search" style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-          <input className="field" placeholder="Шукати користувача…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 34, height: 36 }} />
+          <input className="field" placeholder={t('settings.searchUser')} value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 34, height: 36 }} />
         </div>
-        <div className="muted" style={{ fontSize: 12.5 }}>{filtered.length} з {users.length}</div>
-        <button className="btn btn-primary" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}><Plus size={14} /> Додати</button>
+        <div className="muted" style={{ fontSize: 12.5 }}>{t('settings.countOf', { shown: filtered.length, total: users.length })}</div>
+        <button className="btn btn-primary" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}><Plus size={14} /> {t('settings.add')}</button>
       </div>
 
       {requests.length > 0 && (
         <div className="card" style={{ padding: '16px 18px', marginBottom: 16, borderColor: 'color-mix(in oklab, var(--amber) 30%, var(--border))' }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            Заявки на реєстрацію
+            {t('settings.registrationRequests')}
             <span className="chip" style={{ background: 'color-mix(in oklab, var(--amber) 18%, transparent)', color: '#fde68a' }}>{requests.length}</span>
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -472,10 +495,10 @@ function UsersTab() {
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name || r.email.split('@')[0]}</div>
                     <div className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.email}</div>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{daysLeft} дн.</span>
-                  <button className="btn btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'deny')} style={{ color: 'var(--red)' }}>Відхилити</button>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t('settings.daysLeft', { count: daysLeft })}</span>
+                  <button className="btn btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'deny')} style={{ color: 'var(--red)' }}>{t('settings.deny')}</button>
                   <button className="btn btn-primary btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'approve')}>
-                    {reqBusy === r.id ? <Loader2 size={13} className="spin" /> : 'Схвалити'}
+                    {reqBusy === r.id ? <Loader2 size={13} className="spin" /> : t('settings.approve')}
                   </button>
                 </div>
               );
@@ -486,7 +509,7 @@ function UsersTab() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="admin-table-header" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-          <div>Користувач</div><div>Email</div><div>Роль</div><div>Статус</div><div />
+          <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colStatus')}</div><div />
         </div>
         {filtered.map((u) => {
           const isMe = session?.user?.email === u.email;
@@ -495,8 +518,8 @@ function UsersTab() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Avatar name={u.name} image={u.image} size="md" />
                 <div>
-                  <div style={{ fontWeight: 500 }}>{u.name}{isMe && <span className="chip" style={{ marginLeft: 6 }}>Це ви</span>}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{ROLE_LABELS[u.role] || u.role}</div>
+                  <div style={{ fontWeight: 500 }}>{u.name}{isMe && <span className="chip" style={{ marginLeft: 6 }}>{t('settings.itsYou')}</span>}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{t(`settings.role_${u.role}`)}</div>
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{u.email}</div>
@@ -504,9 +527,9 @@ function UsersTab() {
                 <Select
                   value={u.role}
                   options={[
-                    { value: 'admin', label: 'Адмін' },
-                    { value: 'member', label: 'Учасник' },
-                    { value: 'viewer', label: 'Глядач' },
+                    { value: 'admin', label: t('settings.role_admin') },
+                    { value: 'member', label: t('settings.role_member') },
+                    { value: 'viewer', label: t('settings.role_viewer') },
                   ]}
                   style={{ height: 32, fontSize: 12.5, width: 132, maxWidth: '100%' }}
                   onChange={async (newRole) => {
@@ -519,11 +542,11 @@ function UsersTab() {
                       });
                       if (!res.ok) {
                         const err = await res.json().catch(() => ({}));
-                        alert(err.error || 'Не вдалося змінити роль');
+                        alert(err.error || t('settings.changeRoleFailed'));
                         setUsers((us) => us.map((x) => x.id === u.id ? { ...x, role: prev } : x));
                       }
                     } catch {
-                      alert('Помилка мережі');
+                      alert(t('settings.networkError'));
                       setUsers((us) => us.map((x) => x.id === u.id ? { ...x, role: prev } : x));
                     }
                   }}
@@ -532,10 +555,16 @@ function UsersTab() {
               <div>
                 {(() => {
                   const st = getUserStatus(u.lastLogin);
+                  const label =
+                    st.kind === 'never' ? t('settings.statusNeverLoggedIn')
+                    : st.kind === 'online' ? t('settings.statusOnline')
+                    : st.kind === 'minutes' ? t('settings.statusMinutesAgo', { count: st.value })
+                    : st.kind === 'hours' ? t('settings.statusHoursAgo', { count: st.value })
+                    : t('settings.statusDaysAgo', { count: st.value });
                   return (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
-                      <span style={{ color: 'var(--text-2)' }}>{st.label}</span>
+                      <span style={{ color: 'var(--text-2)' }}>{label}</span>
                     </span>
                   );
                 })()}
@@ -544,7 +573,7 @@ function UsersTab() {
                 {!isMe && u.hasPassword && (
                   <button
                     className="btn btn-ghost btn-icon"
-                    title="Скинути пароль"
+                    title={t('settings.resetPassword')}
                     onClick={() => openReset(u)}
                     style={{ width: 30, height: 30 }}
                   >
@@ -554,10 +583,10 @@ function UsersTab() {
                 {!isMe && (
                   <button
                     className="btn btn-ghost btn-icon"
-                    title="Видалити користувача"
+                    title={t('settings.deleteUser')}
                     disabled={deletingId === u.id}
                     onClick={async () => {
-                      if (!window.confirm(`Видалити користувача ${u.name} (${u.email})?\n\nЙого мітинги та звіти перейдуть до вас. Таски й участі будуть відв'язані. Дію не можна скасувати.`)) return;
+                      if (!window.confirm(t('settings.deleteUserConfirm', { name: u.name, email: u.email }))) return;
                       setDeletingId(u.id);
                       try {
                         const res = await fetch(`/api/users/${u.id}`, { method: 'DELETE' });
@@ -565,10 +594,10 @@ function UsersTab() {
                           setUsers((us) => us.filter((x) => x.id !== u.id));
                         } else {
                           const err = await res.json().catch(() => ({}));
-                          alert(err.error || 'Не вдалося видалити користувача');
+                          alert(err.error || t('settings.deleteUserFailed'));
                         }
                       } catch {
-                        alert('Помилка мережі');
+                        alert(t('settings.networkError'));
                       } finally {
                         setDeletingId(null);
                       }
@@ -587,37 +616,37 @@ function UsersTab() {
       {inviteOpen && (
         <div onClick={() => setInviteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Додати користувача</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>Google-запрошення або акаунт email+пароль (задайте тимчасовий пароль).</div>
-            <FieldWrapper label="Email">
+            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{t('settings.addUser')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>{t('settings.addUserDesc')}</div>
+            <FieldWrapper label={t('settings.colEmail')}>
               <input className="field" type="email" value={inviteEmail} placeholder="user@example.com" autoFocus
                 onChange={(e) => setInviteEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') sendInvite(); }} />
             </FieldWrapper>
             <div style={{ marginTop: 14 }}>
-              <FieldWrapper label="Роль">
+              <FieldWrapper label={t('settings.colRole')}>
                 <Select value={inviteRole} onChange={setInviteRole} options={[
-                  { value: 'member', label: 'Учасник' },
-                  { value: 'admin', label: 'Адмін' },
-                  { value: 'viewer', label: 'Глядач' },
+                  { value: 'member', label: t('settings.role_member') },
+                  { value: 'admin', label: t('settings.role_admin') },
+                  { value: 'viewer', label: t('settings.role_viewer') },
                 ]} />
               </FieldWrapper>
             </div>
             <div style={{ marginTop: 14 }}>
-              <FieldWrapper label="Тимчасовий пароль (опційно)">
-                <input className="field" type="text" value={invitePassword} placeholder="порожньо = Google-запрошення"
+              <FieldWrapper label={t('settings.tempPasswordOptional')}>
+                <input className="field" type="text" value={invitePassword} placeholder={t('settings.tempPasswordPlaceholder')}
                   onChange={(e) => setInvitePassword(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') sendInvite(); }} />
               </FieldWrapper>
               <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.45 }}>
-                Задасте пароль — створиться акаунт email+пароль (користувач змінить його при першому вході). Порожньо — надішлемо Google-запрошення.
+                {t('settings.tempPasswordHint')}
               </div>
             </div>
             {inviteMsg && <div style={{ marginTop: 12, fontSize: 12.5, color: inviteMsg.ok ? 'var(--green)' : '#f87171' }}>{inviteMsg.text}</div>}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button className="btn btn-sm" onClick={() => setInviteOpen(false)}>Скасувати</button>
+              <button className="btn btn-sm" onClick={() => setInviteOpen(false)}>{t('common.cancel')}</button>
               <button className="btn btn-primary btn-sm" onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}>
-                {inviting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />} Надіслати
+                {inviting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />} {t('settings.send')}
               </button>
             </div>
           </div>
@@ -627,35 +656,35 @@ function UsersTab() {
       {resetUser && (
         <div onClick={() => setResetUser(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
           <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Скинути пароль</div>
+            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{t('settings.resetPassword')}</div>
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>{resetUser.name} · {resetUser.email}</div>
             {!resetResult ? (
               <>
                 <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                  Згенеруємо новий тимчасовий пароль. Користувач муситиме змінити його при першому вході. Активні сесії не завершуються.
+                  {t('settings.resetPasswordDesc')}
                 </div>
                 {resetErr && <div style={{ marginTop: 12, fontSize: 12.5, color: '#f87171' }}>{resetErr}</div>}
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-                  <button className="btn btn-sm" onClick={() => setResetUser(null)}>Скасувати</button>
+                  <button className="btn btn-sm" onClick={() => setResetUser(null)}>{t('common.cancel')}</button>
                   <button className="btn btn-primary btn-sm" onClick={doReset} disabled={resetting}>
-                    {resetting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} Згенерувати
+                    {resetting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} {t('settings.generate')}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>Новий тимчасовий пароль:</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>{t('settings.newTempPassword')}</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <code className="mono" style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', fontSize: 15, fontWeight: 600, letterSpacing: '.04em', userSelect: 'all', wordBreak: 'break-all' }}>{resetResult.password}</code>
-                  <button className="btn btn-sm" title="Копіювати" onClick={() => { try { navigator.clipboard?.writeText(resetResult.password); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ flexShrink: 0 }}>
+                  <button className="btn btn-sm" title={t('settings.copy')} onClick={() => { try { navigator.clipboard?.writeText(resetResult.password); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ flexShrink: 0 }}>
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                   </button>
                 </div>
                 <div style={{ marginTop: 12, fontSize: 12.5, color: resetResult.emailed ? 'var(--green)' : 'var(--muted)' }}>
-                  {resetResult.emailed ? 'Надіслано користувачу на пошту.' : 'SMTP не налаштовано — передайте пароль користувачу особисто.'}
+                  {resetResult.emailed ? t('settings.resetPasswordEmailed') : t('settings.resetPasswordManual')}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => setResetUser(null)}>Готово</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => setResetUser(null)}>{t('settings.done')}</button>
                 </div>
               </>
             )}
@@ -669,6 +698,7 @@ function UsersTab() {
 /* ── WorkspaceTab ─────────────────────────────── */
 
 function WorkspaceTab() {
+  const t = useTranslations();
   const [ws, setWs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -702,8 +732,8 @@ function WorkspaceTab() {
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500); }
-      else { setSaveErr(d.error || 'Не вдалося зберегти'); }
-    } catch (e) { setSaveErr('Помилка мережі'); }
+      else { setSaveErr(d.error || t('settings.saveFailed')); }
+    } catch (e) { setSaveErr(t('settings.networkError')); }
     finally { setSaving(false); }
   };
 
@@ -727,36 +757,36 @@ function WorkspaceTab() {
         }),
       });
       const d = await res.json().catch(() => ({}));
-      if (res.ok) { setAuthMsg({ ok: true, text: 'Збережено' }); setTimeout(() => setAuthMsg(null), 2000); }
-      else { setWs(prev); setAuthMsg({ ok: false, text: d.error || 'Не вдалося зберегти' }); }
-    } catch { setWs(prev); setAuthMsg({ ok: false, text: 'Помилка мережі' }); }
+      if (res.ok) { setAuthMsg({ ok: true, text: t('common.saved') }); setTimeout(() => setAuthMsg(null), 2000); }
+      else { setWs(prev); setAuthMsg({ ok: false, text: d.error || t('settings.saveFailed') }); }
+    } catch { setWs(prev); setAuthMsg({ ok: false, text: t('settings.networkError') }); }
     finally { setAuthSaving(false); }
   };
 
   if (loading || !ws) {
-    return <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Завантаження...</div>;
+    return <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>;
   }
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Загальне */}
+      {/* General */}
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>Загальне</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>{t('settings.general')}</div>
         <div className="settings-grid-2" style={{ display: 'grid', gap: 14 }}>
-          <FieldWrapper label="Назва workspace">
+          <FieldWrapper label={t('settings.workspaceName')}>
             <input className="field" value={ws.WS_NAME} onChange={e => set('WS_NAME', e.target.value)} />
           </FieldWrapper>
-          <FieldWrapper label="DNS / Custom domain">
+          <FieldWrapper label={t('settings.dnsCustomDomain')}>
             <input className="field" value={ws.WS_DOMAIN} onChange={e => set('WS_DOMAIN', e.target.value)} />
           </FieldWrapper>
-          <FieldWrapper label="Часовий пояс за замовч.">
+          <FieldWrapper label={t('settings.defaultTimezone')}>
             <Select value={ws.WS_TIMEZONE} onChange={(v) => set('WS_TIMEZONE', v)} options={[
               { value: 'Europe/Kyiv', label: 'Europe/Kyiv' },
               { value: 'Europe/Warsaw', label: 'Europe/Warsaw' },
               { value: 'America/New_York', label: 'America/New_York' },
             ]} />
           </FieldWrapper>
-          <FieldWrapper label="Мова інтерфейсу за замовч.">
+          <FieldWrapper label={t('settings.defaultInterfaceLanguage')}>
             <Select value={ws.WS_LANGUAGE} onChange={(v) => set('WS_LANGUAGE', v)} options={[
               { value: 'uk', label: 'Українська' },
               { value: 'en', label: 'English' },
@@ -765,10 +795,10 @@ function WorkspaceTab() {
         </div>
       </div>
 
-      {/* Способи входу */}
+      {/* Sign-in methods */}
       <div className="card" style={{ padding: '18px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Способи входу</div>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.signInMethods')}</div>
           {authSaving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />}
           {authMsg?.ok && (
             <span style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--green)' }}>
@@ -776,18 +806,18 @@ function WorkspaceTab() {
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Як користувачі авторизуються. Зберігається одразу. Хоча б один має лишатись увімкненим.</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.signInMethodsDesc')}</div>
         {authMsg && !authMsg.ok && (
           <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, lineHeight: 1.45 }}>{authMsg.text}</div>
         )}
         <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => setAuth('AUTH_GOOGLE_ENABLED', v)} />
-        <Toggle label="Email + пароль" value={ws.AUTH_PASSWORD_ENABLED} onChange={v => setAuth('AUTH_PASSWORD_ENABLED', v)} />
+        <Toggle label={t('settings.emailPassword')} value={ws.AUTH_PASSWORD_ENABLED} onChange={v => setAuth('AUTH_PASSWORD_ENABLED', v)} />
         {ws.AUTH_PASSWORD_ENABLED && (
           <>
-            <Toggle label="Дозволити самореєстрацію (заявки з апрувом адміна)" value={ws.AUTH_SELFREG} onChange={v => setAuth('AUTH_SELFREG', v)} />
+            <Toggle label={t('settings.allowSelfRegistration')} value={ws.AUTH_SELFREG} onChange={v => setAuth('AUTH_SELFREG', v)} />
             {ws.AUTH_SELFREG && (
               <div style={{ marginTop: 10 }}>
-                <FieldWrapper label="Дозволені домени (через кому, порожньо = будь-який)">
+                <FieldWrapper label={t('settings.allowedDomains')}>
                   <input className="field" value={ws.AUTH_SELFREG_DOMAINS || ''} placeholder="company.com, team.com"
                     onChange={e => set('AUTH_SELFREG_DOMAINS', e.target.value)}
                     onBlur={e => setAuth('AUTH_SELFREG_DOMAINS', e.target.value)} />
@@ -798,15 +828,15 @@ function WorkspaceTab() {
         )}
       </div>
 
-      {/* Політики */}
+      {/* Meeting policies */}
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Політики мітингів</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Застосовуються до всіх нових мітингів</div>
-        <Toggle label="Дозволити гостів за лінком (без акаунту)" value={ws.WS_GUEST_ACCESS} onChange={v => set('WS_GUEST_ACCESS', v)} />
-        <Toggle label="AI summary & action items автоматично" value={ws.WS_AI_SUMMARY} onChange={v => set('WS_AI_SUMMARY', v)} />
-        <Toggle label="Live transcription за замовчуванням" value={ws.WS_LIVE_TRANSCRIPTION} onChange={v => set('WS_LIVE_TRANSCRIPTION', v)} />
-        <Toggle label="Записувати всі мітинги (recording)" value={ws.WS_RECORD_ALL} onChange={v => set('WS_RECORD_ALL', v)} />
-        <Toggle label="Вимагати 2FA для адмінів" value={ws.WS_REQUIRE_2FA} onChange={v => set('WS_REQUIRE_2FA', v)} disabled={my2fa === false && !ws.WS_REQUIRE_2FA} />
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.meetingPolicies')}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.meetingPoliciesDesc')}</div>
+        <Toggle label={t('settings.allowGuestsByLink')} value={ws.WS_GUEST_ACCESS} onChange={v => set('WS_GUEST_ACCESS', v)} />
+        <Toggle label={t('settings.aiSummaryAuto')} value={ws.WS_AI_SUMMARY} onChange={v => set('WS_AI_SUMMARY', v)} />
+        <Toggle label={t('settings.liveTranscriptDefault')} value={ws.WS_LIVE_TRANSCRIPTION} onChange={v => set('WS_LIVE_TRANSCRIPTION', v)} />
+        <Toggle label={t('settings.recordAllMeetings')} value={ws.WS_RECORD_ALL} onChange={v => set('WS_RECORD_ALL', v)} />
+        <Toggle label={t('settings.require2faAdmins')} value={ws.WS_REQUIRE_2FA} onChange={v => set('WS_REQUIRE_2FA', v)} disabled={my2fa === false && !ws.WS_REQUIRE_2FA} />
         {my2fa === false && !ws.WS_REQUIRE_2FA && (
           <div style={{
             marginTop: 12, padding: '12px 14px', borderRadius: 10,
@@ -816,50 +846,50 @@ function WorkspaceTab() {
           }}>
             <ShieldAlert size={18} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>Спершу налаштуйте власну 2FA</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{t('settings.setupOwn2faTitle')}</div>
               <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                Не можна вимагати 2FA від адмінів, поки ви самі його не налаштували — інакше втратите доступ. Після налаштування тумблер стане доступним.
+                {t('settings.setupOwn2faDesc')}
               </div>
               <button className="btn btn-sm btn-primary" onClick={() => setShow2faSetup(true)} style={{ marginTop: 10 }}>
-                <Shield size={13} /> Налаштувати 2FA
+                <Shield size={13} /> {t('settings.setup2fa')}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Ліміти */}
+      {/* Limits */}
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Ліміти</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Технічні обмеження self-hosted інстансу</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.limits')}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.limitsDesc')}</div>
         <div className="settings-grid-3" style={{ display: 'grid', gap: 14 }}>
-          <FieldWrapper label="Макс. учасників на кімнату">
+          <FieldWrapper label={t('settings.maxParticipantsPerRoom')}>
             <input className="field" type="number" value={ws.WS_MAX_PARTICIPANTS} onChange={e => set('WS_MAX_PARTICIPANTS', Number(e.target.value))} />
           </FieldWrapper>
-          <FieldWrapper label="Макс. тривалість (хв)">
+          <FieldWrapper label={t('settings.maxDurationMin')}>
             <input className="field" type="number" value={ws.WS_MAX_DURATION_MIN} onChange={e => set('WS_MAX_DURATION_MIN', Number(e.target.value))} />
           </FieldWrapper>
-          <FieldWrapper label="Зберігання записів (днів, 0 = ∞)">
+          <FieldWrapper label={t('settings.retentionDays')}>
             <input className="field" type="number" value={ws.WS_RETENTION_DAYS} onChange={e => set('WS_RETENTION_DAYS', Number(e.target.value))} />
           </FieldWrapper>
         </div>
       </div>
 
-      {/* Ціни */}
+      {/* Provider pricing */}
       <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>Ціни постачальників</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Для калькуляції витрат у вкладці «Використання»</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.providerPricing')}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.providerPricingDesc')}</div>
         <div className="settings-grid-2" style={{ display: 'grid', gap: 14 }}>
-          <FieldWrapper label="DeepSeek вхід ($ / M токенів)">
+          <FieldWrapper label={t('settings.deepseekInputPrice')}>
             <input className="field" type="number" step="0.01" value={ws.PRICE_DEEPSEEK_IN} onChange={e => set('PRICE_DEEPSEEK_IN', Number(e.target.value))} />
           </FieldWrapper>
-          <FieldWrapper label="DeepSeek вихід ($ / M токенів)">
+          <FieldWrapper label={t('settings.deepseekOutputPrice')}>
             <input className="field" type="number" step="0.01" value={ws.PRICE_DEEPSEEK_OUT} onChange={e => set('PRICE_DEEPSEEK_OUT', Number(e.target.value))} />
           </FieldWrapper>
-          <FieldWrapper label="Deepgram ($ / хв)">
+          <FieldWrapper label={t('settings.deepgramPrice')}>
             <input className="field" type="number" step="0.0001" value={ws.PRICE_DEEPGRAM_MIN} onChange={e => set('PRICE_DEEPGRAM_MIN', Number(e.target.value))} />
           </FieldWrapper>
-          <FieldWrapper label="Ліміт email / міс">
+          <FieldWrapper label={t('settings.emailLimitPerMonth')}>
             <input className="field" type="number" value={ws.EMAIL_LIMIT} onChange={e => set('EMAIL_LIMIT', Number(e.target.value))} />
           </FieldWrapper>
         </div>
@@ -869,11 +899,11 @@ function WorkspaceTab() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button className="btn btn-primary" onClick={save} disabled={saving}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />} Зберегти
+          {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />} {t('common.save')}
         </button>
         {saved && (
           <span style={{ fontSize: 13, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Check size={14} /> Збережено
+            <Check size={14} /> {t('common.saved')}
           </span>
         )}
         {saveErr && (
@@ -890,7 +920,7 @@ function WorkspaceTab() {
           }}
         >
           <div className="card" style={{ width: '100%', maxWidth: 420, padding: '22px 24px', position: 'relative' }}>
-            <button className="btn btn-ghost btn-icon" onClick={() => setShow2faSetup(false)} style={{ position: 'absolute', top: 12, right: 12, width: 30, height: 30 }} aria-label="Закрити">
+            <button className="btn btn-ghost btn-icon" onClick={() => setShow2faSetup(false)} style={{ position: 'absolute', top: 12, right: 12, width: 30, height: 30 }} aria-label={t('common.close')}>
               <X size={16} />
             </button>
             <TwoFactorSetupFlow onCancel={() => setShow2faSetup(false)} onDone={() => { setMy2fa(true); setShow2faSetup(false); }} />
@@ -904,6 +934,8 @@ function WorkspaceTab() {
 /* ── IntegrationsTab ──────────────────────────── */
 
 function IntegrationsTab() {
+  const t = useTranslations();
+  const locale = useLocale();
   const INTEGRATION_ICONS: Record<string, React.ReactNode> = {
     LiveKit: <Video size={18} />,
     Deepgram: <Mic size={18} />,
@@ -1001,8 +1033,8 @@ function IntegrationsTab() {
     try {
       const res = await fetch('/api/settings/s3/test', { method: 'POST' });
       const d = await res.json().catch(() => ({}));
-      setS3Test(res.ok ? { ok: true, msg: 'Підключення успішне ✓' } : { ok: false, msg: d.error || 'Помилка' });
-    } catch { setS3Test({ ok: false, msg: 'Помилка мережі' }); }
+      setS3Test(res.ok ? { ok: true, msg: t('settings.connectionSuccess') } : { ok: false, msg: d.error || t('settings.error') });
+    } catch { setS3Test({ ok: false, msg: t('settings.networkError') }); }
     finally { setS3Testing(false); }
   };
 
@@ -1049,8 +1081,8 @@ function IntegrationsTab() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: testEmail.trim() }),
       });
       const d = await res.json().catch(() => ({}));
-      setTestResult(res.ok ? { ok: true, msg: 'Лист надіслано ✓ Перевір інбокс.' } : { ok: false, msg: d.error || 'Помилка надсилання' });
-    } catch { setTestResult({ ok: false, msg: 'Помилка мережі' }); }
+      setTestResult(res.ok ? { ok: true, msg: t('settings.testEmailSent') } : { ok: false, msg: d.error || t('settings.sendFailed') });
+    } catch { setTestResult({ ok: false, msg: t('settings.networkError') }); }
     finally { setTesting(false); }
   };
 
@@ -1068,7 +1100,7 @@ function IntegrationsTab() {
       {/* Services list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {integrations.length === 0 && (
-          <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Перевірка інтеграцій...</div>
+          <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('settings.checkingIntegrations')}</div>
         )}
         {integrations.map((it) => {
           const connected = it.status === 'connected';
@@ -1092,10 +1124,10 @@ function IntegrationsTab() {
                 </span>
               ) : isError ? (
                 <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 14%, transparent)', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 30%, transparent)' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} /> Помилка
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} /> {t('settings.statusError')}
                 </span>
               ) : (
-                <span className="chip" style={{ color: 'var(--muted)' }}>Не налаштовано</span>
+                <span className="chip" style={{ color: 'var(--muted)' }}>{t('settings.notConfigured')}</span>
               )}
             </div>
           );
@@ -1107,13 +1139,13 @@ function IntegrationsTab() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <Key size={16} style={{ color: 'var(--accent-2)' }} />
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>API ключі</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Зміни застосовуються миттєво для нових мітингів</div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.apiKeys')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.apiKeysDesc')}</div>
           </div>
         </div>
 
         {keysLoading ? (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Завантаження...</div>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {API_KEYS_CONFIG.map(({ key: keyName, label }) => {
@@ -1131,7 +1163,7 @@ function IntegrationsTab() {
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
                       {!isEditing && (
                         <div className="mono" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                          {isVisible ? keyData?.value : keyData?.masked || 'Не налаштовано'}
+                          {isVisible ? keyData?.value : keyData?.masked || t('settings.notConfigured')}
                         </div>
                       )}
                     </div>
@@ -1144,7 +1176,7 @@ function IntegrationsTab() {
                           </button>
                         )}
                         <button className="btn btn-sm" onClick={() => { setEditingKey(keyName); setEditValue(''); }}>
-                          Змінити
+                          {t('common.edit')}
                         </button>
                       </div>
                     )}
@@ -1157,7 +1189,7 @@ function IntegrationsTab() {
                           : keyName === 'DEEPSEEK_MODEL' ? 'deepseek-chat'
                           : keyName === 'DEEPGRAM_MODEL' ? 'nova-3'
                           : keyName === 'DEEPGRAM_LANGUAGE' ? 'multi'
-                          : 'Вставте новий ключ...'
+                          : t('settings.pasteNewKey')
                         }
                         style={{ flex: 1, fontSize: 13, fontFamily: 'var(--font-mono)' }}
                         autoFocus
@@ -1166,12 +1198,12 @@ function IntegrationsTab() {
                       <button className="btn btn-primary btn-sm" onClick={() => saveKey(keyName)} disabled={saving || !editValue.trim()}>
                         <Save size={13} />
                       </button>
-                      <button className="btn btn-sm" onClick={() => setEditingKey(null)}>Скасувати</button>
+                      <button className="btn btn-sm" onClick={() => setEditingKey(null)}>{t('common.cancel')}</button>
                     </div>
                   )}
                   {keyData?.updatedAt && !isEditing && (
                     <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
-                      Оновлено: {new Date(keyData.updatedAt).toLocaleDateString('uk-UA')}
+                      {t('settings.updated')} {new Date(keyData.updatedAt).toLocaleDateString(locale)}
                     </div>
                   )}
                 </div>
@@ -1187,31 +1219,31 @@ function IntegrationsTab() {
           <Mail size={16} style={{ color: 'var(--accent-2)' }} />
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>Email / SMTP</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Транзакційна пошта через ваш SMTP-сервер</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.smtpDesc')}</div>
           </div>
         </div>
 
         {smtpLoading ? (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Завантаження...</div>
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-              <FieldWrapper label="SMTP сервер">
+              <FieldWrapper label={t('settings.smtpServer')}>
                 <input className="field" value={smtp.host} placeholder="smtp.gmail.com"
                   onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} />
               </FieldWrapper>
-              <FieldWrapper label="Порт">
+              <FieldWrapper label={t('settings.port')}>
                 <input className="field" value={smtp.port} placeholder="587" inputMode="numeric"
                   onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} />
               </FieldWrapper>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FieldWrapper label="Користувач (логін)">
+              <FieldWrapper label={t('settings.smtpUser')}>
                 <input className="field" value={smtp.user} placeholder="admin@example.com"
                   onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} />
               </FieldWrapper>
-              <FieldWrapper label={smtp.passSet ? 'Пароль (збережено · введіть новий для зміни)' : 'Пароль / App Password'}>
+              <FieldWrapper label={smtp.passSet ? t('settings.smtpPasswordSet') : t('settings.smtpPassword')}>
                 <input className="field" type="password" value={smtpPass}
                   placeholder={smtp.passSet ? '••••••••••••' : 'App Password'}
                   onChange={e => setSmtpPass(e.target.value)} />
@@ -1219,18 +1251,18 @@ function IntegrationsTab() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FieldWrapper label="Адреса відправника (From)">
+              <FieldWrapper label={t('settings.smtpFrom')}>
                 <input className="field" value={smtp.from} placeholder="admin@example.com"
                   onChange={e => setSmtp(s => ({ ...s, from: e.target.value }))} />
               </FieldWrapper>
-              <FieldWrapper label="Ім'я відправника">
+              <FieldWrapper label={t('settings.smtpFromName')}>
                 <input className="field" value={smtp.fromName} placeholder="EZmeet"
                   onChange={e => setSmtp(s => ({ ...s, fromName: e.target.value }))} />
               </FieldWrapper>
             </div>
 
             <Toggle
-              label="SSL/TLS (увімк. для порту 465 · для 587 вимкнено = STARTTLS)"
+              label={t('settings.smtpSsl')}
               value={smtp.secure}
               onChange={v => setSmtp(s => ({ ...s, secure: v }))}
             />
@@ -1240,26 +1272,26 @@ function IntegrationsTab() {
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {smtpSaving
                   ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                  : <Save size={13} />} Зберегти
+                  : <Save size={13} />} {t('common.save')}
               </button>
               {smtpSaved && (
                 <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Check size={13} /> Збережено
+                  <Check size={13} /> {t('common.saved')}
                 </span>
               )}
             </div>
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Тестовий лист</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.testEmail')}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <input className="field" value={testEmail}
-                  placeholder="email для тесту (за замовч. — ваш)"
+                  placeholder={t('settings.testEmailPlaceholder')}
                   onChange={e => setTestEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
                 <button className="btn btn-sm" onClick={sendTest} disabled={testing}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {testing
                     ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                    : <Mail size={13} />} Надіслати тест
+                    : <Mail size={13} />} {t('settings.sendTest')}
                 </button>
               </div>
               {testResult && (
@@ -1277,8 +1309,8 @@ function IntegrationsTab() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <Download size={16} style={{ color: 'var(--accent-2)' }} />
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>S3 / Об'єктне сховище</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Зберігання записів мітингів (AWS S3 або сумісне: MinIO, Wasabi, Cloudflare R2)</div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.s3Title')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.s3Desc')}</div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
@@ -1290,26 +1322,26 @@ function IntegrationsTab() {
               <input className="field" value={s3.region} placeholder="us-east-1" onChange={e => setS3(s => ({ ...s, region: e.target.value }))} />
             </FieldWrapper>
           </div>
-          <FieldWrapper label="Endpoint (для S3-сумісних; порожньо = AWS)">
+          <FieldWrapper label={t('settings.s3Endpoint')}>
             <input className="field" value={s3.endpoint} placeholder="https://s3.eu-central-1.wasabisys.com" onChange={e => setS3(s => ({ ...s, endpoint: e.target.value }))} />
           </FieldWrapper>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FieldWrapper label="Access Key ID">
               <input className="field" value={s3.accessKeyId} placeholder="AKIA..." onChange={e => setS3(s => ({ ...s, accessKeyId: e.target.value }))} />
             </FieldWrapper>
-            <FieldWrapper label={s3.secretSet ? 'Secret Key (збережено · новий для зміни)' : 'Secret Access Key'}>
+            <FieldWrapper label={s3.secretSet ? t('settings.s3SecretSet') : 'Secret Access Key'}>
               <input className="field" type="password" value={s3Secret} placeholder={s3.secretSet ? '••••••••••••' : 'Secret'} onChange={e => setS3Secret(e.target.value)} />
             </FieldWrapper>
           </div>
-          <Toggle label="Force path style (для MinIO / self-hosted)" value={s3.forcePathStyle} onChange={v => setS3(s => ({ ...s, forcePathStyle: v }))} />
+          <Toggle label={t('settings.s3ForcePathStyle')} value={s3.forcePathStyle} onChange={v => setS3(s => ({ ...s, forcePathStyle: v }))} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button className="btn btn-primary btn-sm" onClick={saveS3} disabled={s3Saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {s3Saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} Зберегти
+              {s3Saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
             </button>
             <button className="btn btn-sm" onClick={testS3Conn} disabled={s3Testing} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {s3Testing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} Перевірити підключення
+              {s3Testing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
             </button>
-            {s3Saved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> Збережено</span>}
+            {s3Saved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
             {s3Test && <span style={{ fontSize: 12.5, color: s3Test.ok ? 'var(--green)' : '#f87171' }}>{s3Test.msg}</span>}
           </div>
         </div>
@@ -1321,6 +1353,7 @@ function IntegrationsTab() {
 /* ── BillingTab ───────────────────────────────── */
 
 function BillingTab() {
+  const t = useTranslations();
   const [usage, setUsage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1332,8 +1365,8 @@ function BillingTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Завантаження...</div>;
-  if (!usage) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Не вдалося завантажити дані</div>;
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>{t('common.loading')}</div>;
+  if (!usage) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>{t('settings.loadDataFailed')}</div>;
 
   const costs = usage.costs || {};
   const totalCost = costs.total || 0;
@@ -1359,32 +1392,32 @@ function BillingTab() {
           background: 'linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--surface)) 0%, var(--surface) 60%)',
           borderColor: 'color-mix(in oklab, var(--accent) 25%, var(--border))',
         }}>
-          <div style={{ fontSize: 11.5, color: 'var(--accent-2)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 8 }}>Витрати цього місяця</div>
+          <div style={{ fontSize: 11.5, color: 'var(--accent-2)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 8 }}>{t('settings.costThisMonth')}</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 42, fontWeight: 700, letterSpacing: '-0.02em' }}>{fmtCost(totalCost)}</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{'≈ ' + (totalCost * uahRate < 1 ? (totalCost * uahRate).toFixed(2) : Math.round(totalCost * uahRate)) + ' ₴ · self-hosted, лише API-витрати'}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('settings.costApprox', { amount: (totalCost * uahRate < 1 ? (totalCost * uahRate).toFixed(2) : Math.round(totalCost * uahRate)) })}</div>
           </div>
           <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--text-2)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <span>DeepSeek {fmtCost(costs.deepseek || 0)}</span>
             <span>Deepgram {fmtCost(costs.deepgram || 0)}</span>
-            {(usage.ai?.costPerReport > 0) && <span style={{ color: 'var(--muted)' }}>~{fmtCost(usage.ai.costPerReport)} / звіт</span>}
+            {(usage.ai?.costPerReport > 0) && <span style={{ color: 'var(--muted)' }}>{t('settings.costPerReport', { amount: fmtCost(usage.ai.costPerReport) })}</span>}
           </div>
         </div>
         <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, marginBottom: 14 }}>Цього місяця</div>
-          <UsageRow label="Мітингів проведено" value={String(usage.meetings?.thisMonth || 0)} pct={meetingsPct} />
-          <UsageRow label="Годин записано" value={String(usage.hours?.thisMonth || 0)} pct={hoursPct} />
+          <div style={{ fontWeight: 600, marginBottom: 14 }}>{t('settings.thisMonth')}</div>
+          <UsageRow label={t('settings.meetingsHeld')} value={String(usage.meetings?.thisMonth || 0)} pct={meetingsPct} />
+          <UsageRow label={t('settings.hoursRecorded')} value={String(usage.hours?.thisMonth || 0)} pct={hoursPct} />
           <UsageRow label="Action items" value={String(usage.actionItems?.thisMonth || 0)} pct={aiPct} />
           <UsageRow label="Email" value={(usage.emails?.thisMonth || 0) + ' / ' + (usage.emails?.limit || 3000)} pct={emailPct} />
         </div>
         <div className="card" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, marginBottom: 14 }}>AI аналітика</div>
-          <UsageRow label="AI звіти" value={String(usage.ai?.reportsGenerated || 0)} pct={Math.min(100, (usage.ai?.reportsGenerated || 0) * 5)} />
-          <UsageRow label="Токени (вхід)" value={((usage.ai?.tokensInput || 0) / 1000).toFixed(1) + 'K'} pct={Math.min(100, (usage.ai?.tokensInput || 0) / 10000)} />
-          <UsageRow label="Токени (вихід)" value={((usage.ai?.tokensOutput || 0) / 1000).toFixed(1) + 'K'} pct={Math.min(100, (usage.ai?.tokensOutput || 0) / 5000)} />
-          <UsageRow label="Транскрипцій" value={String(usage.transcriptSegments?.thisMonth || 0)} pct={Math.min(100, (usage.transcriptSegments?.thisMonth || 0) / 10)} />
+          <div style={{ fontWeight: 600, marginBottom: 14 }}>{t('settings.aiAnalytics')}</div>
+          <UsageRow label={t('settings.aiReports')} value={String(usage.ai?.reportsGenerated || 0)} pct={Math.min(100, (usage.ai?.reportsGenerated || 0) * 5)} />
+          <UsageRow label={t('settings.tokensInput')} value={((usage.ai?.tokensInput || 0) / 1000).toFixed(1) + 'K'} pct={Math.min(100, (usage.ai?.tokensInput || 0) / 10000)} />
+          <UsageRow label={t('settings.tokensOutput')} value={((usage.ai?.tokensOutput || 0) / 1000).toFixed(1) + 'K'} pct={Math.min(100, (usage.ai?.tokensOutput || 0) / 5000)} />
+          <UsageRow label={t('settings.transcriptions')} value={String(usage.transcriptSegments?.thisMonth || 0)} pct={Math.min(100, (usage.transcriptSegments?.thisMonth || 0) / 10)} />
           <div className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>
-            {'Всього мітингів: ' + (usage.meetings?.total || 0) + ' · Всього tasks: ' + (usage.actionItems?.total || 0) + ' · Користувачів: ' + (usage.users || 0)}
+            {t('settings.totalsLine', { meetings: usage.meetings?.total || 0, tasks: usage.actionItems?.total || 0, users: usage.users || 0 })}
           </div>
         </div>
       </div>
@@ -1395,6 +1428,7 @@ function BillingTab() {
 /* ── Main ─────────────────────────────────────── */
 
 export default function SettingsPage() {
+  const tr = useTranslations();
   const { data: session, update: updateSession } = useSession();
   const role = (session?.user as any)?.role;
   const isAdmin = role === 'admin';
@@ -1405,9 +1439,9 @@ export default function SettingsPage() {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '18px clamp(14px, 4vw, 28px) 0', borderBottom: '1px solid var(--border)' }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>Налаштування</h1>
+        <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{tr('settings.pageTitle')}</h1>
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-          {isAdmin ? 'Особисті параметри та адміністрування' : 'Особисті параметри облікового запису'}
+          {isAdmin ? tr('settings.subtitleAdmin') : tr('settings.subtitleUser')}
         </div>
         <div className="admin-tabs" style={{ display: 'flex', gap: 2, marginTop: 18 }}>
           {visibleTabs.map((t) => (
@@ -1417,7 +1451,7 @@ export default function SettingsPage() {
               color: tab === t.key ? 'var(--text)' : 'var(--muted)',
               fontWeight: tab === t.key ? 600 : 500,
             }}>
-              {t.icon} {t.label}
+              {t.icon} {tr(t.labelKey)}
             </button>
           ))}
         </div>

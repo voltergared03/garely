@@ -64,6 +64,21 @@ install in place (secrets and config are preserved).
 - **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
 - **Admin panel**: users, workspace policies, integrations, usage/cost
 - **First-run setup wizard** (`/setup`): configure auth methods, branding & integrations from the browser — zero config-file editing
+- **Bilingual** (English / Ukrainian): admin sets the workspace language at setup; each user can switch their own interface language in Settings
+
+## Languages
+
+EZmeet ships **bilingual — English (default) and Ukrainian**:
+
+- The **workspace language** is the very first choice in the `/setup` wizard. It's the
+  default interface language for everyone **and** the language of all *generated content*:
+  AI agendas & task descriptions, post-meeting reports, emails (reminders, weekly digest,
+  report-ready, invites) and notifications.
+- Each user can override **their own interface language** anytime in **Settings** — that
+  changes only the UI chrome for them; generated content stays in the workspace language.
+
+Internationalized with [`next-intl`](https://next-intl.dev); adding another locale is a
+matter of dropping in a `messages/<locale>.json` catalog.
 
 ## Tech stack
 

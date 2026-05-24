@@ -54,9 +54,9 @@ export async function verifyPassword(password: string, stored: string | null | u
 
 /** Minimal password policy applied wherever a password is set. */
 export function passwordPolicyError(pw: unknown): string | null {
-  if (typeof pw !== 'string') return 'Пароль обовʼязковий';
-  if (pw.length < 8) return 'Пароль має містити щонайменше 8 символів';
-  if (pw.length > 200) return 'Пароль задовгий';
+  if (typeof pw !== 'string') return 'Password is required';
+  if (pw.length < 8) return 'Password must be at least 8 characters';
+  if (pw.length > 200) return 'Password is too long';
   return null;
 }
 

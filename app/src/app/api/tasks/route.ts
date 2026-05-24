@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, meetingIdOfTask } from "@/lib/access";
@@ -115,6 +116,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const t = await getTranslations("errors");
   const { taskId, ...data } = await req.json();
   if (!taskId) {
     return NextResponse.json({ error: "taskId required" }, { status: 400 });
@@ -161,7 +163,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(task);
   } catch {
-    return NextResponse.json({ error: "Завдання не знайдено" }, { status: 404 });
+    return NextResponse.json({ error: t("taskNotFound") }, { status: 404 });
   }
 }
 
@@ -172,6 +174,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const t = await getTranslations("errors");
   const { taskId } = await req.json();
   if (!taskId) {
     return NextResponse.json({ error: "taskId required" }, { status: 400 });
@@ -187,6 +190,6 @@ export async function DELETE(req: NextRequest) {
     await prisma.meetingTask.delete({ where: { id: taskId } });
     return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ error: "Завдання не знайдено" }, { status: 404 });
+    return NextResponse.json({ error: t("taskNotFound") }, { status: 404 });
   }
 }

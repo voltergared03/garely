@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting, meetingIdOfTask } from '@/lib/access';
@@ -44,6 +45,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const t = await getTranslations('errors');
   const body = await req.json();
   const { taskId, status, ...rest } = body;
 
@@ -53,7 +55,7 @@ export async function PATCH(
 
   // Ensure the task actually belongs to this meeting (block cross-meeting writes).
   if ((await meetingIdOfTask(taskId)) !== id) {
-    return NextResponse.json({ error: 'Завдання не належить цьому мітингу' }, { status: 404 });
+    return NextResponse.json({ error: t('taskNotInMeeting') }, { status: 404 });
   }
 
   try {
@@ -66,6 +68,6 @@ export async function PATCH(
     });
     return NextResponse.json(task);
   } catch {
-    return NextResponse.json({ error: 'Завдання не знайдено' }, { status: 404 });
+    return NextResponse.json({ error: t('taskNotFound') }, { status: 404 });
   }
 }

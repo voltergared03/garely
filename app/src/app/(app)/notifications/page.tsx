@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Bell, CheckCheck, FileText, ListChecks,
   Zap, AtSign, Video, Trash2,
@@ -33,18 +34,21 @@ const TYPE_COLORS: Record<string, string> = {
   mention: '#ec4899',
 };
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: ReturnType<typeof useTranslations>, locale: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'щойно';
-  if (mins < 60) return `${mins} хв тому`;
+  if (mins < 1) return t('notifications.timeJustNow');
+  const nf = new Intl.NumberFormat(locale);
+  if (mins < 60) return t('notifications.timeMinutesAgo', { count: mins, n: nf.format(mins) });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} год тому`;
+  if (hrs < 24) return t('notifications.timeHoursAgo', { count: hrs, n: nf.format(hrs) });
   const days = Math.floor(hrs / 24);
-  return `${days} дн тому`;
+  return t('notifications.timeDaysAgo', { count: days, n: nf.format(days) });
 }
 
 export default function NotificationsPage() {
+  const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -114,7 +118,7 @@ export default function NotificationsPage() {
     <div className="page-container" style={{ maxWidth: 640 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 'clamp(18px, 5vw, 24px)', fontWeight: 700 }}>
-          Сповіщення
+          {t('notifications.title')}
           {unreadCount > 0 && (
             <span style={{
               marginLeft: 10, fontSize: 13, fontWeight: 600,
@@ -127,12 +131,12 @@ export default function NotificationsPage() {
         <div style={{ display: 'flex', gap: 6 }}>
           {unreadCount > 0 && (
             <button onClick={markAllRead} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
-              <CheckCheck size={14} /> Прочитати все
+              <CheckCheck size={14} /> {t('notifications.markAllRead')}
             </button>
           )}
           {notifications.length > 0 && (
             <button onClick={clearAll} className="btn btn-ghost btn-sm" style={{ gap: 5, color: 'var(--muted)' }}>
-              <Trash2 size={14} /> Очистити все
+              <Trash2 size={14} /> {t('notifications.clearAll')}
             </button>
           )}
         </div>
@@ -140,14 +144,14 @@ export default function NotificationsPage() {
 
       {loading && (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
-          Завантаження...
+          {t('common.loading')}
         </div>
       )}
 
       {!loading && notifications.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '48px 20px' }}>
           <Bell size={36} style={{ margin: '0 auto 12px', opacity: 0.2 }} />
-          <div style={{ color: 'var(--muted)', fontSize: 14 }}>Поки немає сповіщень</div>
+          <div style={{ color: 'var(--muted)', fontSize: 14 }}>{t('notifications.emptyPage')}</div>
         </div>
       )}
 
@@ -189,7 +193,7 @@ export default function NotificationsPage() {
                     </div>
                   )}
                   <div style={{ fontSize: 11, color: 'var(--muted-2)' }}>
-                    {timeAgo(notif.createdAt)}
+                    {timeAgo(notif.createdAt, t, locale)}
                   </div>
                 </div>
                 {!notif.read && (
@@ -201,7 +205,7 @@ export default function NotificationsPage() {
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteNotif(notif.id, !notif.read); }}
                   className="btn btn-ghost btn-icon"
-                  title="Видалити сповіщення"
+                  title={t('notifications.deleteOne')}
                   style={{ width: 28, height: 28, flexShrink: 0, color: 'var(--muted-2)', alignSelf: 'center' }}
                 >
                   <Trash2 size={14} />

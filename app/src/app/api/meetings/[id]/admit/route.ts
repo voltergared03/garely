@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting } from '@/lib/access';
@@ -27,16 +28,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  const t = await getTranslations('errors');
   const body = await req.json().catch(() => ({} as any));
   const requestId = String(body.requestId || '');
   const action = body.action === 'approve' ? 'approved' : body.action === 'deny' ? 'denied' : null;
   if (!requestId || !action) {
-    return NextResponse.json({ error: 'requestId та action обовʼязкові' }, { status: 400 });
+    return NextResponse.json({ error: t('requestIdAndActionRequired') }, { status: 400 });
   }
 
   const jr = await (prisma as any).joinRequest.findUnique({ where: { id: requestId } });
   if (!jr || jr.meetingId !== id) {
-    return NextResponse.json({ error: 'Запит не знайдено' }, { status: 404 });
+    return NextResponse.json({ error: t('joinRequestNotFound') }, { status: 404 });
   }
   await (prisma as any).joinRequest.update({
     where: { id: requestId },

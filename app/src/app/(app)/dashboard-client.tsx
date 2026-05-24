@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { SetupChecklist } from './setup-checklist';
 import { InstallAppCard } from '@/components/install-app-card';
 import {
@@ -12,7 +13,9 @@ import {
 } from 'lucide-react';
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
-import { fmtTime, fmtRelative, fmtDateLong } from '@/lib/utils';
+import { fmtTime, fmtRelative, isToday } from '@/lib/utils';
+
+type Tr = ReturnType<typeof useTranslations>;
 
 interface Meeting {
   id: string;
@@ -53,41 +56,33 @@ interface DashTask {
   meeting?: { id: string; title: string; scheduledAt: string | null };
 }
 
-// Time-of-day greeting (mobile dashboard header).
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 5) return 'Доброї ночі';
-  if (h < 12) return 'Доброго ранку';
-  if (h < 18) return 'Доброго дня';
-  return 'Доброго вечора';
-}
-
 // Short "time until" label for the mobile next-meeting hero.
-function untilLabel(d: string | null): string | null {
+function untilLabel(d: string | null, tr: Tr): string | null {
   if (!d) return null;
   const diff = new Date(d).getTime() - Date.now();
-  if (diff <= 60_000) return 'Зараз';
+  if (diff <= 60_000) return tr('dashboard.now');
   const mins = Math.round(diff / 60_000);
-  if (mins < 60) return `Через ${mins} хв`;
+  if (mins < 60) return tr('dashboard.inMinutes', { count: mins });
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) {
     const rem = mins % 60;
-    return rem ? `Через ${hrs} год ${rem} хв` : `Через ${hrs} год`;
+    return rem
+      ? tr('dashboard.inHoursMinutes', { hours: hrs, minutes: rem })
+      : tr('dashboard.inHours', { hours: hrs });
   }
   return null; // farther out — the date line covers it
 }
 
-function dueLabel(d: string | null): { txt: string; overdue: boolean; soon: boolean } | null {
+function dueLabel(d: string | null, locale: string, tr: Tr): { txt: string; overdue: boolean; soon: boolean } | null {
   if (!d) return null;
   const due = new Date(d); due.setHours(0,0,0,0);
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return { txt: 'Сьогодні', overdue: false, soon: true };
-  if (diff === 1) return { txt: 'Завтра', overdue: false, soon: true };
-  if (diff === -1) return { txt: 'Прострочено 1д', overdue: true, soon: false };
-  if (diff < -1) return { txt: `Прострочено ${-diff}д`, overdue: true, soon: false };
-  if (diff < 7) return { txt: new Date(d).toLocaleDateString('uk', { weekday: 'short' }), overdue: false, soon: diff < 3 };
-  return { txt: new Date(d).toLocaleDateString('uk', { day: 'numeric', month: 'short' }), overdue: false, soon: false };
+  if (diff === 0) return { txt: tr('common.today'), overdue: false, soon: true };
+  if (diff === 1) return { txt: tr('common.tomorrow'), overdue: false, soon: true };
+  if (diff < 0) return { txt: tr('dashboard.overdueDays', { count: -diff }), overdue: true, soon: false };
+  if (diff < 7) return { txt: new Date(d).toLocaleDateString(locale, { weekday: 'short' }), overdue: false, soon: diff < 3 };
+  return { txt: new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' }), overdue: false, soon: false };
 }
 
 export function DashboardClient({
@@ -102,10 +97,16 @@ export function DashboardClient({
   myTasks: DashTask[];
 }) {
   const router = useRouter();
+  const tr = useTranslations();
+  const locale = useLocale();
   const [upcoming, setUpcoming] = useState(initialUpcoming);
   const [past, setPast] = useState(initialPast);
   const [myTasks, setMyTasks] = useState(initialMyTasks);
-  const overdueCount = myTasks.filter(t => dueLabel(t.dueDate)?.overdue).length;
+  const overdueCount = myTasks.filter(t => dueLabel(t.dueDate, locale, tr)?.overdue).length;
+  const hour = new Date().getHours();
+  const greetingText = tr(
+    `dashboard.${hour < 5 ? 'greetingNight' : hour < 12 ? 'greetingMorning' : hour < 18 ? 'greetingAfternoon' : 'greetingEvening'}`
+  );
   const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
   const [deleteMeeting, setDeleteMeeting] = useState<Meeting | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
@@ -117,10 +118,10 @@ export function DashboardClient({
     }));
 
   const today = upcoming.filter(
-    (m) => m.scheduledAt && fmtRelative(new Date(m.scheduledAt)) === 'Сьогодні'
+    (m) => m.scheduledAt && isToday(new Date(m.scheduledAt))
   );
   const later = upcoming.filter(
-    (m) => !m.scheduledAt || fmtRelative(new Date(m.scheduledAt)) !== 'Сьогодні'
+    (m) => !m.scheduledAt || !isToday(new Date(m.scheduledAt))
   );
 
   const nextMeeting = today[0] || upcoming[0];
@@ -154,10 +155,10 @@ export function DashboardClient({
           {/* Greeting */}
           <div style={{ marginBottom: 18 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-              {greeting()}{userName ? `, ${userName.split(' ')[0]}` : ''}
+              {greetingText}{userName ? `, ${userName.split(' ')[0]}` : ''}
             </h1>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3, textTransform: 'capitalize' }}>
-              {new Date().toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })}
+              {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
 
@@ -172,17 +173,17 @@ export function DashboardClient({
               <div aria-hidden style={{ position: 'absolute', top: -50, right: -40, width: 150, height: 150, borderRadius: '50%', background: 'color-mix(in oklab, var(--accent) 26%, transparent)', filter: 'blur(55px)', pointerEvents: 'none' }} />
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <span className="chip" style={{ background: 'color-mix(in oklab, var(--accent) 22%, transparent)', borderColor: 'color-mix(in oklab, var(--accent) 45%, transparent)', color: '#bfdbfe' }}>
-                  <Sparkles size={11} /> Наступний
+                  <Sparkles size={11} /> {tr('dashboard.next')}
                 </span>
-                {untilLabel(nextMeeting.scheduledAt) && (
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt)}</span>
+                {untilLabel(nextMeeting.scheduledAt, tr) && (
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt, tr)}</span>
                 )}
               </div>
               <div style={{ position: 'relative' }}>
                 <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>{nextMeeting.title}</div>
                 {nextMeeting.scheduledAt && (
                   <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
-                    {fmtRelative(new Date(nextMeeting.scheduledAt))} · {fmtTime(new Date(nextMeeting.scheduledAt))} · {nextMeeting.durationMin} хв
+                    {fmtRelative(new Date(nextMeeting.scheduledAt), locale)} · {fmtTime(new Date(nextMeeting.scheduledAt))} · {tr('common.minutes', { count: nextMeeting.durationMin })}
                   </div>
                 )}
               </div>
@@ -190,7 +191,7 @@ export function DashboardClient({
                 <AvatarStack users={getParticipantNames(nextMeeting)} max={5} size="md" />
               </div>
               <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ position: 'relative', textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '14px', fontWeight: 600, gap: 8 }}>
-                <Video size={16} /> Приєднатися
+                <Video size={16} /> {tr('common.join')}
               </Link>
             </div>
           ) : (
@@ -198,10 +199,10 @@ export function DashboardClient({
               <div style={{ width: 52, height: 52, borderRadius: 16, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CalendarIcon size={24} style={{ color: 'var(--accent)' }} />
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>На сьогодні зустрічей немає</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>Гарний момент, щоб запланувати наступну.</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{tr('dashboard.noMeetingsToday')}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{tr('dashboard.noMeetingsTodayHint')}</div>
               <Link href="/schedule" className="btn btn-primary" style={{ textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '13px', marginTop: 4, gap: 8 }}>
-                <Plus size={15} /> Запланувати мітинг
+                <Plus size={15} /> {tr('dashboard.scheduleMeeting')}
               </Link>
             </div>
           )}
@@ -212,13 +213,13 @@ export function DashboardClient({
               <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Plus size={18} style={{ color: 'var(--accent)' }} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Новий мітинг</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('sidebar.newMeeting')}</span>
             </Link>
             <Link href="/calendar" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--green) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CalendarIcon size={18} style={{ color: 'var(--green)' }} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>Календар</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('nav.calendar')}</span>
             </Link>
           </div>
         </div>
@@ -247,7 +248,7 @@ export function DashboardClient({
                     color: '#bfdbfe',
                   }}
                 >
-                  <Sparkles size={11} /> Наступний мітинг
+                  <Sparkles size={11} /> {tr('dashboard.nextMeeting')}
                 </span>
               </div>
               {nextMeeting ? (
@@ -258,8 +259,8 @@ export function DashboardClient({
                     </div>
                     {nextMeeting.scheduledAt && (
                       <div style={{ color: 'var(--text-2)', fontSize: 13.5 }}>
-                        {fmtRelative(new Date(nextMeeting.scheduledAt))} &bull;{' '}
-                        {fmtTime(new Date(nextMeeting.scheduledAt))} &bull; {nextMeeting.durationMin} хв
+                        {fmtRelative(new Date(nextMeeting.scheduledAt), locale)} &bull;{' '}
+                        {fmtTime(new Date(nextMeeting.scheduledAt))} &bull; {tr('common.minutes', { count: nextMeeting.durationMin })}
                       </div>
                     )}
                   </div>
@@ -272,41 +273,41 @@ export function DashboardClient({
                     <AvatarStack users={getParticipantNames(nextMeeting)} max={6} size="md" />
                     <div style={{ display: 'flex', gap: 8 }}>
                       <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
-                        <Video size={15} /> Приєднатися
+                        <Video size={15} /> {tr('common.join')}
                       </Link>
                     </div>
                   </div>
                 </>
               ) : (
-                <div style={{ color: 'var(--muted)', padding: '20px 0' }}>Мітингів на сьогодні немає</div>
+                <div style={{ color: 'var(--muted)', padding: '20px 0' }}>{tr('dashboard.noMeetingsTodayDesktop')}</div>
               )}
             </div>
           </div>
         </div>
 
         {/* My Tasks */}
-        <Section title="Мої таски" right={
+        <Section title={tr('dashboard.myTasks')} right={
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {overdueCount > 0 && (
               <span style={{ fontSize: 10.5, padding: '2px 6px', borderRadius: 5,
                 background: 'color-mix(in oklab, var(--red) 18%, transparent)', color: '#fca5a5', fontWeight: 600 }}>
-                {overdueCount} прострочено
+                {tr('dashboard.overdue', { count: overdueCount })}
               </span>
             )}
             <Link href="/tasks" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none', color: 'var(--muted)' }}>
-              Усі &rarr;
+              {tr('dashboard.all')} &rarr;
             </Link>
           </div>
         }>
           {myTasks.length === 0 ? (
             <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12, color: 'var(--muted)', fontSize: 13.5 }}>
               <CheckCircle size={20} style={{ color: 'var(--green)' }} />
-              Жодної відкритої таски — все під контролем.
+              {tr('dashboard.noTasks')}
             </div>
           ) : (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {myTasks.slice(0, 5).map((t, i) => {
-                const due = dueLabel(t.dueDate);
+                const due = dueLabel(t.dueDate, locale, tr);
                 const isOverdue = due?.overdue;
                 return (
                   <Link key={t.id} href="/tasks" style={{
@@ -347,7 +348,7 @@ export function DashboardClient({
                   display: 'block', padding: '10px 16px', background: 'var(--surface-2, #2a2a32)',
                   textDecoration: 'none', color: 'var(--muted)', fontSize: 12.5, textAlign: 'center',
                 }}>
-                  + ще {myTasks.length - 5} тасок &rarr;
+                  {tr('dashboard.moreTasks', { count: myTasks.length - 5 })} &rarr;
                 </Link>
               )}
             </div>
@@ -356,7 +357,7 @@ export function DashboardClient({
 
         {/* Today */}
         {today.length > 0 && (
-          <Section title="Сьогодні" right={`${today.length} мітинг${today.length === 1 ? '' : today.length < 5 ? 'и' : 'ів'}`}>
+          <Section title={tr('dashboard.today')} right={tr('common.meetings', { count: today.length })}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {today.map((m) => (
                 <MeetingRow key={m.id} meeting={m} users={getParticipantNames(m)}
@@ -369,7 +370,7 @@ export function DashboardClient({
 
         {/* Upcoming */}
         {later.length > 0 && (
-          <Section title="Найближчі мітинги">
+          <Section title={tr('dashboard.upcoming')}>
             <div className='dash-upcoming-grid' style={{ display: 'grid', gap: 14 }}>
               {later.slice(0, 4).map((m) => (
                 <MeetingCard key={m.id} meeting={m} users={getParticipantNames(m)}
@@ -383,10 +384,10 @@ export function DashboardClient({
         {/* Recent reports */}
         {past.length > 0 && (
           <Section
-            title="Недавні звіти"
+            title={tr('dashboard.recentReports')}
             right={
               <Link href="/archive" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
-                Архів &rarr;
+                {tr('nav.archive')} &rarr;
               </Link>
             }
           >
@@ -410,7 +411,7 @@ export function DashboardClient({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 11.5 }}>
                     <Sparkles size={12} style={{ color: 'var(--accent-2)' }} />
                     <span className="mono">
-                      {m.scheduledAt ? fmtRelative(new Date(m.scheduledAt)) : ''}
+                      {m.scheduledAt ? fmtRelative(new Date(m.scheduledAt), locale) : ''}
                     </span>
                   </div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</div>
@@ -429,11 +430,11 @@ export function DashboardClient({
               <Video size={18} style={{ color: 'var(--accent)' }} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Ласкаво просимо до EZmeet</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>Створіть свій перший мітинг, щоб почати</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{tr('dashboard.welcomeTitle')}</div>
+              <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tr('dashboard.welcomeDesc')}</div>
             </div>
             <Link href="/schedule" className="btn btn-primary btn-sm" style={{ textDecoration: 'none', flexShrink: 0 }}>
-              <Video size={13} /> Створити мітинг
+              <Video size={13} /> {tr('dashboard.createMeeting')}
             </Link>
           </div>
         )}
@@ -452,16 +453,15 @@ export function DashboardClient({
         }} onClick={() => setDeleteMeeting(null)}>
           <div className="card" style={{ maxWidth: 420, width: '100%', padding: '28px 24px' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Видалити мітинг?</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{tr('dashboard.deleteMeetingTitle')}</div>
             <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
-              Ви впевнені що хочете видалити &laquo;{deleteMeeting.title}&raquo;?
-              Цю дію неможливо скасувати. Всі дані мітингу будуть видалені.
+              {tr('dashboard.deleteMeetingDesc', { title: deleteMeeting.title })}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setDeleteMeeting(null)}>Скасувати</button>
+              <button className="btn" onClick={() => setDeleteMeeting(null)}>{tr('common.cancel')}</button>
               <button className="btn" onClick={handleDelete}
                 style={{ background: 'color-mix(in oklab, var(--red) 22%, var(--surface))', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 40%, var(--border))' }}>
-                <Trash2 size={14} /> Видалити
+                <Trash2 size={14} /> {tr('common.delete')}
               </button>
             </div>
           </div>
@@ -478,6 +478,7 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
   onClose: () => void;
   onSave: (m: Meeting) => void;
 }) {
+  const t = useTranslations();
   const schedAt = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   const [title, setTitle] = useState(meeting.title);
   const [description, setDescription] = useState(meeting.description || '');
@@ -586,26 +587,26 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
       <div className="card" style={{ maxWidth: 560, width: '100%', padding: '24px 22px', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>Редагувати мітинг</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{t('dashboard.editMeeting')}</div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label className="field-label">Назва</label>
+            <label className="field-label">{t('meetingForm.title')}</label>
             <input className="field" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
           <div>
-            <label className="field-label">Опис</label>
+            <label className="field-label">{t('meetingForm.description')}</label>
             <textarea className="field" rows={2} value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Опис, агенда..." style={{ resize: 'none' }} />
+              placeholder={t('meetingForm.descriptionPlaceholder')} style={{ resize: 'none' }} />
           </div>
           {/* Agenda */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <label className="field-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <ListChecks size={11} /> Питання ({agenda.length})
+                <ListChecks size={11} /> {t('meetingForm.agenda')} ({agenda.length})
               </label>
               <button type="button" onClick={generateAgenda}
                 disabled={aiAgendaLoading || title.trim().length < 3}
@@ -638,7 +639,7 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
               </div>
             ))}
             <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <input className="field" placeholder="Додати питання..." value={newAgendaItem}
+              <input className="field" placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
                 onChange={e => setNewAgendaItem(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }}
                 style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
@@ -651,23 +652,23 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label"><CalendarIcon size={11} /> Дата</label>
+              <label className="field-label"><CalendarIcon size={11} /> {t('meetingForm.date')}</label>
               <input className="field" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ minWidth: 0 }} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label">Час</label>
+              <label className="field-label">{t('meetingForm.time')}</label>
               <input className="field" type="time" value={time} onChange={e => setTime(e.target.value)} style={{ minWidth: 0 }} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label">Тривалість</label>
+              <label className="field-label">{t('meetingForm.duration')}</label>
               <Select value={String(duration)} onChange={(v) => setDuration(parseInt(v))} style={{ minWidth: 0 }}
-                options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: `${d} хв` }))} />
+                options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </div>
           </div>
 
           {/* Participants */}
           <div>
-            <label className="field-label"><Users size={11} /> Учасники ({selectedUsers.length + 1})</label>
+            <label className="field-label"><Users size={11} /> {t('meetingForm.participants')} ({selectedUsers.length + 1})</label>
 
             {/* Host */}
             <div style={{
@@ -676,7 +677,7 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
             }}>
               <Avatar name={meeting.createdBy.name || 'U'} image={meeting.createdBy.image} size="sm" />
               <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{meeting.createdBy.name}</div>
-              <span className="chip" style={{ fontSize: 10 }}>Організатор</span>
+              <span className="chip" style={{ fontSize: 10 }}>{t('common.host')}</span>
             </div>
 
             {selectedUsers.map(u => (
@@ -696,7 +697,7 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
             <div ref={searchRef} style={{ position: 'relative', marginTop: 6 }}>
               <div style={{ position: 'relative' }}>
                 <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                <input className="field" placeholder="Додати учасника..."
+                <input className="field" placeholder={t('meetingForm.addParticipant')}
                   value={userSearch} onChange={e => { setUserSearch(e.target.value); setShowDropdown(true); }}
                   onFocus={() => setShowDropdown(true)}
                   style={{ paddingLeft: 30, fontSize: 13 }} />
@@ -732,9 +733,9 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button className="btn" onClick={onClose}>Скасувати</button>
+          <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !title.trim()}>
-            <Save size={14} /> {saving ? 'Зберігання...' : 'Зберегти'}
+            <Save size={14} /> {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -751,6 +752,7 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations();
   const ref = useRef<HTMLDivElement>(null);
   const isOpen = menuOpen === meetingId;
 
@@ -787,7 +789,7 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <Pencil size={13} /> Редагувати
+            <Pencil size={13} /> {t('common.edit')}
           </button>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(null); onDelete(); }}
             style={{
@@ -798,7 +800,7 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
             onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in oklab, var(--red) 10%, transparent)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            <Trash2 size={13} /> Видалити
+            <Trash2 size={13} /> {t('common.delete')}
           </button>
         </div>
       )}
@@ -828,6 +830,7 @@ function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }:
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations();
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   return (
     <div
@@ -850,7 +853,7 @@ function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }:
           {start ? fmtTime(start) : '--:--'}
         </div>
         <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-          {meeting.durationMin}хв
+          {t('common.minutes', { count: meeting.durationMin })}
         </div>
       </div>
       <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
@@ -859,7 +862,7 @@ function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }:
           {meeting.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12 }}>
-          <span>{users.length} учасн.</span>
+          <span>{t('common.participants', { count: users.length })}</span>
         </div>
       </Link>
       <AvatarStack users={users} max={3} />
@@ -882,6 +885,8 @@ function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations();
+  const locale = useLocale();
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   const end = start ? new Date(start.getTime() + meeting.durationMin * 60000) : null;
 
@@ -895,13 +900,13 @@ function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }
             </span>
             {meeting.recurrence && (
               <span className="chip">
-                <RefreshCw size={11} /> Щотижня
+                <RefreshCw size={11} /> {t('dashboard.weekly')}
               </span>
             )}
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{meeting.title}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            {start ? fmtRelative(start) : ''} &bull; {meeting.durationMin} хв
+            {start ? fmtRelative(start, locale) : ''} &bull; {t('common.minutes', { count: meeting.durationMin })}
           </div>
         </div>
         {meeting.status !== 'ended' && (
@@ -912,7 +917,7 @@ function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <AvatarStack users={users} max={5} />
         <Link href={`/lobby/${meeting.id}`} className="btn btn-sm btn-primary" style={{ textDecoration: 'none' }}>
-          <Video size={13} /> Приєднатися
+          <Video size={13} /> {t('common.join')}
         </Link>
       </div>
     </div>

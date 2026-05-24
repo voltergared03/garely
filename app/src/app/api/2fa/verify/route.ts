@@ -10,6 +10,7 @@ import {
   TWOFA_COOKIE_OPTS,
 } from '@/lib/twofactor';
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit';
+import { getTranslations } from 'next-intl/server';
 
 // POST /api/2fa/verify { code } — verify a TOTP or backup code for the current
 // session and set the short-lived "2FA passed" cookie. Backup codes are single-use.
@@ -18,20 +19,21 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = (session.user as any).id as string;
 
+  const t = await getTranslations('errors');
   const rl = rateLimit(`2fa-verify:${userId}`, 8, 5 * 60 * 1000);
   if (!rl.ok) {
-    return NextResponse.json({ error: `Забагато спроб. Спробуйте через ${rl.retryAfter} с.` }, { status: 429 });
+    return NextResponse.json({ error: t('tooManyAttemptsRetry', { seconds: rl.retryAfter }) }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({} as any));
   const code = String(body.code || '').trim();
-  if (!code) return NextResponse.json({ error: 'Введіть код' }, { status: 400 });
+  if (!code) return NextResponse.json({ error: t('enterCode') }, { status: 400 });
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { totpSecret: true, totpEnabled: true, totpBackupCodes: true } as any,
   }) as any;
-  if (!user?.totpEnabled) return NextResponse.json({ error: '2FA не увімкнено' }, { status: 400 });
+  if (!user?.totpEnabled) return NextResponse.json({ error: t('twoFaNotEnabled') }, { status: 400 });
 
   const secret = decryptSecret(user.totpSecret);
   let ok = !!secret && verifyTotp(secret, code);
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!ok) return NextResponse.json({ error: 'Невірний код' }, { status: 400 });
+  if (!ok) return NextResponse.json({ error: t('invalidCode') }, { status: 400 });
 
   rateLimitReset(`2fa-verify:${userId}`);
   const res = NextResponse.json({ success: true, backupUsed, remaining });

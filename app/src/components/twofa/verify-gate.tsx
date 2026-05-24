@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useTranslations } from 'next-intl';
 import { ShieldCheck, Loader2, LogOut } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 
 export function TwoFactorVerifyGate() {
+  const t = useTranslations();
   const router = useRouter();
   const params = useSearchParams();
   // Only allow local, single-slash paths — block open-redirect via ?next=
@@ -29,11 +31,11 @@ export function TwoFactorVerifyGate() {
         body: JSON.stringify({ code: code.trim() }),
       });
       const d = await r.json();
-      if (!r.ok) { setError(d.error || 'Невірний код'); setBusy(false); return; }
+      if (!r.ok) { setError(d.error || t('twofa.invalidCode')); setBusy(false); return; }
       router.replace(next);
       router.refresh();
     } catch {
-      setError('Помилка мережі');
+      setError(t('twofa.networkError'));
       setBusy(false);
     }
   }
@@ -58,12 +60,12 @@ export function TwoFactorVerifyGate() {
             <ShieldCheck size={20} />
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', margin: '0 0 6px' }}>
-            Підтвердження входу
+            {t('twofa.verifyTitle')}
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', margin: '0 0 22px', lineHeight: 1.5 }}>
             {useBackup
-              ? 'Введіть один із резервних кодів.'
-              : 'Введіть 6-значний код з додатку-автентифікатора.'}
+              ? t('twofa.enterBackupCode')
+              : t('twofa.enterAppCode')}
           </p>
 
           <input
@@ -91,7 +93,7 @@ export function TwoFactorVerifyGate() {
             disabled={busy || (!useBackup && code.length !== 6) || (useBackup && code.length < 8)}
             style={{ width: '100%', justifyContent: 'center', fontWeight: 600, marginTop: 16 }}
           >
-            {busy ? <Loader2 size={15} className="spin" /> : 'Підтвердити'}
+            {busy ? <Loader2 size={15} className="spin" /> : t('twofa.verifySubmit')}
           </button>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
@@ -100,10 +102,10 @@ export function TwoFactorVerifyGate() {
               onClick={() => { setUseBackup((v) => !v); setCode(''); setError(''); }}
               style={{ color: 'var(--accent-2)' }}
             >
-              {useBackup ? 'Ввести код з додатку' : 'Використати резервний код'}
+              {useBackup ? t('twofa.useAppCode') : t('twofa.useBackupCode')}
             </button>
             <button className="btn btn-ghost btn-sm" onClick={() => signOut({ callbackUrl: '/login' })} style={{ color: 'var(--muted)' }}>
-              <LogOut size={13} /> Вийти
+              <LogOut size={13} /> {t('twofa.signOut')}
             </button>
           </div>
         </div>

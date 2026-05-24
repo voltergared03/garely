@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { notify } from '@/lib/notify';
+import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
@@ -28,12 +29,16 @@ export async function GET(req: NextRequest) {
   });
 
   const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  // Reminder emails are a single batched send to mixed recipients (members +
+  // guests), so they go out in the workspace's default language.
+  const locale = await workspaceLocale();
+  const t = getTranslator(locale);
   let notified = 0;
   let emailed = 0;
 
   for (const m of meetings) {
     const startStr = m.scheduledAt
-      ? new Date(m.scheduledAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
+      ? new Date(m.scheduledAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
       : '';
 
     // In-app notifications for participant users
@@ -42,8 +47,9 @@ export async function GET(req: NextRequest) {
       await notify({
         userIds,
         type: 'meeting_starting',
-        title: 'Мітинг скоро почнеться',
-        body: `"${m.title}" о ${startStr}`,
+        titleKey: 'meetingStartingTitle',
+        bodyKey: 'meetingStartingBody',
+        values: { title: m.title, time: startStr },
         link: `/lobby/${m.id}`,
         meetingId: m.id,
       });
@@ -65,13 +71,13 @@ export async function GET(req: NextRequest) {
         to: [...emails],
         template: 'reminder',
         meetingId: m.id,
-        subject: `Нагадування: "${m.title}" о ${startStr}`,
-        text: `Мітинг "${m.title}" почнеться о ${startStr}.\nПриєднатися: ${joinUrl}`,
+        subject: t('emails.reminder.subject', { title: m.title, time: startStr }),
+        text: t('emails.reminder.text', { title: m.title, time: startStr, url: joinUrl }),
         html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f1115;border-radius:16px;color:#e8eaed">
-          <div style="font-size:13px;color:#60a5fa;text-transform:uppercase;letter-spacing:.08em;font-weight:700">Нагадування</div>
+          <div style="font-size:13px;color:#60a5fa;text-transform:uppercase;letter-spacing:.08em;font-weight:700">${t('emails.reminder.label')}</div>
           <div style="font-size:21px;font-weight:700;margin:4px 0 6px">${esc(m.title)}</div>
-          <p style="color:#9aa0a6;margin:0 0 18px">Почнеться о <b style="color:#e8eaed">${startStr}</b> (приблизно за 15 хв).</p>
-          ${appUrl ? `<a href="${joinUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">Приєднатися →</a>` : ''}
+          <p style="color:#9aa0a6;margin:0 0 18px">${t('emails.reminder.startsBefore')} <b style="color:#e8eaed">${startStr}</b> ${t('emails.reminder.startsAfter')}</p>
+          ${appUrl ? `<a href="${joinUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">${t('emails.reminder.joinButton')}</a>` : ''}
         </div>`,
       }).catch(() => {});
       emailed += emails.size;

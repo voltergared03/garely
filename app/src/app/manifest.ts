@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 
 // Read the workspace name per request so a configured instance gets its own
@@ -14,6 +15,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     /* DB unavailable at build → default */
   }
 
+  const locale = await getLocale();
+  const t = await getTranslations('nav');
   const short = name.length > 12 ? name.split(/\s+/)[0].slice(0, 12) : name;
 
   return {
@@ -27,7 +30,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     orientation: 'portrait-primary',
     background_color: '#0b0d11',
     theme_color: '#0b0d11',
-    lang: 'uk',
+    lang: locale,
     dir: 'ltr',
     categories: ['business', 'productivity'],
     icons: [
@@ -38,20 +41,20 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     ],
     shortcuts: [
       {
-        name: 'Новий мітинг',
-        short_name: 'Мітинг',
+        name: t('newMeeting'),
+        short_name: t('newMeeting'),
         url: '/schedule',
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
       },
       {
-        name: 'Таски',
-        short_name: 'Таски',
+        name: t('tasks'),
+        short_name: t('tasks'),
         url: '/tasks',
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
       },
       {
-        name: 'Календар',
-        short_name: 'Календар',
+        name: t('calendar'),
+        short_name: t('calendar'),
         url: '/calendar',
         icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
       },

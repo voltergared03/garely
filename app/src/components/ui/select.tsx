@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { ChevronDown, Check } from 'lucide-react';
 
 export interface SelectOption {
@@ -18,7 +19,7 @@ export function Select({
   value,
   onChange,
   options,
-  placeholder = 'Оберіть...',
+  placeholder,
   disabled,
   style,
   className,
@@ -33,6 +34,8 @@ export function Select({
   className?: string;
   icon?: React.ReactNode;
 }) {
+  const t = useTranslations('common');
+  const ph = placeholder ?? t('select');
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -98,7 +101,7 @@ export function Select({
               color: selected ? 'inherit' : 'var(--muted)',
             }}
           >
-            {selected ? selected.label : placeholder}
+            {selected ? selected.label : ph}
           </span>
         </span>
         <ChevronDown

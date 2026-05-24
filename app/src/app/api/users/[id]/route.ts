@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -72,21 +73,22 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden: admin only' }, { status: 403 });
   }
 
+  const t = await getTranslations('errors');
   const { id } = await params;
 
   if (id === currentUser.id) {
-    return NextResponse.json({ error: 'Не можна видалити власний акаунт' }, { status: 400 });
+    return NextResponse.json({ error: t('cannotDeleteOwnAccount') }, { status: 400 });
   }
 
   const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
   if (!target) {
-    return NextResponse.json({ error: 'Користувача не знайдено' }, { status: 404 });
+    return NextResponse.json({ error: t('userNotFound') }, { status: 404 });
   }
 
   if (target.role === 'admin') {
     const adminCount = await prisma.user.count({ where: { role: 'admin' } });
     if (adminCount <= 1) {
-      return NextResponse.json({ error: 'Не можна видалити останнього адміна' }, { status: 400 });
+      return NextResponse.json({ error: t('cannotDeleteLastAdmin') }, { status: 400 });
     }
   }
 

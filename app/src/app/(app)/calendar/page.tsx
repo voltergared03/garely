@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Select } from '@/components/ui/select';
@@ -29,10 +30,6 @@ import {
 } from 'lucide-react';
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import {
-  MONTHS_UA,
-  MONTHS_UA_NOM,
-  DOW_UA,
-  DOW_FULL,
   fmtTime,
   fmtDateLong,
   pad,
@@ -148,6 +145,7 @@ function WeekView({
   today: Date;
   onMeetingClick: (m: Meeting) => void;
 }) {
+  const locale = useLocale();
   const days = useMemo(() => {
     const arr: Date[] = [];
     for (let i = 0; i < 7; i++) {
@@ -219,7 +217,7 @@ function WeekView({
                   letterSpacing: '.06em',
                 }}
               >
-                {DOW_UA[i]}
+                {new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(d)}
               </div>
               <div
                 style={{
@@ -434,7 +432,18 @@ function MonthView({
   today: Date;
   onDayClick: (date: Date, dayMeetings: Meeting[]) => void;
 }) {
+  const t = useTranslations();
+  const locale = useLocale();
   const days = useMemo(() => getMonthGrid(year, month), [year, month]);
+
+  // Monday-first short weekday names (2024-01-01 is a Monday).
+  const dowNames = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) =>
+        new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2024, 0, 1 + i))
+      ),
+    [locale],
+  );
 
   const meetingsByDay = useMemo(() => {
     const map: Record<string, Meeting[]> = {};
@@ -458,7 +467,7 @@ function MonthView({
           borderBottom: '1px solid var(--border)',
         }}
       >
-        {DOW_UA.map((d) => (
+        {dowNames.map((d) => (
           <div
             key={d}
             style={{
@@ -601,7 +610,7 @@ function MonthView({
                 })}
                 {dayMeetings.length > 3 && (
                   <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                    +{dayMeetings.length - 3} ще
+                    {t('calendar.moreCount', { count: dayMeetings.length - 3 })}
                   </div>
                 )}
               </div>
@@ -628,7 +637,8 @@ function DayModal({
   onClose: () => void;
   onMeetingClick: (m: Meeting) => void;
 }) {
-  const dowIdx = (date.getDay() + 6) % 7;
+  const t = useTranslations();
+  const locale = useLocale();
 
   return (
     <div
@@ -675,7 +685,7 @@ function DayModal({
                   letterSpacing: '.06em',
                 }}
               >
-                {DOW_FULL[dowIdx]}
+                {new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(date)}
               </div>
               <div
                 style={{
@@ -684,7 +694,7 @@ function DayModal({
                   letterSpacing: '-0.01em',
                 }}
               >
-                {fmtDateLong(date)}
+                {fmtDateLong(date, locale)}
               </div>
             </div>
             <button
@@ -709,14 +719,14 @@ function DayModal({
                 size={28}
                 style={{ opacity: 0.5, marginBottom: 10 }}
               />
-              <div style={{ marginBottom: 12 }}>Жодного мітингу.</div>
+              <div style={{ marginBottom: 12 }}>{t('calendar.noMeetings')}</div>
               <Link
                 href="/schedule"
                 className="btn btn-primary btn-sm"
                 style={{ textDecoration: 'none', gap: 5 }}
                 onClick={onClose}
               >
-                <Plus size={13} /> Створити мітинг
+                <Plus size={13} /> {t('nav.newMeeting')}
               </Link>
             </div>
           ) : (
@@ -786,11 +796,11 @@ function DayModal({
                         >
                           <AvatarStack users={users} max={4} size="sm" />
                           <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            {users.length} учасн.
+                            {t('calendar.participantsShort', { count: users.length })}
                           </span>
                           {m.recurrence && (
                             <span className="chip" style={{ fontSize: 10 }}>
-                              <RefreshCw size={9} /> Щотижня
+                              <RefreshCw size={9} /> {t('calendar.weekly')}
                             </span>
                           )}
                         </div>
@@ -844,6 +854,8 @@ function MeetingDetailModal({
   const isCompleted = m.status === 'completed' || m.status === 'ended';
   const agenda = Array.isArray(m.agenda) ? m.agenda : [];
   const isMobile = useIsMobile();
+  const t = useTranslations();
+  const locale = useLocale();
 
   return (
     <div
@@ -882,11 +894,11 @@ function MeetingDetailModal({
                 : 'color-mix(in oklab, var(--green) 18%, transparent)',
               color: isCompleted ? 'var(--muted)' : 'var(--green)',
             }}>
-              {m.status === 'scheduled' ? 'Заплановано' : m.status === 'live' ? 'Активний' : m.status === 'ended' ? 'Завершено' : m.status}
+              {m.status === 'scheduled' ? t('calendar.status.scheduled') : m.status === 'live' ? t('calendar.status.live') : m.status === 'ended' ? t('calendar.status.ended') : m.status}
             </span>
             {m.recurrence && (
               <span className="chip" style={{ fontSize: 10 }}>
-                <RefreshCw size={9} /> Повторюваний
+                <RefreshCw size={9} /> {t('calendar.recurring')}
               </span>
             )}
           </div>
@@ -907,14 +919,14 @@ function MeetingDetailModal({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 16, fontSize: 12.5, color: 'var(--muted)' }}>
             {start && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Calendar size={13} /> {fmtDateLong(start)}
+                <Calendar size={13} /> {fmtDateLong(start, locale)}
               </span>
             )}
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Clock size={13} /> {m.durationMin} хв
+              <Clock size={13} /> {t('common.minutes', { count: m.durationMin })}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <UsersIcon size={13} /> {m.participants?.length || 0} учасників
+              <UsersIcon size={13} /> {t('common.participants', { count: m.participants?.length || 0 })}
             </span>
           </div>
 
@@ -929,7 +941,7 @@ function MeetingDetailModal({
                 fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
                 textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8,
               }}>
-                <ListChecks size={13} /> Питання для обговорення
+                <ListChecks size={13} /> {t('meetingForm.agenda')}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {agenda.map((item: string, idx: number) => (
@@ -957,7 +969,7 @@ function MeetingDetailModal({
                 fontSize: 12, fontWeight: 600, color: 'var(--text-2)',
                 textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8,
               }}>
-                <UsersIcon size={13} /> Учасники
+                <UsersIcon size={13} /> {t('meetingForm.participants')}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AvatarStack users={users} size="md" max={6} />
@@ -970,7 +982,7 @@ function MeetingDetailModal({
 
           {/* Organizer */}
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 18 }}>
-            Організатор: <strong style={{ color: 'var(--text-2)' }}>{m.createdBy?.name || 'Невідомо'}</strong>
+            {t('calendar.organizer')}: <strong style={{ color: 'var(--text-2)' }}>{m.createdBy?.name || t('calendar.unknown')}</strong>
           </div>
 
           {/* Action buttons — wrap on mobile so nothing overflows */}
@@ -982,7 +994,7 @@ function MeetingDetailModal({
                 style={{ textDecoration: 'none', flex: isMobile ? '1 1 100%' : 1, justifyContent: 'center', fontWeight: 600 }}
                 onClick={onClose}
               >
-                <FileText size={15} /> Переглянути звіт
+                <FileText size={15} /> {t('calendar.viewReport')}
               </Link>
             ) : (
               <Link
@@ -991,7 +1003,7 @@ function MeetingDetailModal({
                 style={{ textDecoration: 'none', flex: isMobile ? '1 1 100%' : 1, justifyContent: 'center', fontWeight: 600 }}
                 onClick={onClose}
               >
-                <Video size={15} /> {m.status === 'live' ? 'Приєднатися' : 'Увійти в мітинг'}
+                <Video size={15} /> {m.status === 'live' ? t('common.join') : t('calendar.enterMeeting')}
               </Link>
             )}
             {!isCompleted && (
@@ -1000,7 +1012,7 @@ function MeetingDetailModal({
                 onClick={() => onEdit(m)}
                 style={isMobile ? { flex: 1, justifyContent: 'center' } : { flexShrink: 0 }}
               >
-                <Pencil size={14} /> Редагувати
+                <Pencil size={14} /> {t('common.edit')}
               </button>
             )}
             {!isCompleted && (
@@ -1014,7 +1026,7 @@ function MeetingDetailModal({
               </button>
             )}
             <button className="btn" onClick={onClose} style={isMobile ? { flex: 1, justifyContent: 'center' } : { flexShrink: 0 }}>
-              Закрити
+              {t('common.close')}
             </button>
           </div>
         </div>
@@ -1034,6 +1046,7 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
   onClose: () => void;
   onSave: (m: Meeting) => void;
 }) {
+  const t = useTranslations();
   const schedAt = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   const [title, setTitle] = useState(meeting.title);
   const [description, setDescription] = useState(meeting.description || '');
@@ -1141,27 +1154,27 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
       <div className="card" style={{ maxWidth: 560, width: '100%', padding: '24px 22px', maxHeight: '90vh', overflowY: 'auto', animation: 'fadeIn .15s' }}
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>Редагувати мітинг</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{t('calendar.editMeeting')}</div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label className="field-label">Назва</label>
+            <label className="field-label">{t('meetingForm.title')}</label>
             <input className="field" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
           <div>
-            <label className="field-label">Опис</label>
+            <label className="field-label">{t('meetingForm.description')}</label>
             <textarea className="field" rows={2} value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Опис, агенда..." style={{ resize: 'none' }} />
+              placeholder={t('meetingForm.descriptionPlaceholder')} style={{ resize: 'none' }} />
           </div>
 
           {/* Agenda */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <label className="field-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <ListChecksIcon size={11} /> Питання ({agenda.length})
+                <ListChecksIcon size={11} /> {t('calendar.agendaCount', { count: agenda.length })}
               </label>
               <button type="button" onClick={generateAgenda}
                 disabled={aiAgendaLoading || title.trim().length < 3}
@@ -1194,7 +1207,7 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
               </div>
             ))}
             <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <input className="field" placeholder="Додати питання..." value={newAgendaItem}
+              <input className="field" placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
                 onChange={e => setNewAgendaItem(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }}
                 style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
@@ -1207,23 +1220,23 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label"><Calendar size={11} /> Дата</label>
+              <label className="field-label"><Calendar size={11} /> {t('meetingForm.date')}</label>
               <input className="field" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ minWidth: 0 }} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label">Час</label>
+              <label className="field-label">{t('meetingForm.time')}</label>
               <input className="field" type="time" value={time} onChange={e => setTime(e.target.value)} style={{ minWidth: 0 }} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <label className="field-label">Тривалість</label>
+              <label className="field-label">{t('meetingForm.duration')}</label>
               <Select value={String(duration)} onChange={(v) => setDuration(parseInt(v))} style={{ minWidth: 0 }}
-                options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: `${d} хв` }))} />
+                options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </div>
           </div>
 
           {/* Participants */}
           <div>
-            <label className="field-label"><UsersIcon size={11} /> Учасники ({selectedUsers.length + 1})</label>
+            <label className="field-label"><UsersIcon size={11} /> {t('calendar.participantsCount', { count: selectedUsers.length + 1 })}</label>
             {meeting.createdBy && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
@@ -1231,7 +1244,7 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
               }}>
                 <Avatar name={meeting.createdBy.name || 'U'} image={meeting.createdBy.image} size="sm" />
                 <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{meeting.createdBy.name}</div>
-                <span className="chip" style={{ fontSize: 10 }}>Організатор</span>
+                <span className="chip" style={{ fontSize: 10 }}>{t('calendar.organizer')}</span>
               </div>
             )}
 
@@ -1252,7 +1265,7 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
             <div ref={searchRef} style={{ position: 'relative', marginTop: 6 }}>
               <div style={{ position: 'relative' }}>
                 <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                <input className="field" placeholder="Додати учасника..."
+                <input className="field" placeholder={t('meetingForm.addParticipant')}
                   value={userSearch} onChange={e => { setUserSearch(e.target.value); setShowDropdown(true); }}
                   onFocus={() => setShowDropdown(true)}
                   style={{ paddingLeft: 30, fontSize: 13 }} />
@@ -1288,9 +1301,9 @@ function CalendarEditModal({ meeting, onClose, onSave }: {
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button className="btn" onClick={onClose}>Скасувати</button>
+          <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !title.trim()}>
-            <Save size={14} /> {saving ? 'Зберігання...' : 'Зберегти'}
+            <Save size={14} /> {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -1312,6 +1325,8 @@ function AgendaView({ meetings, today, onMeetingClick }: {
   today: Date;
   onMeetingClick: (m: Meeting) => void;
 }) {
+  const t = useTranslations();
+  const locale = useLocale();
   const groups = useMemo(() => {
     const sorted = meetings
       .filter((m) => m.scheduledAt)
@@ -1329,18 +1344,18 @@ function AgendaView({ meetings, today, onMeetingClick }: {
 
   const dayLabel = (d: Date) => {
     const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
-    if (diff === 0) return 'Сьогодні';
-    if (diff === 1) return 'Завтра';
-    if (diff === -1) return 'Вчора';
-    return d.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (diff === 0) return t('common.today');
+    if (diff === 1) return t('common.tomorrow');
+    if (diff === -1) return t('common.yesterday');
+    return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
   if (groups.length === 0) {
     return (
       <div style={{ flex: 1, overflowY: 'auto', padding: '48px 24px', textAlign: 'center', color: 'var(--muted)' }}>
         <Calendar size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>Немає запланованих мітингів</div>
-        <div style={{ fontSize: 13, lineHeight: 1.5 }}>Натисніть «Створити», щоб запланувати перший.</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>{t('calendar.noScheduledMeetings')}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>{t('calendar.emptyHint')}</div>
       </div>
     );
   }
@@ -1366,7 +1381,7 @@ function AgendaView({ meetings, today, onMeetingClick }: {
                   }}>
                     <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 46 }}>
                       <div className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{fmtTime(start)}</div>
-                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>{m.durationMin}хв</div>
+                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>{t('calendar.durationMinShort', { count: m.durationMin })}</div>
                     </div>
                     <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', minHeight: 34 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1374,7 +1389,7 @@ function AgendaView({ meetings, today, onMeetingClick }: {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <AvatarStack users={users} max={4} />
                         {m.status === 'live' && (
-                          <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 18%, transparent)', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 35%, transparent)' }}>● Live</span>
+                          <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 18%, transparent)', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 35%, transparent)' }}>● {t('calendar.live')}</span>
                         )}
                       </div>
                     </div>
@@ -1391,6 +1406,8 @@ function AgendaView({ meetings, today, onMeetingClick }: {
 
 export default function CalendarPage() {
   const router = useRouter();
+  const t = useTranslations();
+  const locale = useLocale();
   const isMobile = useIsMobile();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1414,6 +1431,14 @@ export default function CalendarPage() {
   const weekStart = useMemo(() => startOfWeek(cursor), [cursor]);
   const currentYear = cursor.getFullYear();
   const currentMonth = cursor.getMonth();
+
+  const monthLabel = useMemo(() => {
+    const name = new Intl.DateTimeFormat(locale, { month: 'long' }).format(
+      new Date(currentYear, currentMonth, 1),
+    );
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+    return `${capitalized} ${currentYear}`;
+  }, [locale, currentYear, currentMonth]);
 
   /* ---- Fetch meetings ---- */
   const fetchMeetings = useCallback(async () => {
@@ -1468,7 +1493,7 @@ export default function CalendarPage() {
   );
 
   const handleDeleteMeeting = useCallback(async (m: Meeting) => {
-    if (!confirm('Видалити цей мітинг?')) return;
+    if (!confirm(t('calendar.deleteConfirm'))) return;
     setDeleting(true);
     try {
       const res = await fetch('/api/meetings/' + m.id, { method: 'DELETE' });
@@ -1478,7 +1503,7 @@ export default function CalendarPage() {
       }
     } catch (e) { console.error(e); }
     finally { setDeleting(false); }
-  }, [fetchMeetings]);
+  }, [fetchMeetings, t]);
 
   const handleEditSave = useCallback((updated: Meeting) => {
     setEditMeeting(null);
@@ -1517,7 +1542,7 @@ export default function CalendarPage() {
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 600 }}>
-          {isMobile ? 'Календар' : `${MONTHS_UA_NOM[currentMonth]} ${currentYear}`}
+          {isMobile ? t('nav.calendar') : monthLabel}
         </div>
 
         {!isMobile && (
@@ -1525,7 +1550,7 @@ export default function CalendarPage() {
             <button
               className="btn btn-icon"
               onClick={goPrev}
-              title="Назад"
+              title={t('calendar.previous')}
             >
               <ChevronLeft size={15} />
             </button>
@@ -1534,12 +1559,12 @@ export default function CalendarPage() {
               onClick={goToday}
               style={{ fontWeight: 600 }}
             >
-              Сьогодні
+              {t('common.today')}
             </button>
             <button
               className="btn btn-icon"
               onClick={goNext}
-              title="Вперед"
+              title={t('calendar.next')}
             >
               <ChevronRight size={15} />
             </button>
@@ -1571,7 +1596,7 @@ export default function CalendarPage() {
                     fontWeight: view === v ? 600 : 500,
                   }}
                 >
-                  {v === 'week' ? 'Тиждень' : 'Місяць'}
+                  {v === 'week' ? t('calendar.week') : t('calendar.month')}
                 </button>
               ))}
             </div>
@@ -1582,7 +1607,7 @@ export default function CalendarPage() {
             className="btn btn-primary"
             style={{ textDecoration: 'none', gap: 5 }}
           >
-            <Plus size={15} /> Створити
+            <Plus size={15} /> {t('calendar.create')}
           </Link>
         </div>
       </div>
@@ -1603,7 +1628,7 @@ export default function CalendarPage() {
             size={16}
             style={{ animation: 'spin 1s linear infinite' }}
           />
-          <span style={{ fontSize: 13 }}>Завантаження...</span>
+          <span style={{ fontSize: 13 }}>{t('common.loading')}</span>
         </div>
       ) : isMobile ? (
         <AgendaView

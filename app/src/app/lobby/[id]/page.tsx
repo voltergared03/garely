@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Select } from '@/components/ui/select';
 import { useSession } from 'next-auth/react';
 import { Logo } from '@/components/ui/logo';
@@ -13,6 +14,8 @@ import {
 import { fmtRelative, fmtTime } from '@/lib/utils';
 
 export default function LobbyPage() {
+  const t = useTranslations();
+  const locale = useLocale();
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,7 +115,7 @@ export default function LobbyPage() {
       <div className='lobby-header' style={{ padding: '18px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Logo />
         <button className="btn btn-ghost" onClick={() => router.push('/')}>
-          <X size={15} /> Вийти
+          <X size={15} /> {t('lobby.leave')}
         </button>
       </div>
 
@@ -140,7 +143,7 @@ export default function LobbyPage() {
               <div style={{ position: 'relative' }}>
                 <button className="btn" onClick={() => { enumerateDevices(); setShowDevices(!showDevices); }}
                   style={{ padding: '12px 14px', borderRadius: 12, background: showDevices ? 'var(--surface-3)' : undefined }}>
-                  <Settings size={15} /> Пристрої <ChevronDown size={13} style={{ transform: showDevices ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+                  <Settings size={15} /> {t('lobby.devices')} <ChevronDown size={13} style={{ transform: showDevices ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
                 </button>
                 {showDevices && (
                   <>
@@ -151,13 +154,13 @@ export default function LobbyPage() {
                       background: 'var(--surface)', border: '1px solid var(--border)',
                       borderRadius: 14, boxShadow: '0 20px 50px rgba(0,0,0,.5)',
                     }}>
-                      <DeviceSelect label="Мікрофон" icon={<Mic size={14} />}
+                      <DeviceSelect label={t('lobby.microphone')} icon={<Mic size={14} />}
                         devices={devices.filter(d => d.kind === 'audioinput')}
                         value={selectedMic} onChange={setSelectedMic} />
-                      <DeviceSelect label="Камера" icon={<Video size={14} />}
+                      <DeviceSelect label={t('lobby.camera')} icon={<Video size={14} />}
                         devices={devices.filter(d => d.kind === 'videoinput')}
                         value={selectedCam} onChange={setSelectedCam} />
-                      <DeviceSelect label="Динаміки" icon={<Volume2 size={14} />}
+                      <DeviceSelect label={t('lobby.speakers')} icon={<Volume2 size={14} />}
                         devices={devices.filter(d => d.kind === 'audiooutput')}
                         value={selectedSpeaker} onChange={setSelectedSpeaker} />
                     </div>
@@ -174,7 +177,7 @@ export default function LobbyPage() {
                 <div>
                   {meeting.scheduledAt && (
                     <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-                      {fmtRelative(new Date(meeting.scheduledAt))} &bull; {fmtTime(new Date(meeting.scheduledAt))}
+                      {fmtRelative(new Date(meeting.scheduledAt), locale)} &bull; {fmtTime(new Date(meeting.scheduledAt))}
                     </div>
                   )}
                   <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
@@ -186,21 +189,21 @@ export default function LobbyPage() {
                     </p>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--muted)' }}>
-                    <Users size={13} /> {meeting.participants?.length || 0} запрошених
+                    <Users size={13} /> {t('lobby.invitedCount', { count: meeting.participants?.length || 0 })}
                     <span>&bull;</span>
-                    <Clock size={13} /> {meeting.durationMin} хв
+                    <Clock size={13} /> {t('common.minutes', { count: meeting.durationMin })}
                   </div>
                 </div>
 
                 {meeting.participants && meeting.participants.length > 0 && (
                   <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
-                      Учасники
+                      {t('lobby.participantsHeading')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <AvatarStack users={getParticipantNames(meeting)} size="md" max={3} />
                       <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                        {meeting.participants.length} учасник{meeting.participants.length === 1 ? '' : 'и'}
+                        {t('common.participants', { count: meeting.participants.length })}
                       </div>
                     </div>
                   </div>
@@ -209,29 +212,29 @@ export default function LobbyPage() {
             ) : (
               <div>
                 <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
-                  {id === 'quick' ? 'Швидкий мітинг' : 'Приєднатися до мітингу'}
+                  {id === 'quick' ? t('lobby.quickMeeting') : t('lobby.joinMeeting')}
                 </h1>
                 <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.55, margin: 0 }}>
                   {id === 'quick'
-                    ? 'Створіть швидкий мітинг та запросіть колег за посиланням.'
-                    : 'Завантаження інформації про мітинг...'}
+                    ? t('lobby.quickMeetingDesc')
+                    : t('lobby.loadingMeeting')}
                 </p>
               </div>
             )}
 
             <div>
-              <label className="field-label">Ваше ім&apos;я</label>
+              <label className="field-label">{t('lobby.yourName')}</label>
               <input className="field" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="Як вас бачитимуть учасники" />
+                placeholder={t('lobby.namePlaceholder')} />
             </div>
 
             <button className="btn btn-primary" onClick={joinMeeting}
               style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
-              <Video size={17} /> Приєднатися до мітингу
+              <Video size={17} /> {t('lobby.joinMeeting')}
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
-              <Lock size={12} /> End-to-end зашифровано &bull; Self-hosted
+              <Lock size={12} /> {t('lobby.encryptedNote')}
             </div>
           </div>
         </div>
@@ -247,6 +250,7 @@ function DeviceSelect({ label, icon, devices, value, onChange }: {
   label: string; icon: React.ReactNode; devices: MediaDeviceInfo[];
   value: string; onChange: (id: string) => void;
 }) {
+  const t = useTranslations();
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>
@@ -255,9 +259,9 @@ function DeviceSelect({ label, icon, devices, value, onChange }: {
       <Select
         value={value}
         onChange={onChange}
-        placeholder="Не знайдено"
+        placeholder={t('lobby.deviceNotFound')}
         style={{ background: 'var(--surface-2)' }}
-        options={devices.map(d => ({ value: d.deviceId, label: d.label || `Пристрій ${d.deviceId.slice(0, 6)}` }))}
+        options={devices.map(d => ({ value: d.deviceId, label: d.label || t('lobby.deviceFallback', { id: d.deviceId.slice(0, 6) }) }))}
       />
     </div>
   );
@@ -267,6 +271,7 @@ function MediaPreview({ mic, cam, userName, userInitial, selectedMic, selectedCa
   mic: boolean; cam: boolean; userName: string; userInitial: string;
   selectedMic?: string; selectedCam?: string;
 }) {
+  const t = useTranslations();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -436,7 +441,7 @@ function MediaPreview({ mic, cam, userName, userInitial, selectedMic, selectedCa
           }}>
             {userInitial}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Камеру вимкнено</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('lobby.cameraOff')}</div>
         </div>
       )}
 

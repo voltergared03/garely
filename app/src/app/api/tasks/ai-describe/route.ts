@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
 import { getDeepSeekConfig } from "@/lib/config";
+import { workspaceLocale } from "@/lib/i18n-server";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -8,7 +10,10 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const rl = rateLimit(`ai-describe:${(session.user as any).id}`, 20, 5 * 60 * 1000);
-  if (!rl.ok) return NextResponse.json({ error: `Забагато запитів. Спробуйте через ${rl.retryAfter} с.` }, { status: 429 });
+  if (!rl.ok) {
+    const t = await getTranslations("errors");
+    return NextResponse.json({ error: t("rateLimited", { seconds: rl.retryAfter }) }, { status: 429 });
+  }
 
   const { title, currentDescription } = await req.json();
   if (!title || title.trim().length < 3) {
@@ -18,14 +23,19 @@ export async function POST(req: Request) {
   const { apiKey, baseUrl, model } = await getDeepSeekConfig();
   if (!apiKey) return NextResponse.json({ error: "AI not configured" }, { status: 500 });
 
-  const systemPrompt = `Ти — асистент для команди. Генеруй короткий, чіткий опис задачі українською мовою.
-Опис має бути конкретним, дієвим (actionable), 1-3 речення максимум.
-Не використовуй маркдаун, зірочки, заголовки. Просто чистий текст.
-Не повторюй назву задачі дослівно в описі.`;
+  // Generated content follows the workspace (admin-chosen) language.
+  const locale = await workspaceLocale();
+  const lang = locale === "uk" ? "Ukrainian" : "English";
+
+  const systemPrompt = `You are a team assistant. Generate a short, clear task description.
+The description must be specific and actionable, 1-3 sentences max.
+Do not use markdown, asterisks, or headings. Plain text only.
+Do not repeat the task title verbatim in the description.
+Respond in ${lang}.`;
 
   const userPrompt = currentDescription
-    ? `Назва задачі: "${title}"\nПоточний опис: "${currentDescription}"\n\nПерепиши опис краще — зроби його чіткішим, конкретнішим та більш дієвим. Залиш тільки текст опису.`
-    : `Назва задачі: "${title}"\n\nНапиши короткий опис для цієї задачі. Залиш тільки текст опису.`;
+    ? `Task title: "${title}"\nCurrent description: "${currentDescription}"\n\nRewrite the description to be clearer, more specific and more actionable. Return only the description text.`
+    : `Task title: "${title}"\n\nWrite a short description for this task. Return only the description text.`;
 
   try {
     const res = await fetch(`${baseUrl}/v1/chat/completions`, {

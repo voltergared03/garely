@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
 import { verifySetupToken, markSetupComplete } from '@/lib/setup';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
@@ -9,6 +10,7 @@ import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 // finalize setup. (Google-auth setup uses /api/setup/complete instead.)
 export async function POST(req: NextRequest) {
   const { token, email, name, password } = await req.json().catch(() => ({}));
+  const t = await getTranslations('errors');
 
   if (!(await verifySetupToken(token))) {
     return NextResponse.json({ error: 'Invalid or expired setup token' }, { status: 403 });
@@ -16,14 +18,14 @@ export async function POST(req: NextRequest) {
 
   const e = String(email || '').trim().toLowerCase();
   if (!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) {
-    return NextResponse.json({ error: 'Вкажіть коректний email' }, { status: 400 });
+    return NextResponse.json({ error: t('invalidEmail') }, { status: 400 });
   }
   const pwErr = passwordPolicyError(password);
   if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
 
   const existing = await prisma.user.findUnique({ where: { email: e } });
   if (existing) {
-    return NextResponse.json({ error: 'Користувач із таким email вже існує' }, { status: 409 });
+    return NextResponse.json({ error: t('emailExists') }, { status: 409 });
   }
 
   const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE']);

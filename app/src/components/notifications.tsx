@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Bell, Check, CheckCheck, FileText, ListChecks,
   Zap, AtSign, Video, X, Trash2,
@@ -35,18 +36,21 @@ const TYPE_COLORS: Record<string, string> = {
   mention: '#ec4899',
 };
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: ReturnType<typeof useTranslations>, locale: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'щойно';
-  if (mins < 60) return `${mins} хв`;
+  if (mins < 1) return t('notifications.timeJustNow');
+  const nf = new Intl.NumberFormat(locale);
+  if (mins < 60) return t('notifications.timeMinutesShort', { count: mins, n: nf.format(mins) });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} год`;
+  if (hrs < 24) return t('notifications.timeHoursShort', { count: hrs, n: nf.format(hrs) });
   const days = Math.floor(hrs / 24);
-  return `${days} дн`;
+  return t('notifications.timeDaysShort', { count: days, n: nf.format(days) });
 }
 
 export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'down' }) {
+  const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -153,7 +157,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
       <button
         onClick={() => setOpen(!open)}
         className="btn btn-ghost btn-icon"
-        title="Сповіщення"
+        title={t('notifications.title')}
         style={{
           position: 'relative', width: 36, height: 36,
         }}
@@ -193,7 +197,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
             flexShrink: 0,
           }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              Сповіщення
+              {t('notifications.title')}
               {unreadCount > 0 && (
                 <span style={{
                   marginLeft: 8, fontSize: 11, fontWeight: 600,
@@ -210,7 +214,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                   className="btn btn-ghost btn-sm"
                   style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}
                 >
-                  <CheckCheck size={13} /> Прочитати все
+                  <CheckCheck size={13} /> {t('notifications.markAllRead')}
                 </button>
               )}
               {notifications.length > 0 && (
@@ -219,7 +223,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                   disabled={loading}
                   className="btn btn-ghost btn-icon"
                   style={{ width: 28, height: 28, color: 'var(--muted)' }}
-                  title="Очистити всі"
+                  title={t('notifications.clearAll')}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -245,7 +249,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                 color: 'var(--muted)', fontSize: 13,
               }}>
                 <Bell size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
-                <div>Немає сповіщень</div>
+                <div>{t('notifications.empty')}</div>
               </div>
             )}
             {notifications.map(notif => {
@@ -294,7 +298,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                       </div>
                     )}
                     <div style={{ fontSize: 10.5, color: 'var(--muted-2)', marginTop: 3 }}>
-                      {timeAgo(notif.createdAt)}
+                      {timeAgo(notif.createdAt, t, locale)}
                     </div>
                   </div>
 
@@ -310,7 +314,7 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                   <button
                     onClick={(e) => deleteNotif(e, notif)}
                     className="btn btn-ghost btn-icon"
-                    title="Видалити"
+                    title={t('common.delete')}
                     style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--muted-2)', alignSelf: 'center' }}
                   >
                     <Trash2 size={13} />

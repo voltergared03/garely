@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   ChevronLeft, Sparkles, Copy, Send, FileText, Check, Clock,
   Users, Search, X, ChevronRight, Video, Play, ListChecks,
@@ -98,7 +99,7 @@ function transformApiData(data: any): Meeting {
     const actionItems = (r.tasks || r.actionItems || []).map((t: any) => ({
       id: t.id,
       text: t.title || t.text || '',
-      assignee: t.assigneeName || t.assignee?.name || t.assignee || 'Не призначено',
+      assignee: t.assigneeName || t.assignee?.name || t.assignee || '',
       assigneeImage: t.assignee?.image || null,
       dueDate: t.dueDate || null,
       priority: (t.priority || 'medium') as 'high' | 'medium' | 'low',
@@ -159,6 +160,7 @@ function ReportAssigneeDropdown({
   users: UserItem[];
   onAssign: (itemId: string, userId: string, user: UserItem) => void;
 }) {
+  const tr = useTranslations();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -210,7 +212,7 @@ function ReportAssigneeDropdown({
         onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
       >
         <Avatar name={item.assignee || 'U'} image={item.assigneeImage || null} size="sm" />
-        <span>{item.assignee || 'Не призначено'}</span>
+        <span>{item.assignee || tr('report.unassigned')}</span>
         <ChevronDown size={10} style={{ opacity: 0.5 }} />
       </button>
       {open && typeof document !== 'undefined' && createPortal(
@@ -267,7 +269,7 @@ function ReportAssigneeDropdown({
           ))}
           {users.length === 0 && (
             <div style={{ padding: '12px 10px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
-              Немає користувачів
+              {tr('report.noUsers')}
             </div>
           )}
         </div>,
@@ -279,13 +281,14 @@ function ReportAssigneeDropdown({
 
 /* ─── PriorityChip ──────────────────────────────────────────────── */
 
-const PRIORITY_MAP: Record<string, { color: string; label: string }> = {
-  high: { color: 'var(--red)', label: 'Високий' },
-  medium: { color: 'var(--amber)', label: 'Середній' },
-  low: { color: 'var(--muted)', label: 'Низький' },
+const PRIORITY_MAP: Record<string, { color: string; labelKey: string }> = {
+  high: { color: 'var(--red)', labelKey: 'report.priorityHigh' },
+  medium: { color: 'var(--amber)', labelKey: 'report.priorityMedium' },
+  low: { color: 'var(--muted)', labelKey: 'report.priorityLow' },
 };
 
 function PriorityChip({ priority }: { priority: string }) {
+  const tr = useTranslations();
   const p = PRIORITY_MAP[priority] || PRIORITY_MAP.low;
   return (
     <span
@@ -304,7 +307,7 @@ function PriorityChip({ priority }: { priority: string }) {
         whiteSpace: 'nowrap',
       }}
     >
-      {p.label}
+      {tr(p.labelKey)}
     </span>
   );
 }
@@ -395,6 +398,8 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 /* ─── Main page component ───────────────────────────────────────── */
 
 export default function MeetingReportPage() {
+  const tr = useTranslations();
+  const locale = useLocale();
   const params = useParams();
   const router = useRouter();
   const meetingId = params.id as string;
@@ -462,8 +467,8 @@ export default function MeetingReportPage() {
     try {
       const res = await fetch(`/api/meetings/${meetingId}/send-report`, { method: 'POST' });
       const d = await res.json().catch(() => ({}));
-      setSendMsg(res.ok ? { ok: true, text: `Надіслано ${d.recipients} учасникам` } : { ok: false, text: d.error || 'Помилка' });
-    } catch { setSendMsg({ ok: false, text: 'Помилка мережі' }); }
+      setSendMsg(res.ok ? { ok: true, text: tr('report.sentToParticipants', { count: d.recipients }) } : { ok: false, text: d.error || tr('report.error') });
+    } catch { setSendMsg({ ok: false, text: tr('report.networkError') }); }
     finally { setSending(false); setTimeout(() => setSendMsg(null), 5000); }
   }, [meetingId]);
 
@@ -482,7 +487,7 @@ export default function MeetingReportPage() {
 
   const deleteRecording = useCallback(async () => {
     if (!recording) return;
-    if (!window.confirm('Видалити запис мітингу? Дію не можна скасувати.')) return;
+    if (!window.confirm(tr('report.deleteRecordingConfirm'))) return;
     setRecBusy(true);
     try {
       const res = await fetch(`/api/meetings/${meetingId}/recording`, { method: 'DELETE' });
@@ -516,7 +521,7 @@ export default function MeetingReportPage() {
   }, []);
 
   const deleteActionItem = useCallback(async (id: string) => {
-    if (!window.confirm('Видалити цей action item? Дію не можна скасувати.')) return;
+    if (!window.confirm(tr('report.deleteActionItemConfirm'))) return;
     setActionItems((prev) => prev.filter((item) => item.id !== id));
     try {
       await fetch('/api/tasks', {
@@ -532,7 +537,7 @@ export default function MeetingReportPage() {
     const text = [
       `# ${meeting?.title}`,
       '',
-      '## Підсумок',
+      `## ${tr('report.summary')}`,
       report.summary,
       '',
       '## Action Items',
@@ -612,7 +617,7 @@ export default function MeetingReportPage() {
     });
     const totalChars = Object.values(langMap).reduce((a: number, b: number) => a + b, 0) || 1;
     const langColors: Record<string, string> = { ua: '#f59e0b', en: '#10b981', ru: '#a78bfa', pt: '#f472b6', hi: '#fb923c' };
-    const langLabels: Record<string, string> = { ua: 'Українська', en: 'English', ru: 'Русский', pt: 'Português', hi: 'Hindi' };
+    const langLabels: Record<string, string> = { ua: tr('report.langUk'), en: tr('report.langEn'), ru: tr('report.langRu'), pt: tr('report.langPt'), hi: tr('report.langHi') };
     const languages = Object.entries(langMap)
       .sort((a, b) => b[1] - a[1])
       .map(([code, chars]) => ({
@@ -643,7 +648,7 @@ export default function MeetingReportPage() {
       wordsCount,
       repliesCount,
       languagesCount: languages.length || 1,
-      languages: languages.length > 0 ? languages : [{ label: 'Українська', code: 'UA', pct: 100, color: '#f59e0b' }],
+      languages: languages.length > 0 ? languages : [{ label: tr('report.langUk'), code: 'UA', pct: 100, color: '#f59e0b' }],
       speakers,
     };
   }, [meeting]);
@@ -656,10 +661,10 @@ export default function MeetingReportPage() {
     const participants = meeting.participants.map(p => p.user?.name || p.guestName || 'Guest');
 
     const dateStr = meeting.scheduledAt
-      ? new Date(meeting.scheduledAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })
+      ? new Date(meeting.scheduledAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
       : '';
     const timeStr = meeting.scheduledAt
-      ? new Date(meeting.scheduledAt).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })
+      ? new Date(meeting.scheduledAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
       : '';
 
     const initials = (name: string) => {
@@ -668,14 +673,14 @@ export default function MeetingReportPage() {
     };
 
     const prioTag = (p: string) => {
-      if (p === 'high') return '<span class="tag tag-red">Високий</span>';
-      if (p === 'medium') return '<span class="tag tag-amber">Середній</span>';
-      return '<span class="tag tag-gray">Низький</span>';
+      if (p === 'high') return `<span class="tag tag-red">${tr('report.priorityHigh')}</span>`;
+      if (p === 'medium') return `<span class="tag tag-amber">${tr('report.priorityMedium')}</span>`;
+      return `<span class="tag tag-gray">${tr('report.priorityLow')}</span>`;
     };
 
     const statusTag = (done: boolean) => done
-      ? '<span class="tag tag-green">Виконано</span>'
-      : '<span class="tag tag-outline">Відкрито</span>';
+      ? `<span class="tag tag-green">${tr('report.statusDone')}</span>`
+      : `<span class="tag tag-outline">${tr('report.statusOpen')}</span>`;
 
     // Build sections
     const summaryPs = report.summary.split('\n').filter(p => p.trim()).map(p => `<p>${esc(p)}</p>`).join('');
@@ -708,7 +713,7 @@ export default function MeetingReportPage() {
     // Used in the header meta line ("X хв"); the analytics section is omitted.
     const dur = analytics?.durationMin || meeting.durationMin || 0;
 
-    const html = `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"/>
+    const html = `<!DOCTYPE html><html lang="${locale}"><head><meta charset="utf-8"/>
 <title>${esc(meeting.title)}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
@@ -835,7 +840,7 @@ text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 <div class="wrap">
 <!-- ═══ COVER ═══ -->
 <div class="cover">
-  <div class="brand">EZmeet · Звіт мітингу</div>
+  <div class="brand">EZmeet · ${tr('report.pdfTitle')}</div>
   <h1>${esc(meeting.title)}</h1>
   <div class="cover-row">
     <div class="cmeta">
@@ -848,24 +853,24 @@ text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
     </div>
     <div class="cmeta">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-      ${participants.length} учасн.
+      ${tr('report.participantsShort', { count: participants.length })}
     </div>
     <div class="cmeta">
       <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg>
-      ${dur} хв
+      ${tr('common.minutes', { count: dur })}
     </div>
     <div class="avatars">${avatarsHtml}</div>
   </div>
 </div>
 
 <!-- ═══ SUMMARY ═══ -->
-${summaryPs ? `<div class="sec"><div class="sec-title">Підсумок</div><div class="card">${summaryPs}</div></div>` : ''}
+${summaryPs ? `<div class="sec"><div class="sec-title">${tr('report.summary')}</div><div class="card">${summaryPs}</div></div>` : ''}
 
 <!-- ═══ DECISIONS ═══ -->
-${decisionsHtml ? `<div class="sec"><div class="sec-title">Ключові рішення</div><div class="card">${decisionsHtml}</div></div>` : ''}
+${decisionsHtml ? `<div class="sec"><div class="sec-title">${tr('report.decisions')}</div><div class="card">${decisionsHtml}</div></div>` : ''}
 
 <!-- ═══ ACTION ITEMS ═══ -->
-${itemsRows ? `<div class="sec"><div class="sec-title">Action Items <span style="font-family:'DM Sans';font-size:8pt;color:#94a3b8;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">(${actionItems.length})</span></div><div class="tbl-wrap"><table><thead><tr><th style="width:42%">Завдання</th><th>Відповідальний</th><th>Пріоритет</th><th>Статус</th></tr></thead><tbody>${itemsRows}</tbody></table></div></div>` : ''}
+${itemsRows ? `<div class="sec"><div class="sec-title">Action Items <span style="font-family:'DM Sans';font-size:8pt;color:#94a3b8;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">(${actionItems.length})</span></div><div class="tbl-wrap"><table><thead><tr><th style="width:42%">${tr('report.colTask')}</th><th>${tr('report.colAssignee')}</th><th>${tr('report.colPriority')}</th><th>${tr('report.colStatus')}</th></tr></thead><tbody>${itemsRows}</tbody></table></div></div>` : ''}
 
 <!-- ═══ FOLLOW-UPS ═══ -->
 ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div class="card"><ul class="flu">${followUps}</ul></div></div>` : ''}
@@ -873,7 +878,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
   <div class="foot-l">EZmeet</div>
-  <div class="foot-r">${esc(typeof window !== 'undefined' ? window.location.host : '')} &middot; ${esc(new Date().toLocaleDateString('uk-UA'))}</div>
+  <div class="foot-r">${esc(typeof window !== 'undefined' ? window.location.host : '')} &middot; ${esc(new Date().toLocaleDateString(locale))}</div>
 </div>
 
 </div>
@@ -909,7 +914,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
             animation: 'spin 0.8s linear infinite',
           }}
         />
-        <span style={{ color: 'var(--muted)', fontSize: 13 }}>Завантаження звіту...</span>
+        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{tr('report.loading')}</span>
       </div>
     );
   }
@@ -919,12 +924,12 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 420 }}>
           <FileText size={40} style={{ color: 'var(--muted)', marginBottom: 14, opacity: 0.5 }} />
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Звіт не знайдено</div>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.notFoundTitle')}</div>
           <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>
-            AI-звіт для цього мітингу ще не згенеровано
+            {tr('report.notFoundDesc')}
           </div>
           <button className="btn" onClick={() => router.push('/')}>
-            <ChevronLeft size={14} /> На дашборд
+            <ChevronLeft size={14} /> {tr('report.toDashboard')}
           </button>
         </div>
       </div>
@@ -957,19 +962,19 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                 <Sparkles size={11} /> AI Report
               </span>
               <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>
-                {fmtRelative(scheduledDate)} &bull; {fmtDateLong(scheduledDate)} &bull; {fmtTime(scheduledDate)}
+                {fmtRelative(scheduledDate, locale)} &bull; {fmtDateLong(scheduledDate, locale)} &bull; {fmtTime(scheduledDate)}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-sm" onClick={copySummary}>
                 {copied ? <Check size={13} /> : <Copy size={13} />}
-                {copied ? 'Скопійовано' : 'Copy summary'}
+                {copied ? tr('report.copied') : tr('report.copySummary')}
               </button>
               <button className="btn btn-sm" onClick={downloadPdf}>
                 <Download size={13} /> .pdf
               </button>
               <button className="btn btn-sm btn-primary" onClick={sendReport} disabled={sending}>
-                {sending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />} Надіслати команді
+                {sending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />} {tr('report.sendToTeam')}
               </button>
               {sendMsg && (
                 <span style={{ fontSize: 12, color: sendMsg.ok ? 'var(--green)' : '#f87171', display: 'inline-flex', alignItems: 'center' }}>
@@ -989,8 +994,8 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
         {/* ─── Tabs ───────────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
           {[
-            { key: 'summary' as const, label: 'Підсумок та action items', icon: ListChecks },
-            { key: 'transcript' as const, label: 'Повний transcript', icon: FileText },
+            { key: 'summary' as const, label: tr('report.tabSummary'), icon: ListChecks },
+            { key: 'transcript' as const, label: tr('report.tabTranscript'), icon: FileText },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1023,7 +1028,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
             {/* Left column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Підсумок */}
-              <ReportCard icon={Sparkles} title="Підсумок" accentColor="var(--accent)">
+              <ReportCard icon={Sparkles} title={tr('report.summary')} accentColor="var(--accent)">
                 <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.7 }}>
                   {report.summary}
                 </p>
@@ -1103,7 +1108,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                           <ReportAssigneeDropdown item={item} users={users} onAssign={reassignTask} />
                           {item.dueDate && (
                             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
-                              до {new Date(item.dueDate).getDate()}.{String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}
+                              {tr('report.due', { date: `${new Date(item.dueDate).getDate()}.${String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}` })}
                             </span>
                           )}
                           <PriorityChip priority={item.priority} />
@@ -1112,7 +1117,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       {isAdmin && (
                         <button
                           onClick={() => deleteActionItem(item.id)}
-                          title="Видалити action item"
+                          title={tr('report.deleteActionItem')}
                           style={{
                             width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
                             border: '1px solid transparent', background: 'transparent',
@@ -1132,7 +1137,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
               </ReportCard>
 
               {/* Decisions */}
-              <ReportCard icon={CheckCircle} title="Ключові рішення" accentColor="var(--green)">
+              <ReportCard icon={CheckCircle} title={tr('report.decisions')} accentColor="var(--green)">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                   {report.decisions.map((decision, i) => (
                     <div
@@ -1173,7 +1178,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
             {/* Right column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Analytics */}
-              <ReportCard icon={Users} title="Аналітика" accentColor="var(--purple)">
+              <ReportCard icon={Users} title={tr('report.analytics')} accentColor="var(--purple)">
                 {/* Stats grid */}
                 <div
                   style={{
@@ -1184,10 +1189,10 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   }}
                 >
                   {[
-                    { label: 'Тривалість', value: (analytics?.durationMin || 0) < 1 ? '< 1 хв' : `${analytics?.durationMin} хв`, icon: Clock, color: 'var(--accent)' },
-                    { label: 'Слів', value: analytics?.wordsCount?.toLocaleString() || "0", icon: FileText, color: 'var(--green)' },
-                    { label: 'Реплік', value: analytics?.repliesCount || 0, icon: Users, color: 'var(--amber)' },
-                    { label: 'Мов', value: analytics?.languagesCount || 0, icon: Sparkles, color: 'var(--purple)' },
+                    { label: tr('report.statDuration'), value: (analytics?.durationMin || 0) < 1 ? tr('report.durationUnderMin') : tr('common.minutes', { count: analytics?.durationMin || 0 }), icon: Clock, color: 'var(--accent)' },
+                    { label: tr('report.statWords'), value: analytics?.wordsCount?.toLocaleString() || "0", icon: FileText, color: 'var(--green)' },
+                    { label: tr('report.statReplies'), value: analytics?.repliesCount || 0, icon: Users, color: 'var(--amber)' },
+                    { label: tr('report.statLanguages'), value: analytics?.languagesCount || 0, icon: Sparkles, color: 'var(--purple)' },
                   ].map((stat) => (
                     <div
                       key={stat.label}
@@ -1211,7 +1216,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                 {/* Language distribution bar */}
                 <div style={{ marginBottom: 18 }}>
                   <div style={{ fontSize: 11.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8, fontWeight: 500 }}>
-                    Розподіл мов
+                    {tr('report.langDistribution')}
                   </div>
                   <div
                     style={{
@@ -1260,7 +1265,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                 {/* Speaker time bars */}
                 <div>
                   <div style={{ fontSize: 11.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10, fontWeight: 500 }}>
-                    Час спікерів
+                    {tr('report.speakerTime')}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {(analytics?.speakers || []).map((speaker) => (
@@ -1324,7 +1329,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
 
               {/* Recording */}
               {recording && (
-                <ReportCard icon={Video} title="Запис мітингу" accentColor="var(--teal)">
+                <ReportCard icon={Video} title={tr('report.recording')} accentColor="var(--teal)">
                   <div
                     style={{
                       display: 'flex',
@@ -1341,7 +1346,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       href={recording.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Відтворити"
+                      title={tr('report.play')}
                       style={{
                         width: 42, height: 42, borderRadius: 10,
                         background: 'color-mix(in oklab, var(--teal) 16%, transparent)',
@@ -1354,26 +1359,26 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                     <div style={{ flex: 1, minWidth: 150 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recording.fileName}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
-                        {recording.durationSec ? `${Math.floor(recording.durationSec / 60)} хв` : ''}
+                        {recording.durationSec ? tr('common.minutes', { count: Math.floor(recording.durationSec / 60) }) : ''}
                         {recording.fileSize ? `${recording.durationSec ? ' • ' : ''}${(recording.fileSize / 1048576).toFixed(0)} MB` : ''}
                       </div>
                       <div style={{ fontSize: 10.5, marginTop: 4, color: recording.permanent ? 'var(--green)' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {recording.permanent ? (
-                          <><Bookmark size={11} /> Зберігається назавжди</>
+                          <><Bookmark size={11} /> {tr('report.storedForever')}</>
                         ) : (
-                          <><Clock size={11} /> {recording.expiresAt ? `Видалиться ${new Date(recording.expiresAt).toLocaleDateString('uk-UA')}` : 'Тимчасовий (7 днів)'}</>
+                          <><Clock size={11} /> {recording.expiresAt ? tr('report.willDeleteOn', { date: new Date(recording.expiresAt).toLocaleDateString(locale) }) : tr('report.temporary7Days')}</>
                         )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <a className="btn btn-ghost btn-icon" href={recording.url} download={recording.fileName} title="Завантажити">
+                      <a className="btn btn-ghost btn-icon" href={recording.url} download={recording.fileName} title={tr('report.download')}>
                         <Download size={15} />
                       </a>
                       <button
                         className="btn btn-ghost btn-icon"
                         onClick={toggleRecordingPermanent}
                         disabled={recBusy}
-                        title={recording.permanent ? 'Повернути 7-денне зберігання' : 'Зберегти назавжди'}
+                        title={recording.permanent ? tr('report.revert7Day') : tr('report.storeForever')}
                         style={{ color: recording.permanent ? 'var(--green)' : 'var(--muted)' }}
                       >
                         {recBusy ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : recording.permanent ? <Clock size={15} /> : <Bookmark size={15} />}
@@ -1382,7 +1387,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                         className="btn btn-ghost btn-icon"
                         onClick={deleteRecording}
                         disabled={recBusy}
-                        title="Видалити запис"
+                        title={tr('report.deleteRecording')}
                         style={{ color: 'var(--red)' }}
                       >
                         <Trash2 size={15} />
@@ -1422,7 +1427,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                 />
                 <input
                   className="field"
-                  placeholder="Пошук у транскрипті..."
+                  placeholder={tr('report.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ paddingLeft: 34, paddingRight: searchQuery ? 68 : 12 }}
@@ -1440,7 +1445,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                     }}
                   >
                     <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
-                      {filteredTranscripts.length} з {meeting.transcripts.length} реплік
+                      {tr('report.transcriptCount', { shown: filteredTranscripts.length, total: meeting.transcripts.length })}
                     </span>
                     <button
                       onClick={() => setSearchQuery('')}
@@ -1464,7 +1469,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
               </div>
               <button className="btn btn-sm" onClick={copyAllTranscript}>
                 {copiedTranscript ? <Check size={13} /> : <Copy size={13} />}
-                {copiedTranscript ? 'Скопійовано' : 'Копіювати все'}
+                {copiedTranscript ? tr('report.copied') : tr('report.copyAll')}
               </button>
             </div>
 
@@ -1513,9 +1518,9 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   }}
                 >
                   <Search size={28} style={{ marginBottom: 10, opacity: 0.4 }} />
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>Нічого не знайдено</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{tr('report.nothingFound')}</div>
                   <div style={{ fontSize: 12.5, marginTop: 4 }}>
-                    Спробуйте інший пошуковий запит
+                    {tr('report.tryAnotherSearch')}
                   </div>
                 </div>
               )}

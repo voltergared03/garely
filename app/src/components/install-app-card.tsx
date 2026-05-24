@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Download, X, Share, Plus } from 'lucide-react';
 import {
   getInstallPrompt,
@@ -19,6 +20,7 @@ const DISMISS_KEY = 'eam_install_card_dismissed';
  * installed, unsupported, or dismissed.
  */
 export function InstallAppCard() {
+  const t = useTranslations();
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissed] = useState(true);
   const [standalone, setStandalone] = useState(true);
@@ -91,9 +93,9 @@ export function InstallAppCard() {
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14.5 }}>Встановити застосунок</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{t('install.title')}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.4 }}>
-            Швидкий доступ з головного екрана + push-сповіщення, навіть коли вкладку закрито
+            {t('install.description')}
           </div>
         </div>
 
@@ -103,11 +105,11 @@ export function InstallAppCard() {
           style={{ fontWeight: 600, flexShrink: 0, gap: 6 }}
         >
           <Download size={14} />
-          {nativePrompt ? 'Встановити' : 'Як встановити'}
+          {nativePrompt ? t('install.install') : t('install.howTo')}
         </button>
         <button
           className="btn btn-ghost btn-icon"
-          title="Сховати"
+          title={t('common.close')}
           onClick={dismiss}
           style={{ height: 28, width: 28, flexShrink: 0 }}
         >
@@ -129,15 +131,11 @@ export function InstallAppCard() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <Share size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <span>
-              1. Натисніть кнопку <b>«Поділитися»</b> у Safari
-            </span>
+            <span>{t.rich('install.iosStep1', { b: (chunks) => <b>{chunks}</b> })}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <Plus size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-            <span>
-              2. Оберіть <b>«На початковий екран»</b> (Add to Home Screen)
-            </span>
+            <span>{t.rich('install.iosStep2', { b: (chunks) => <b>{chunks}</b> })}</span>
           </div>
         </div>
       )}

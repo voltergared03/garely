@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { CheckCircle2, AlertCircle, ChevronRight, Loader2, X, Sparkles } from 'lucide-react';
 
 type Integ = { name: string; desc: string; status: string; metric: string };
@@ -20,6 +21,7 @@ const TEST_ENDPOINT: Record<string, string> = {
 const DISMISS_KEY = 'eam_setup_checklist_dismissed';
 
 export function SetupChecklist() {
+  const t = useTranslations();
   const [integrations, setIntegrations] = useState<Integ[] | null>(null);
   const [hidden, setHidden] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -58,9 +60,9 @@ export function SetupChecklist() {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const d = await res.json().catch(() => ({}));
-      setResult((r) => ({ ...r, [name]: { ok: res.ok && d.success, msg: res.ok ? 'OK' : (d.error || 'Помилка') } }));
+      setResult((r) => ({ ...r, [name]: { ok: res.ok && d.success, msg: res.ok ? 'OK' : (d.error || t('setupChecklist.error')) } }));
     } catch {
-      setResult((r) => ({ ...r, [name]: { ok: false, msg: 'Помилка мережі' } }));
+      setResult((r) => ({ ...r, [name]: { ok: false, msg: t('setupChecklist.networkError') } }));
     } finally {
       setTesting(null);
     }
@@ -78,12 +80,12 @@ export function SetupChecklist() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <Sparkles size={17} style={{ color: 'var(--accent)' }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 14.5 }}>Завершіть налаштування</div>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{t('setupChecklist.title')}</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-            {done}/{tracked.length} інтеграцій під'єднано · решта необов'язкові, але вмикають пошту, AI-звіти й запис
+            {t('setupChecklist.summary', { done, total: tracked.length })}
           </div>
         </div>
-        <button className="btn btn-ghost btn-icon" title="Сховати" onClick={dismiss} style={{ height: 28, width: 28 }}>
+        <button className="btn btn-ghost btn-icon" title={t('setupChecklist.hide')} onClick={dismiss} style={{ height: 28, width: 28 }}>
           <X size={14} />
         </button>
       </div>
@@ -105,11 +107,11 @@ export function SetupChecklist() {
               )}
               {TEST_ENDPOINT[i.name] && (
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 10px', flexShrink: 0 }} disabled={testing === i.name} onClick={() => runTest(i.name)}>
-                  {testing === i.name ? <Loader2 size={13} className="spin" /> : 'Тест'}
+                  {testing === i.name ? <Loader2 size={13} className="spin" /> : t('setupChecklist.test')}
                 </button>
               )}
               <Link href="/settings" className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 10px', flexShrink: 0, color: 'var(--accent)' }}>
-                Налаштувати <ChevronRight size={13} />
+                {t('setupChecklist.configure')} <ChevronRight size={13} />
               </Link>
             </div>
           );

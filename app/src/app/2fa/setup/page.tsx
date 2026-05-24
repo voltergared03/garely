@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig } from '@/lib/config';
@@ -8,6 +9,7 @@ import { SignOutLink } from '@/components/twofa/signout-link';
 export const dynamic = 'force-dynamic';
 
 export default async function TwoFactorSetupPage() {
+  const t = await getTranslations();
   const session = await auth();
   if (!session?.user) redirect('/login');
   const userId = (session.user as any).id as string;
@@ -32,7 +34,7 @@ export default async function TwoFactorSetupPage() {
       <div style={{ maxWidth: 460, width: '100%', padding: '0 20px' }}>
         {forced && (
           <p style={{ textAlign: 'center', color: 'var(--amber)', fontSize: 13, margin: '0 0 14px' }}>
-            Адміністратор має увімкнути 2FA для доступу до робочого простору.
+            {t('twofa.adminMustEnable')}
           </p>
         )}
         <div className="card fade-in" style={{ padding: '28px 28px' }}>

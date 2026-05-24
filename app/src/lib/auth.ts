@@ -79,12 +79,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         if (token.id) {
           const dbUser = (await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, totpEnabled: true, status: true, mustChangePassword: true } as any,
+            select: { role: true, totpEnabled: true, status: true, mustChangePassword: true, preferences: true } as any,
           })) as any;
           token.role = dbUser?.role || 'member';
           token.totpEnabled = !!dbUser?.totpEnabled;
           token.status = dbUser?.status || 'active';
           token.mustChangePassword = !!dbUser?.mustChangePassword;
+          // The user's saved UI language (if any). Read client-side by <LocaleSync>
+          // to keep the `locale` cookie in step with their preference.
+          const prefLang = (dbUser?.preferences as any)?.language;
+          token.locale = prefLang === 'en' || prefLang === 'uk' ? prefLang : undefined;
 
           // Presence / "last seen": refresh lastLogin on sign-in and at most once
           // every 2 minutes of activity, so the admin status reflects real recent
@@ -109,6 +113,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
           (session.user as any).role = token.role;
           (session.user as any).status = (token as any).status || 'active';
           (session.user as any).mustChangePassword = !!(token as any).mustChangePassword;
+          (session.user as any).locale = (token as any).locale;
         }
         return session;
       },

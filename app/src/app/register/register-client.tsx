@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/logo';
 import { Loader2, Check, UserPlus } from 'lucide-react';
 
 export function RegisterClient({ wsName }: { wsName: string }) {
+  const t = useTranslations();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +18,7 @@ export function RegisterClient({ wsName }: { wsName: string }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
-    if (password.length < 8) { setErr('Пароль — щонайменше 8 символів'); return; }
+    if (password.length < 8) { setErr(t('auth.errPasswordMin')); return; }
     setBusy(true);
     try {
       const res = await fetch('/api/register', {
@@ -25,10 +27,10 @@ export function RegisterClient({ wsName }: { wsName: string }) {
         body: JSON.stringify({ email: email.trim(), name: name.trim(), password }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { setErr(d.error || 'Не вдалося подати заявку'); setBusy(false); return; }
+      if (!res.ok) { setErr(d.error || t('auth.errRegisterFailed')); setBusy(false); return; }
       setDone(true);
     } catch {
-      setErr('Помилка мережі');
+      setErr(t('auth.errNetwork'));
       setBusy(false);
     }
   };
@@ -52,38 +54,38 @@ export function RegisterClient({ wsName }: { wsName: string }) {
               <div style={{ width: 48, height: 48, borderRadius: '50%', margin: '0 auto 16px', background: 'color-mix(in oklab, var(--green) 16%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Check size={24} style={{ color: 'var(--green)' }} />
               </div>
-              <h1 style={{ fontSize: 19, fontWeight: 700, margin: '0 0 8px' }}>Заявку подано</h1>
+              <h1 style={{ fontSize: 19, fontWeight: 700, margin: '0 0 8px' }}>{t('auth.requestSubmitted')}</h1>
               <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '0 0 20px', lineHeight: 1.5 }}>
-                Адміністратор має підтвердити її. Після схвалення ви зможете увійти зі своїм паролем.
+                {t('auth.requestSubmittedHint')}
               </p>
               <Link href="/login" className="btn" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
-                До входу
+                {t('auth.toSignIn')}
               </Link>
             </div>
           ) : (
             <>
               <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px', textAlign: 'center' }}>
-                Реєстрація в {wsName}
+                {t('auth.registerTitle', { name: wsName })}
               </h1>
               <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 22px', textAlign: 'center', lineHeight: 1.5 }}>
-                Заявка надсилається адміністратору на підтвердження.
+                {t('auth.registerSubtitle')}
               </p>
               <form onSubmit={submit}>
-                <input className="field" type="email" autoComplete="username" placeholder="Email" value={email}
+                <input className="field" type="email" autoComplete="username" placeholder={t('auth.email')} value={email}
                   onChange={(e) => setEmail(e.target.value)} style={{ marginBottom: 10 }} />
-                <input className="field" placeholder="Імʼя" value={name}
+                <input className="field" placeholder={t('auth.name')} value={name}
                   onChange={(e) => setName(e.target.value)} style={{ marginBottom: 10 }} />
-                <input className="field" type="password" autoComplete="new-password" placeholder="Пароль (мін. 8 символів)" value={password}
+                <input className="field" type="password" autoComplete="new-password" placeholder={t('auth.passwordMinPlaceholder')} value={password}
                   onChange={(e) => setPassword(e.target.value)} />
                 {err && <div style={{ fontSize: 12.5, color: 'var(--red, #ef4444)', marginTop: 10 }}>{err}</div>}
                 <button type="submit" className="btn btn-primary" disabled={busy || !email.trim() || !password}
                   style={{ width: '100%', justifyContent: 'center', padding: '13px 16px', fontWeight: 600, marginTop: 16, gap: 8 }}>
-                  {busy ? <Loader2 size={16} className="spin" /> : <UserPlus size={15} />} Подати заявку
+                  {busy ? <Loader2 size={16} className="spin" /> : <UserPlus size={15} />} {t('auth.submitRequest')}
                 </button>
               </form>
               <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'var(--muted)' }}>
-                Вже маєте акаунт?{' '}
-                <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>Увійти</Link>
+                {t('auth.haveAccount')}{' '}
+                <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('auth.signIn')}</Link>
               </div>
             </>
           )}

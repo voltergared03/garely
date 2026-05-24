@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
         await notify({
           userIds: [assigneeId],
           type: 'task_assigned',
-          title: 'Нове завдання',
+          titleKey: 'taskAssignedTitle',
           body: item.title,
           link: '/tasks',
           meetingId,
@@ -111,8 +111,9 @@ export async function POST(req: NextRequest) {
         await notify({
           userIds,
           type: 'report_ready',
-          title: 'Звіт готовий',
-          body: `Звіт по мітингу "${meeting.title}" згенерований`,
+          titleKey: 'reportReadyTitle',
+          bodyKey: 'reportReadyBody',
+          values: { title: meeting.title },
           link: `/meetings/${meetingId}/report`,
           meetingId,
         });

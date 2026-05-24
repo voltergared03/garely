@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { getTranslator } from '@/lib/i18n-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +30,11 @@ export async function POST(req: NextRequest) {
   const session = await admin();
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+  const t = await getTranslations('errors');
   const { id, action } = await req.json().catch(() => ({} as any));
   const reqRow = await prisma.registrationRequest.findUnique({ where: { id: String(id || '') } });
   if (!reqRow || reqRow.status !== 'pending') {
-    return NextResponse.json({ error: 'Заявку не знайдено' }, { status: 404 });
+    return NextResponse.json({ error: t('requestNotFound') }, { status: 404 });
   }
 
   const decidedById = (session.user as any).id as string;
@@ -39,6 +42,8 @@ export async function POST(req: NextRequest) {
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
   const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
   const loginUrl = appUrl ? `${appUrl}/login` : '/login';
+  // The applicant is brand-new → their email goes out in the workspace language.
+  const et = getTranslator(cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE);
 
   if (action === 'approve') {
     // The applicant already chose their password — provision an active member.
@@ -65,9 +70,9 @@ export async function POST(req: NextRequest) {
     sendEmail({
       to: reqRow.email,
       template: 'registration-approved',
-      subject: `${wsName} — доступ підтверджено`,
-      text: `Вашу заявку схвалено. Увійдіть зі своїм паролем: ${loginUrl}`,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0 0 16px">Вашу заявку схвалено — можете увійти зі своїм паролем.</p>${appUrl ? `<a href="${loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">Увійти →</a>` : ''}</div>`,
+      subject: et('emails.registrationApproved.subject', { ws: wsName }),
+      text: et('emails.registrationApproved.text', { url: loginUrl }),
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0 0 16px">${et('emails.registrationApproved.body')}</p>${appUrl ? `<a href="${loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">${et('emails.registrationApproved.signInButton')}</a>` : ''}</div>`,
     }).catch(() => {});
     return NextResponse.json({ ok: true, user });
   }
@@ -80,12 +85,12 @@ export async function POST(req: NextRequest) {
     sendEmail({
       to: reqRow.email,
       template: 'registration-denied',
-      subject: `${wsName} — заявку відхилено`,
-      text: `На жаль, вашу заявку на реєстрацію відхилено.`,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0">На жаль, вашу заявку на реєстрацію відхилено.</p></div>`,
+      subject: et('emails.registrationDenied.subject', { ws: wsName }),
+      text: et('emails.registrationDenied.text'),
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed"><div style="font-size:20px;font-weight:700;margin-bottom:8px">${wsName}</div><p style="color:#9aa0a6;margin:0">${et('emails.registrationDenied.body')}</p></div>`,
     }).catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.json({ error: 'Невідома дія' }, { status: 400 });
+  return NextResponse.json({ error: t('unknownAction') }, { status: 400 });
 }

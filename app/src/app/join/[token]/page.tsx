@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Link2, Video, Globe, ChevronLeft, AlertCircle } from 'lucide-react';
 import { AvatarStack } from '@/components/ui/avatar';
 import { Logo } from '@/components/ui/logo';
@@ -18,6 +19,8 @@ interface MeetingInfo {
 type Step = 'landing' | 'name';
 
 export default function GuestJoinPage() {
+  const t = useTranslations();
+  const locale = useLocale();
   const params = useParams<{ token: string }>();
   const router = useRouter();
   const token = params.token;
@@ -37,16 +40,16 @@ export default function GuestJoinPage() {
         const res = await fetch(`/api/meetings/join/${token}`);
         if (!res.ok) {
           if (res.status === 404) {
-            setError('Зустріч не знайдена або токен недійсний');
+            setError(t('join.errorNotFound'));
           } else {
-            setError('Не вдалося завантажити інформацію про зустріч');
+            setError(t('join.errorLoadFailed'));
           }
           return;
         }
         const data = await res.json();
         setMeeting({
           ...data,
-          invitedBy: data.createdBy?.name || 'Організатор',
+          invitedBy: data.createdBy?.name || t('join.organizer'),
           participantCount: data.participants?.length || 0,
           participants: (data.participants || []).map((p: any) => ({
             name: p.user?.name || p.guestName || 'Guest',
@@ -54,7 +57,7 @@ export default function GuestJoinPage() {
           })),
         });
       } catch {
-        setError('Помилка з\'єднання з сервером');
+        setError(t('join.errorConnection'));
       } finally {
         setLoading(false);
       }
@@ -71,12 +74,12 @@ export default function GuestJoinPage() {
 
   function formatDate(iso: string) {
     const d = new Date(iso);
-    return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+    return d.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
   function formatTime(iso: string) {
     const d = new Date(iso);
-    return d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   }
 
   // ---------- error / loading ----------
@@ -106,7 +109,7 @@ export default function GuestJoinPage() {
         <AlertCircle size={36} style={{ color: 'var(--red)' }} />
         <p style={{ color: 'var(--text-2)', fontSize: 15, textAlign: 'center', maxWidth: 360 }}>{error}</p>
         <button className="btn" onClick={() => router.push('/')} style={{ marginTop: 8 }}>
-          На головну
+          {t('join.goHome')}
         </button>
       </div>
     );
@@ -134,7 +137,7 @@ export default function GuestJoinPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <span className="chip">
                 <Link2 size={12} />
-                Запрошення гостя
+                {t('join.guestInvitation')}
               </span>
               <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)', letterSpacing: '0.02em' }}>
                 {token.length > 16 ? token.slice(0, 16) + '...' : token}
@@ -146,7 +149,10 @@ export default function GuestJoinPage() {
             </h1>
 
             <p style={{ color: 'var(--text-2)', fontSize: 14, margin: '0 0 4px' }}>
-              Запросив(ла) <span style={{ fontWeight: 600, color: 'var(--text)' }}>{meeting.invitedBy}</span>
+              {t.rich('join.invitedBy', {
+                name: meeting.invitedBy,
+                b: (chunks) => <span style={{ fontWeight: 600, color: 'var(--text)' }}>{chunks}</span>,
+              })}
             </p>
             {meeting.scheduledAt && (
               <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 24px' }}>
@@ -163,8 +169,7 @@ export default function GuestJoinPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <AvatarStack users={meeting.participants} max={4} size="sm" />
                   <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                    {meeting.participantCount}{' '}
-                    {meeting.participantCount === 1 ? 'учасник' : meeting.participantCount < 5 ? 'учасники' : 'учасників'}
+                    {t('join.participantsCount', { count: meeting.participantCount })}
                   </span>
                 </div>
                 <Video size={16} style={{ color: 'var(--muted)' }} />
@@ -175,7 +180,7 @@ export default function GuestJoinPage() {
               width: '100%', justifyContent: 'center', padding: '13px 16px',
               fontSize: 14, fontWeight: 600, marginBottom: 10,
             }} onClick={() => setStep('name')}>
-              Приєднатися як гість
+              {t('join.joinAsGuest')}
             </button>
 
             <button className="btn" style={{
@@ -183,7 +188,7 @@ export default function GuestJoinPage() {
               fontSize: 14, fontWeight: 600, marginBottom: 24,
             }} onClick={() => router.push('/login')}>
               <Globe size={15} />
-              Увійти через Google
+              {t('join.loginWithGoogle')}
             </button>
 
             <div style={{
@@ -194,7 +199,7 @@ export default function GuestJoinPage() {
             }}>
               <AlertCircle size={15} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
               <span style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
-                Токен гостя дійсний протягом 24 годин з моменту створення та може бути використаний лише один раз.
+                {t('join.tokenWarning')}
               </span>
             </div>
           </div>
@@ -214,34 +219,34 @@ export default function GuestJoinPage() {
         <button className="btn btn-ghost btn-sm" style={{ marginBottom: 20, marginLeft: -6 }}
           onClick={() => setStep('landing')}>
           <ChevronLeft size={15} />
-          Назад
+          {t('common.back')}
         </button>
 
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-          Як вас представити?
+          {t('join.howToIntroduce')}
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '0 0 28px' }}>
-          Ця інформація буде видима іншим учасникам зустрічі
+          {t('join.introduceSubtitle')}
         </p>
 
         <div style={{ marginBottom: 18 }}>
           <label className="field-label">
-            Ім&apos;я <span style={{ color: 'var(--red)' }}>*</span>
+            {t('join.nameLabel')} <span style={{ color: 'var(--red)' }}>*</span>
           </label>
-          <input className="field" type="text" placeholder="Як вас бачитимуть учасники"
+          <input className="field" type="text" placeholder={t('join.namePlaceholder')}
             value={guestName} onChange={(e) => setGuestName(e.target.value)} autoFocus
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
         </div>
 
         <div style={{ marginBottom: 6 }}>
           <label className="field-label">
-            Email <span style={{ color: 'var(--muted-2)', fontWeight: 400 }}>(необов&apos;язково)</span>
+            {t('join.emailLabel')} <span style={{ color: 'var(--muted-2)', fontWeight: 400 }}>{t('join.optional')}</span>
           </label>
           <input className="field" type="email" placeholder="email@example.com"
             value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
         </div>
         <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 28px', lineHeight: 1.5 }}>
-          Якщо вказати email, ви отримаєте підсумок зустрічі після її завершення
+          {t('join.emailHint')}
         </p>
 
         <button className="btn btn-primary" disabled={!guestName.trim() || submitting}
@@ -252,7 +257,7 @@ export default function GuestJoinPage() {
             cursor: !guestName.trim() || submitting ? 'not-allowed' : 'pointer',
           }}
           onClick={handleSubmit}>
-          {submitting ? 'Підключення...' : 'Продовжити до перевірки пристроїв →'}
+          {submitting ? t('join.connecting') : t('join.continueToDeviceCheck')}
         </button>
 
         {error && (
