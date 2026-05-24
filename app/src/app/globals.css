@@ -254,12 +254,14 @@ select.field option:checked {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  /* 64px for the items + the iOS home-indicator inset reserved BELOW them
+     (border-box: keep the inset out of the 64px so items aren't squished). */
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   background: var(--bg);
   border-top: 1px solid var(--border);
   align-items: center;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .mobile-nav-btn {
@@ -325,7 +327,7 @@ select.field option:checked {
   min-width: 0;
   overflow: hidden;
   width: 100%;
-  padding-bottom: 72px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Mobile top bar — logo + notification bell (mobile only) ── */
@@ -342,7 +344,7 @@ select.field option:checked {
 
 /* ── Page wrappers — mobile padding ──────────────────── */
 .page-container {
-  padding: clamp(16px, 4vw, 28px) clamp(14px, 3.5vw, 28px) 86px;
+  padding: clamp(16px, 4vw, 28px) clamp(14px, 3.5vw, 28px) calc(86px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Fluid typography ────────────────────────────────── */
@@ -493,7 +495,7 @@ h2 {
    ═══════════════════════════════════════════════════════ */
 @media (min-width: 640px) {
   .page-container {
-    padding: 24px 24px 86px;
+    padding: 24px 24px calc(86px + env(safe-area-inset-bottom, 0px));
   }
 
   .dash-hero {
