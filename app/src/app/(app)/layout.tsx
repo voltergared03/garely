@@ -34,7 +34,7 @@ export default async function AppLayout({
   const userId = (session.user as any).id as string;
   const dbUser = (await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, totpEnabled: true } as any,
+    select: { role: true, totpEnabled: true, status: true, mustChangePassword: true } as any,
   })) as any;
 
   // The JWT points to a user that no longer exists — e.g. a stale session left
@@ -44,6 +44,17 @@ export default async function AppLayout({
   // in mints a fresh JWT with the correct id — no redirect loop.)
   if (!dbUser) {
     redirect('/login');
+  }
+
+  // Disabled accounts can't use the app; force them out.
+  if (dbUser.status === 'disabled') {
+    redirect('/login');
+  }
+
+  // Admin-provisioned password users must set their own password first.
+  // /change-password is a top-level route (outside this layout) → no loop.
+  if (dbUser.mustChangePassword) {
+    redirect('/change-password');
   }
 
   const cfg = await readConfig(['WS_NAME', 'WS_REQUIRE_2FA']);
