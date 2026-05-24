@@ -701,22 +701,11 @@ export default function MeetingReportPage() {
       ? (report.followUps || []).map(f => `<li>${esc(f)}</li>`).join('')
       : '';
 
-    const speakersHtml = analytics?.speakers?.length
-      ? analytics.speakers.map(s =>
-          `<div class="spk"><span class="spk-name">${esc(s.name)}</span><div class="spk-track"><div class="spk-fill" style="width:${Math.max(s.pct, 5)}%"></div></div><span class="spk-pct">${s.pct}%</span></div>`
-        ).join('')
-      : '';
-
-    const langsHtml = analytics?.languages?.length
-      ? analytics.languages.map(l =>
-          `<div class="lng"><span>${esc(l.label)}</span><span class="lng-pct">${l.pct}%</span></div>`
-        ).join('')
-      : '';
-
     const avatarsHtml = participants.slice(0, 8).map(n =>
       `<span class="pav">${initials(n)}</span>`
     ).join('');
 
+    // Used in the header meta line ("X хв"); the analytics section is omitted.
     const dur = analytics?.durationMin || meeting.durationMin || 0;
 
     const html = `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"/>
@@ -880,20 +869,6 @@ ${itemsRows ? `<div class="sec"><div class="sec-title">Action Items <span style=
 
 <!-- ═══ FOLLOW-UPS ═══ -->
 ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div class="card"><ul class="flu">${followUps}</ul></div></div>` : ''}
-
-<!-- ═══ ANALYTICS ═══ -->
-${analytics ? `<div class="sec"><div class="sec-title">Аналітика</div>
-<div class="stats">
-  <div class="st"><div class="st-v">${dur}</div><div class="st-u">хвилин</div></div>
-  <div class="st"><div class="st-v">${analytics.wordsCount}</div><div class="st-u">слів</div></div>
-  <div class="st"><div class="st-v">${analytics.repliesCount}</div><div class="st-u">реплік</div></div>
-  <div class="st"><div class="st-v">${analytics.languagesCount}</div><div class="st-u">мов</div></div>
-</div>
-<div class="row2">
-  ${speakersHtml ? `<div class="col"><div class="card"><div class="card-label">Активність спікерів</div>${speakersHtml}</div></div>` : ''}
-  ${langsHtml ? `<div class="col"><div class="card"><div class="card-label">Мови</div>${langsHtml}</div></div>` : ''}
-</div>
-</div>` : ''}
 
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
