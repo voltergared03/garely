@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bell, CheckCheck, FileText, ListChecks,
-  Zap, AtSign, Video,
+  Zap, AtSign, Video, Trash2,
 } from 'lucide-react';
 
 interface Notification {
@@ -85,6 +85,31 @@ export default function NotificationsPage() {
     if (notif.link) router.push(notif.link);
   };
 
+  const deleteNotif = async (id: string, wasUnread: boolean) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    if (wasUnread) setUnreadCount(c => Math.max(0, c - 1));
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      });
+    } catch { /* optimistic — list refetches on next load */ }
+  };
+
+  const clearAll = async () => {
+    if (!notifications.length) return;
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+    } catch { /* optimistic */ }
+  };
+
   return (
     <div className="page-container" style={{ maxWidth: 640 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -99,11 +124,18 @@ export default function NotificationsPage() {
             }}>{unreadCount}</span>
           )}
         </h1>
-        {unreadCount > 0 && (
-          <button onClick={markAllRead} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
-            <CheckCheck size={14} /> Прочитати все
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {unreadCount > 0 && (
+            <button onClick={markAllRead} className="btn btn-ghost btn-sm" style={{ gap: 5 }}>
+              <CheckCheck size={14} /> Прочитати все
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button onClick={clearAll} className="btn btn-ghost btn-sm" style={{ gap: 5, color: 'var(--muted)' }}>
+              <Trash2 size={14} /> Очистити все
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && (
@@ -166,6 +198,14 @@ export default function NotificationsPage() {
                     background: '#3b82f6', flexShrink: 0, marginTop: 6,
                   }} />
                 )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteNotif(notif.id, !notif.read); }}
+                  className="btn btn-ghost btn-icon"
+                  title="Видалити сповіщення"
+                  style={{ width: 28, height: 28, flexShrink: 0, color: 'var(--muted-2)', alignSelf: 'center' }}
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             );
           })}

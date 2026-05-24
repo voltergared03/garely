@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bell, Check, CheckCheck, FileText, ListChecks,
-  Zap, AtSign, Video, X,
+  Zap, AtSign, Video, X, Trash2,
 } from 'lucide-react';
 import { PushOptInBanner } from '@/components/push-optin-banner';
 
@@ -120,6 +120,33 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
     }
   };
 
+  const deleteNotif = async (e: React.MouseEvent, notif: Notification) => {
+    e.stopPropagation();
+    setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    if (!notif.read) setUnreadCount(prev => Math.max(0, prev - 1));
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notif.id] }),
+      });
+    } catch { /* optimistic — polling reconciles */ }
+  };
+
+  const clearAll = async () => {
+    setLoading(true);
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch { /* skip */ }
+    setLoading(false);
+  };
+
   return (
     <div ref={panelRef} style={{ position: 'relative' }}>
       {/* Bell Button */}
@@ -184,6 +211,17 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                   style={{ fontSize: 11, gap: 4, padding: '4px 8px' }}
                 >
                   <CheckCheck size={13} /> Прочитати все
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  disabled={loading}
+                  className="btn btn-ghost btn-icon"
+                  style={{ width: 28, height: 28, color: 'var(--muted)' }}
+                  title="Очистити всі"
+                >
+                  <Trash2 size={14} />
                 </button>
               )}
               <button
@@ -267,6 +305,16 @@ export function NotificationBell({ placement = 'up' }: { placement?: 'up' | 'dow
                       background: '#3b82f6', flexShrink: 0, marginTop: 4,
                     }} />
                   )}
+
+                  {/* Delete */}
+                  <button
+                    onClick={(e) => deleteNotif(e, notif)}
+                    className="btn btn-ghost btn-icon"
+                    title="Видалити"
+                    style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--muted-2)', alignSelf: 'center' }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               );
             })}

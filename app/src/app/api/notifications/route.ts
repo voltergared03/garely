@@ -93,3 +93,31 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ count }, { status: 201 });
 }
+
+// DELETE /api/notifications — delete the current user's notifications.
+// Body: { ids: string[] } to remove specific ones, or { all: true } to clear all.
+// Always scoped to the authenticated user, so one user can't delete another's.
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { ids, all } = await req.json().catch(() => ({} as any));
+
+  if (all) {
+    const { count } = await prisma.notification.deleteMany({
+      where: { userId: session.user.id },
+    });
+    return NextResponse.json({ ok: true, deleted: count });
+  }
+
+  if (Array.isArray(ids) && ids.length > 0) {
+    const { count } = await prisma.notification.deleteMany({
+      where: { id: { in: ids }, userId: session.user.id },
+    });
+    return NextResponse.json({ ok: true, deleted: count });
+  }
+
+  return NextResponse.json({ error: 'ids or all required' }, { status: 400 });
+}
