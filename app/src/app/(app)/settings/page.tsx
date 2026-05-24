@@ -701,13 +701,16 @@ function WorkspaceTab() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>Способи входу</div>
           {authSaving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />}
-          {authMsg && (
-            <span style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4, color: authMsg.ok ? 'var(--green)' : 'var(--red)' }}>
-              {authMsg.ok && <Check size={13} />}{authMsg.text}
+          {authMsg?.ok && (
+            <span style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--green)' }}>
+              <Check size={13} /> {authMsg.text}
             </span>
           )}
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>Як користувачі авторизуються. Зберігається одразу. Хоча б один має лишатись увімкненим.</div>
+        {authMsg && !authMsg.ok && (
+          <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, lineHeight: 1.45 }}>{authMsg.text}</div>
+        )}
         <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => setAuth('AUTH_GOOGLE_ENABLED', v)} />
         <Toggle label="Email + пароль" value={ws.AUTH_PASSWORD_ENABLED} onChange={v => setAuth('AUTH_PASSWORD_ENABLED', v)} />
         {ws.AUTH_PASSWORD_ENABLED && (

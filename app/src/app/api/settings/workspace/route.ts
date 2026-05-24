@@ -90,6 +90,28 @@ export async function PATCH(req: NextRequest) {
     if (!googleOn && !pwOn) {
       return NextResponse.json({ error: 'Хоча б один спосіб входу має лишатися ввімкненим' }, { status: 400 });
     }
+
+    // Lockout guard: at least one ACTIVE admin must be able to sign in with a
+    // method that stays enabled. Otherwise disabling Google for a Google-only
+    // admin (no password), or disabling password for a password-only admin,
+    // would strand everyone with no way back in.
+    const admins = await prisma.user.findMany({
+      where: { role: 'admin', status: 'active' },
+      select: {
+        passwordHash: true,
+        accounts: { where: { provider: 'google' }, select: { id: true } },
+      } as any,
+    });
+    const anyAdminCanSignIn = (admins as any[]).some(
+      (a) => (pwOn && !!a.passwordHash) || (googleOn && (a.accounts?.length ?? 0) > 0),
+    );
+    if (!anyAdminCanSignIn) {
+      const msg = !googleOn
+        ? 'Перш ніж вимкнути Google SSO, задайте пароль хоча б одному адміну (Користувачі → іконка ключа) — інакше ніхто не зможе увійти.'
+        : 'Перш ніж вимкнути вхід паролем, переконайтесь, що адмін має доступ через Google — інакше ніхто не зможе увійти.';
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
     // Self-registration requires the password method.
     if (!pwOn) updates.AUTH_SELFREG = 'false';
   }
