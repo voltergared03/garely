@@ -495,17 +495,20 @@ async def entrypoint(ctx: JobContext):
 
     logger.info(f"Room ended. Total segments: {len(transcript_segments)}")
 
-    # Stop per-participant processing and wait for their finally blocks to close
-    # the WAV files before we detect/register them.
+    # Generate the AI report FIRST — it's the critical output, and the framework
+    # only allows a limited shutdown window after the room disconnects. Doing it
+    # before the (slower-to-be-cancelled) per-track work ensures the report is
+    # never starved.
+    if transcript_segments:
+        await generate_report(meeting_id, transcript_segments)
+
+    # Then finalize per-speaker tracks: close WAVs, detect language, register.
     for task in participant_tasks.values():
         task.cancel()
     await asyncio.gather(*participant_tasks.values(), return_exceptions=True)
 
     for info in speaker_recordings.values():
         await finalize_speaker_track(meeting_id, info)
-
-    if transcript_segments:
-        await generate_report(meeting_id, transcript_segments)
 
 
 async def get_meeting_id(room_name: str) -> str | None:
@@ -826,6 +829,10 @@ if __name__ == "__main__":
         WorkerOptions(
             entrypoint_fnc=entrypoint,
             prewarm_fnc=prewarm,
+            # The shutdown window after a room disconnects must be long enough to
+            # finish the post-meeting DeepSeek report + per-speaker language
+            # detection (default is only 10s, which truncated report generation).
+            shutdown_process_timeout=120,
             api_key=os.getenv("LIVEKIT_API_KEY", ""),
             api_secret=os.getenv("LIVEKIT_API_SECRET", ""),
             ws_url=os.getenv("LIVEKIT_URL", "ws://localhost:7880"),
