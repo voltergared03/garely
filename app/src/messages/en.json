@@ -387,7 +387,22 @@
     "jumpToTranscript": "Jump to transcript",
     "noExtended": "No detailed report yet",
     "noExtendedDesc": "It's generated automatically after each meeting.",
-    "notRegistered": "not registered"
+    "notRegistered": "not registered",
+    "tabChat": "Chat",
+    "chatTitle": "Ask about this meeting",
+    "chatIntro": "Answers are grounded in this meeting's transcript, with citations you can click to jump to the moment.",
+    "chatPlaceholder": "Ask anything about this meeting…",
+    "chatSend": "Send",
+    "chatThinking": "Thinking…",
+    "chatClear": "Clear chat",
+    "chatDisclaimer": "AI can make mistakes. Answers are based only on this meeting's transcript.",
+    "chatError": "Something went wrong. Please try again.",
+    "chatEmpty": "I couldn't find anything about that in this meeting.",
+    "chatNoTranscript": "There's no transcript for this meeting yet, so the chat has nothing to work with.",
+    "chatSuggest1": "Summarize the meeting in a few sentences",
+    "chatSuggest2": "What were the key decisions?",
+    "chatSuggest3": "What action items came out of this?",
+    "chatSuggest4": "What was left unresolved?"
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

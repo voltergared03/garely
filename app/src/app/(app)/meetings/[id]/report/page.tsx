@@ -9,6 +9,7 @@ import {
   ChevronLeft, Sparkles, Copy, Send, FileText, Check, Clock,
   Users, Search, X, ChevronRight, Video, Play, ListChecks,
   CheckCircle, Download, ChevronDown, User, Loader2, Trash2, Bookmark, Languages, HelpCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, fmtDateLong, getInitials, getAvatarColor } from '@/lib/utils';
@@ -473,7 +474,7 @@ export default function MeetingReportPage() {
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary' | 'detailed' | 'transcript'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'detailed' | 'transcript' | 'chat'>('summary');
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -488,6 +489,12 @@ export default function MeetingReportPage() {
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [fixMsg, setFixMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [trackLangSel, setTrackLangSel] = useState<Record<string, string>>({});
+  // Ephemeral meeting chat — kept in memory only, cleared on reload.
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatBusy, setChatBusy] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -662,6 +669,78 @@ export default function MeetingReportPage() {
       }
     }, 130);
   }, [meeting]);
+
+  // Auto-scroll the chat to the latest message as it streams in.
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chatMessages, chatBusy]);
+
+  // Send a chat turn and stream the assistant's reply. `override` lets a
+  // suggestion chip ask its question directly without typing.
+  const sendChat = useCallback(
+    async (override?: string) => {
+      const q = (override ?? chatInput).trim();
+      if (!q || chatBusy) return;
+      const next: { role: 'user' | 'assistant'; content: string }[] = [
+        ...chatMessages,
+        { role: 'user', content: q },
+      ];
+      // Show the user message + an empty assistant bubble to stream into.
+      setChatMessages([...next, { role: 'assistant', content: '' }]);
+      setChatInput('');
+      setChatBusy(true);
+      const ac = new AbortController();
+      chatAbortRef.current = ac;
+      const setLastAssistant = (content: string) =>
+        setChatMessages((prev) => {
+          const copy = [...prev];
+          if (copy.length && copy[copy.length - 1].role === 'assistant') {
+            copy[copy.length - 1] = { role: 'assistant', content };
+          }
+          return copy;
+        });
+      try {
+        const res = await fetch(`/api/meetings/${meetingId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: next }),
+          signal: ac.signal,
+        });
+        if (!res.ok || !res.body) {
+          const d = await res.json().catch(() => ({} as any));
+          setLastAssistant(
+            res.status === 422 ? tr('report.chatNoTranscript') : tr('report.chatError')
+          );
+          if (d?.error) console.error('chat error:', d.error);
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          setLastAssistant(acc);
+        }
+        if (!acc.trim()) setLastAssistant(tr('report.chatEmpty'));
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') setLastAssistant(tr('report.chatError'));
+      } finally {
+        setChatBusy(false);
+        chatAbortRef.current = null;
+      }
+    },
+    [chatInput, chatBusy, chatMessages, meetingId, tr]
+  );
+
+  const clearChat = useCallback(() => {
+    chatAbortRef.current?.abort();
+    setChatMessages([]);
+    setChatInput('');
+    setChatBusy(false);
+  }, []);
 
   const report = meeting?.reports?.[0] ?? null;
   const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
@@ -1144,6 +1223,42 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
       </span>
     ) : null;
 
+  // Render an assistant chat message: turn [n] / [n, m] citations into clickable
+  // timestamp chips (jump to that transcript moment); keep everything else as text.
+  const renderChatText = (content: string) => {
+    const segs = meeting?.transcripts || [];
+    const re = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    let k = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      if (m.index > last) out.push(<span key={`t${k++}`}>{content.slice(last, m.index)}</span>);
+      const chips = m[1]
+        .split(',')
+        .map((x) => parseInt(x.trim(), 10))
+        .filter((n) => Number.isFinite(n))
+        .map((n) => segs[n - 1])
+        .filter(Boolean);
+      if (chips.length === 0) {
+        out.push(<span key={`t${k++}`}>{content.slice(m.index, m.index + m[0].length)}</span>);
+      } else {
+        out.push(
+          <span key={`c${k++}`} style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, verticalAlign: 'baseline', margin: '0 3px' }}>
+            {chips.map((seg, j) => (
+              <button key={j} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(seg.startTime)}>
+                {seg.timestamp}
+              </button>
+            ))}
+          </span>
+        );
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < content.length) out.push(<span key={`t${k++}`}>{content.slice(last)}</span>);
+    return out;
+  };
+
   // One labelled block (decisions / tasks / open questions) inside a topic card.
   const renderSection = (
     label: string,
@@ -1232,6 +1347,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
             { key: 'summary' as const, label: tr('report.tabSummary'), icon: ListChecks },
             { key: 'detailed' as const, label: tr('report.tabDetailed'), icon: Sparkles },
             { key: 'transcript' as const, label: tr('report.tabTranscript'), icon: FileText },
+            { key: 'chat' as const, label: tr('report.tabChat'), icon: MessageCircle },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1903,6 +2019,172 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── Chat Tab ───────────────────────────────────────────── */}
+        {activeTab === 'chat' && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(68vh, 640px)', minHeight: 420 }}>
+            {/* Messages */}
+            <div
+              ref={chatScrollRef}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                padding: '4px 2px 8px',
+              }}
+            >
+              {chatMessages.length === 0 ? (
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    padding: '24px 16px',
+                    gap: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 14,
+                      background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 4,
+                    }}
+                  >
+                    <Sparkles size={24} style={{ color: 'var(--accent)' }} />
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>{tr('report.chatTitle')}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 440, lineHeight: 1.55 }}>
+                    {tr('report.chatIntro')}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14, maxWidth: 540 }}>
+                    {[
+                      tr('report.chatSuggest1'),
+                      tr('report.chatSuggest2'),
+                      tr('report.chatSuggest3'),
+                      tr('report.chatSuggest4'),
+                    ].map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => sendChat(s)}
+                        disabled={chatBusy}
+                        className="btn btn-sm"
+                        style={{ borderRadius: 999, fontSize: 12.5, color: 'var(--text-2)' }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((msg, i) => {
+                  const isUser = msg.role === 'user';
+                  const streaming = chatBusy && !isUser && i === chatMessages.length - 1 && !msg.content;
+                  return (
+                    <div
+                      key={i}
+                      className="fade-in"
+                      style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}
+                    >
+                      {isUser ? (
+                        <Avatar name={(session?.user as any)?.name || 'U'} image={(session?.user as any)?.image || null} size="sm" />
+                      ) : (
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            flexShrink: 0,
+                            background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          maxWidth: '80%',
+                          padding: '10px 14px',
+                          borderRadius: 14,
+                          borderTopRightRadius: isUser ? 4 : 14,
+                          borderTopLeftRadius: isUser ? 14 : 4,
+                          fontSize: 13.5,
+                          lineHeight: 1.6,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          background: isUser ? 'color-mix(in oklab, var(--accent) 16%, transparent)' : 'var(--surface)',
+                          border: `1px solid ${isUser ? 'color-mix(in oklab, var(--accent) 32%, transparent)' : 'var(--border)'}`,
+                          color: isUser ? 'var(--text)' : 'var(--text-2)',
+                        }}
+                      >
+                        {streaming ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
+                            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {tr('report.chatThinking')}
+                          </span>
+                        ) : isUser ? (
+                          msg.content
+                        ) : (
+                          renderChatText(msg.content)
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Input bar */}
+            <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  className="field"
+                  rows={1}
+                  placeholder={tr('report.chatPlaceholder')}
+                  value={chatInput}
+                  disabled={chatBusy}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChat();
+                    }
+                  }}
+                  style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, paddingTop: 10, paddingBottom: 10, lineHeight: 1.5 }}
+                />
+                <button
+                  className="btn btn-primary btn-icon"
+                  onClick={() => sendChat()}
+                  disabled={chatBusy || !chatInput.trim()}
+                  title={tr('report.chatSend')}
+                  style={{ flexShrink: 0, height: 40, width: 40 }}
+                >
+                  {chatBusy ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
+                <span style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.4 }}>{tr('report.chatDisclaimer')}</span>
+                {chatMessages.length > 0 && (
+                  <button onClick={clearChat} className="btn btn-ghost btn-sm" style={{ flexShrink: 0, color: 'var(--muted)', fontSize: 12 }}>
+                    <Trash2 size={12} /> {tr('report.chatClear')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
