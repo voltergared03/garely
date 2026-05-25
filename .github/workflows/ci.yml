@@ -1,10 +1,11 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # Auto-runs on push/PR are disabled while the GitHub account billing is
+  # locked (jobs can't start → every push shows a red ✗). Trigger manually from
+  # the Actions tab, or restore the push/pull_request triggers below once
+  # billing is resolved.
+  workflow_dispatch:
 
 # Cancel superseded runs on the same ref.
 concurrency:
