@@ -58,6 +58,16 @@ interface UserItem {
   image: string | null;
 }
 
+// A selectable assignee in the report dropdown: a registered user (id set) or a
+// guest who joined the meeting by name (id null).
+interface AssignOption {
+  id: string | null;
+  name: string;
+  email?: string;
+  image?: string | null;
+  guest?: boolean;
+}
+
 interface Topic {
   title: string;
   discussion: string;
@@ -188,12 +198,12 @@ function formatTimestamp(seconds: number): string {
 
 function ReportAssigneeDropdown({
   item,
-  users,
+  options,
   onAssign,
 }: {
   item: { id: string; assignee: string; assigneeImage?: string | null; assigneeRegistered?: boolean };
-  users: UserItem[];
-  onAssign: (itemId: string, userId: string, user: UserItem) => void;
+  options: AssignOption[];
+  onAssign: (itemId: string, opt: AssignOption) => void;
 }) {
   const tr = useTranslations();
   const [open, setOpen] = useState(false);
@@ -288,12 +298,12 @@ function ReportAssigneeDropdown({
             overflowY: 'auto',
           }}
         >
-          {users.map((u) => (
+          {options.map((o) => (
             <button
-              key={u.id}
+              key={o.id || `g-${o.name}`}
               onClick={(e) => {
                 e.stopPropagation();
-                onAssign(item.id, u.id, u);
+                onAssign(item.id, o);
                 setOpen(false);
               }}
               style={{
@@ -313,14 +323,16 @@ function ReportAssigneeDropdown({
               onMouseEnter={(e: any) => (e.currentTarget.style.background = 'var(--surface-2)')}
               onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
             >
-              <Avatar name={u.name} image={u.image} size="sm" />
+              <Avatar name={o.name} image={o.image || null} size="sm" />
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                <div style={{ fontWeight: 500, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                <div style={{ fontWeight: 500, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.name}</div>
+                <div style={{ fontSize: 10.5, color: o.guest ? 'var(--amber)' : 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {o.guest ? tr('report.notRegistered') : o.email}
+                </div>
               </div>
             </button>
           ))}
-          {users.length === 0 && (
+          {options.length === 0 && (
             <div style={{ padding: '12px 10px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
               {tr('report.noUsers')}
             </div>
@@ -609,11 +621,11 @@ export default function MeetingReportPage() {
     } catch { /* ignore */ } finally { setRecBusy(false); }
   }, [meetingId, recording]);
 
-  const reassignTask = useCallback(async (itemId: string, userId: string, user: UserItem) => {
+  const reassignTask = useCallback(async (itemId: string, opt: AssignOption) => {
     setActionItems((prev) =>
       prev.map((item) =>
         item.id === itemId
-          ? { ...item, assignee: user.name, assigneeImage: user.image, assigneeRegistered: true }
+          ? { ...item, assignee: opt.name, assigneeImage: opt.image || null, assigneeRegistered: !opt.guest && !!opt.id }
           : item
       )
     );
@@ -621,7 +633,10 @@ export default function MeetingReportPage() {
       await fetch('/api/tasks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: itemId, assigneeId: userId }),
+        // Registered user → link by id; guest → store the name, clear the id.
+        body: JSON.stringify(
+          opt.id ? { taskId: itemId, assigneeId: opt.id } : { taskId: itemId, assigneeId: null, assigneeName: opt.name }
+        ),
       });
     } catch (e) { console.error(e); }
   }, []);
@@ -652,9 +667,20 @@ export default function MeetingReportPage() {
   const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
   const canFixLanguage = isAdmin || isHost;
   // The reassignment dropdown lists the registered users who were on THIS meeting.
-  const meetingUsers: UserItem[] = (meeting?.participants || [])
+  // Reassign dropdown options: registered participants + guests (people who
+  // joined by name — found in the participant list and/or as transcript speakers
+  // with no account).
+  const regParticipants: AssignOption[] = (meeting?.participants || [])
     .filter((p) => !!p.user)
     .map((p) => ({ id: p.user!.id, name: p.user!.name, email: p.user!.email || '', image: p.user!.image }));
+  const regNameSet = new Set(regParticipants.map((u) => u.name.toLowerCase()));
+  const guestNameSet = new Set<string>();
+  for (const p of meeting?.participants || []) if (!p.user && p.guestName) guestNameSet.add(p.guestName);
+  for (const s of meeting?.transcripts || []) if (s.speakerName) guestNameSet.add(s.speakerName);
+  const guestOptions: AssignOption[] = [...guestNameSet]
+    .filter((n) => n && !regNameSet.has(n.toLowerCase()))
+    .map((n) => ({ id: null, name: n, guest: true }));
+  const assignOptions: AssignOption[] = [...regParticipants, ...guestOptions];
 
   const toggleActionItem = useCallback((id: string) => {
     setActionItems((prev) =>
@@ -1279,7 +1305,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                           {item.text}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <ReportAssigneeDropdown item={item} users={meetingUsers.length ? meetingUsers : users} onAssign={reassignTask} />
+                          <ReportAssigneeDropdown item={item} options={assignOptions.length ? assignOptions : users} onAssign={reassignTask} />
                           {item.dueDate && (
                             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
                               {tr('report.due', { date: `${new Date(item.dueDate).getDate()}.${String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}` })}
