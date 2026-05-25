@@ -203,6 +203,9 @@ Rules:
 - Write all textual content in ${langName}.
 - Extract ALL decisions, tasks and open questions that were discussed — never omit an item, even when nobody is clearly responsible for it.
 - Be EXHAUSTIVE with tasks: capture every distinct action item, commitment, request or "I will / we need to / let's …" as its OWN separate task. Do not merge different tasks into one.
+- Be EQUALLY EXHAUSTIVE with DECISIONS: capture every conclusion, choice, agreement or settled direction ("we'll go with X", "let's use Y", "decided to…", "agreed that…", "the plan is…") as its own decision.
+- Be EQUALLY EXHAUSTIVE with OPEN QUESTIONS / follow-ups: capture everything left unresolved, deferred or to revisit ("we still need to figure out…", "to be decided", "let's come back to this", any unanswered question or risk raised).
+- Do NOT put everything into tasks: a settled conclusion is a DECISION; something unresolved is an OPEN QUESTION; only an action someone should do is a TASK. Aim for a balanced report across all three.
 - For a task's "assignee" or a decision's "owner": use an attendee's exact name (from the list below — it includes guests who joined by name) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a name that is not a listed attendee, and never drop an item just because its owner is unknown.
 - Respond with valid JSON only, in exactly this shape:
 {
