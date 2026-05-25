@@ -495,6 +495,7 @@ export default function MeetingReportPage() {
   const [chatBusy, setChatBusy] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
+  const chatTaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -660,14 +661,23 @@ export default function MeetingReportPage() {
       if (d < bestDiff) { bestDiff = d; bestIdx = i; }
     });
     if (bestIdx < 0) return;
-    setTimeout(() => {
+    // The transcript tab may not have painted yet (long list, or first switch
+    // from another tab), so retry across a few frames until the target row
+    // exists, then scroll. A second instant re-center corrects for any late
+    // layout shift (e.g. the fix-language panel rendering in above the list).
+    let tries = 0;
+    const tryScroll = () => {
       const el = document.getElementById(`seg-${bestIdx}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('seg-highlight');
         setTimeout(() => el.classList.remove('seg-highlight'), 1800);
+        setTimeout(() => el.scrollIntoView({ behavior: 'auto', block: 'center' }), 280);
+      } else if (tries++ < 20) {
+        setTimeout(tryScroll, 50);
       }
-    }, 130);
+    };
+    setTimeout(tryScroll, 60);
   }, [meeting]);
 
   // Auto-scroll the chat to the latest message as it streams in.
@@ -675,6 +685,15 @@ export default function MeetingReportPage() {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatMessages, chatBusy]);
+
+  // Auto-grow the chat composer up to a max height (resets when cleared).
+  useEffect(() => {
+    const ta = chatTaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = `${Math.min(ta.scrollHeight, 140)}px`;
+    }
+  }, [chatInput]);
 
   // Send a chat turn and stream the assistant's reply. `override` lets a
   // suggestion chip ask its question directly without typing.
@@ -1227,30 +1246,45 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
   // timestamp chips (jump to that transcript moment); keep everything else as text.
   const renderChatText = (content: string) => {
     const segs = meeting?.transcripts || [];
-    const re = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
     const out: React.ReactNode[] = [];
     let last = 0;
     let k = 0;
+    // Match a citation ([n], [n, m], or ranges like [n-m]) OR a **bold** run;
+    // render everything else as plain text.
+    const re = /(\[[\d\s,.–—-]+\])|\*\*([^*\n]+)\*\*/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
       if (m.index > last) out.push(<span key={`t${k++}`}>{content.slice(last, m.index)}</span>);
-      const chips = m[1]
-        .split(',')
-        .map((x) => parseInt(x.trim(), 10))
-        .filter((n) => Number.isFinite(n))
-        .map((n) => segs[n - 1])
-        .filter(Boolean);
-      if (chips.length === 0) {
-        out.push(<span key={`t${k++}`}>{content.slice(m.index, m.index + m[0].length)}</span>);
+      if (m[1]) {
+        const chips = m[1]
+          .slice(1, -1)
+          .split(',')
+          .map((part) => {
+            const d = part.match(/\d+/); // first line number (a range "80-81" jumps to 80)
+            return d ? parseInt(d[0], 10) : NaN;
+          })
+          .filter((n) => Number.isFinite(n))
+          .map((n) => segs[n - 1])
+          .filter(Boolean)
+          .slice(0, 8);
+        if (chips.length === 0) {
+          out.push(<span key={`t${k++}`}>{m[1]}</span>);
+        } else {
+          out.push(
+            <span key={`c${k++}`} style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, verticalAlign: 'baseline', margin: '0 3px' }}>
+              {chips.map((seg, j) => (
+                <button key={j} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(seg.startTime)}>
+                  {seg.timestamp}
+                </button>
+              ))}
+            </span>
+          );
+        }
       } else {
         out.push(
-          <span key={`c${k++}`} style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, verticalAlign: 'baseline', margin: '0 3px' }}>
-            {chips.map((seg, j) => (
-              <button key={j} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(seg.startTime)}>
-                {seg.timestamp}
-              </button>
-            ))}
-          </span>
+          <strong key={`b${k++}`} style={{ fontWeight: 600, color: 'var(--text)' }}>
+            {m[2]}
+          </strong>
         );
       }
       last = m.index + m[0].length;
@@ -2025,18 +2059,30 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
 
         {/* ─── Chat Tab ───────────────────────────────────────────── */}
         {activeTab === 'chat' && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'min(68vh, 640px)', minHeight: 420 }}>
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: 'min(70vh, 660px)', minHeight: 440 }}>
+            {/* Ambient glow from the top */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                background: 'radial-gradient(110% 55% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 72%)',
+              }}
+            />
+
             {/* Messages */}
             <div
               ref={chatScrollRef}
               style={{
+                position: 'relative',
                 flex: 1,
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 16,
-                padding: '4px 2px 8px',
+                gap: 18,
+                padding: '10px 2px 12px',
               }}
             >
               {chatMessages.length === 0 ? (
@@ -2048,43 +2094,42 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                     alignItems: 'center',
                     justifyContent: 'center',
                     textAlign: 'center',
-                    padding: '24px 16px',
-                    gap: 8,
+                    padding: 16,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 14,
-                      background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: 4,
-                    }}
-                  >
-                    <Sparkles size={24} style={{ color: 'var(--accent)' }} />
+                  <div className="chat-orb fade-in" style={{ marginBottom: 18 }}>
+                    <Sparkles size={26} />
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 700 }}>{tr('report.chatTitle')}</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 440, lineHeight: 1.55 }}>
+                  <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>{tr('report.chatTitle')}</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--muted)', maxWidth: 420, lineHeight: 1.6, marginTop: 8 }}>
                     {tr('report.chatIntro')}
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14, maxWidth: 540 }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: 10,
+                      marginTop: 24,
+                      width: '100%',
+                      maxWidth: 560,
+                    }}
+                  >
                     {[
-                      tr('report.chatSuggest1'),
-                      tr('report.chatSuggest2'),
-                      tr('report.chatSuggest3'),
-                      tr('report.chatSuggest4'),
+                      { t: tr('report.chatSuggest1'), icon: <Sparkles size={15} /> },
+                      { t: tr('report.chatSuggest2'), icon: <CheckCircle size={15} /> },
+                      { t: tr('report.chatSuggest3'), icon: <ListChecks size={15} /> },
+                      { t: tr('report.chatSuggest4'), icon: <HelpCircle size={15} /> },
                     ].map((s, i) => (
                       <button
                         key={i}
-                        onClick={() => sendChat(s)}
+                        className="chat-suggest fade-in"
+                        style={{ animationDelay: `${i * 60}ms` }}
                         disabled={chatBusy}
-                        className="btn btn-sm"
-                        style={{ borderRadius: 999, fontSize: 12.5, color: 'var(--text-2)' }}
+                        onClick={() => sendChat(s.t)}
                       >
-                        {s}
+                        <span className="cs-ico">{s.icon}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.35 }}>{s.t}</span>
+                        <ChevronRight size={15} className="cs-arrow" />
                       </button>
                     ))}
                   </div>
@@ -2096,7 +2141,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   return (
                     <div
                       key={i}
-                      className="fade-in"
+                      className={isUser ? 'chat-bubble-user' : 'chat-bubble-ai'}
                       style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}
                     >
                       {isUser ? (
@@ -2104,38 +2149,42 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       ) : (
                         <div
                           style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 8,
+                            width: 30,
+                            height: 30,
+                            borderRadius: 9,
                             flexShrink: 0,
-                            background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            display: 'grid',
+                            placeItems: 'center',
+                            background: 'linear-gradient(150deg, color-mix(in oklab, var(--accent) 26%, var(--surface)), var(--surface))',
+                            border: '1px solid color-mix(in oklab, var(--accent) 36%, var(--border))',
+                            color: 'var(--accent-2)',
                           }}
                         >
-                          <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+                          <Sparkles size={15} />
                         </div>
                       )}
                       <div
                         style={{
-                          maxWidth: '80%',
-                          padding: '10px 14px',
-                          borderRadius: 14,
-                          borderTopRightRadius: isUser ? 4 : 14,
-                          borderTopLeftRadius: isUser ? 14 : 4,
+                          maxWidth: '82%',
+                          padding: '11px 15px',
+                          borderRadius: 16,
+                          borderTopRightRadius: isUser ? 5 : 16,
+                          borderTopLeftRadius: isUser ? 16 : 5,
                           fontSize: 13.5,
-                          lineHeight: 1.6,
+                          lineHeight: 1.65,
                           whiteSpace: 'pre-wrap',
                           wordBreak: 'break-word',
-                          background: isUser ? 'color-mix(in oklab, var(--accent) 16%, transparent)' : 'var(--surface)',
-                          border: `1px solid ${isUser ? 'color-mix(in oklab, var(--accent) 32%, transparent)' : 'var(--border)'}`,
+                          background: isUser ? 'color-mix(in oklab, var(--accent) 18%, transparent)' : 'var(--surface)',
+                          border: `1px solid ${isUser ? 'color-mix(in oklab, var(--accent) 34%, transparent)' : 'var(--border)'}`,
                           color: isUser ? 'var(--text)' : 'var(--text-2)',
+                          boxShadow: isUser ? 'none' : '0 1px 0 rgba(255,255,255,.02) inset',
                         }}
                       >
                         {streaming ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--muted)' }}>
-                            <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {tr('report.chatThinking')}
+                          <span className="chat-typing" aria-label={tr('report.chatThinking')}>
+                            <span />
+                            <span />
+                            <span />
                           </span>
                         ) : isUser ? (
                           msg.content
@@ -2149,11 +2198,11 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
               )}
             </div>
 
-            {/* Input bar */}
-            <div style={{ paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            {/* Composer */}
+            <div style={{ position: 'relative', paddingTop: 12 }}>
+              <div className="chat-composer">
                 <textarea
-                  className="field"
+                  ref={chatTaRef}
                   rows={1}
                   placeholder={tr('report.chatPlaceholder')}
                   value={chatInput}
@@ -2165,19 +2214,17 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       sendChat();
                     }
                   }}
-                  style={{ flex: 1, resize: 'none', minHeight: 40, maxHeight: 120, paddingTop: 10, paddingBottom: 10, lineHeight: 1.5 }}
                 />
                 <button
-                  className="btn btn-primary btn-icon"
+                  className="chat-send"
                   onClick={() => sendChat()}
                   disabled={chatBusy || !chatInput.trim()}
                   title={tr('report.chatSend')}
-                  style={{ flexShrink: 0, height: 40, width: 40 }}
                 >
-                  {chatBusy ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={15} />}
+                  {chatBusy ? <Loader2 size={15} className="spin" /> : <Send size={15} />}
                 </button>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, padding: '0 4px' }}>
                 <span style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.4 }}>{tr('report.chatDisclaimer')}</span>
                 {chatMessages.length > 0 && (
                   <button onClick={clearChat} className="btn btn-ghost btn-sm" style={{ flexShrink: 0, color: 'var(--muted)', fontSize: 12 }}>

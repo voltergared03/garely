@@ -280,6 +280,138 @@ select.field option:checked {
   animation: pulseDot 1.6s ease-in-out infinite;
 }
 
+/* ── Meeting AI chat ──────────────────────────────────── */
+@keyframes chatOrbGlow {
+  0%, 100% { transform: scale(1);    opacity: 0.5; }
+  50%      { transform: scale(1.15); opacity: 0.85; }
+}
+
+/* Glowing AI orb in the empty state + (smaller) as the assistant avatar */
+.chat-orb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+  background: linear-gradient(150deg, color-mix(in oklab, var(--accent) 28%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--border));
+  box-shadow: 0 12px 34px -12px color-mix(in oklab, var(--accent) 60%, transparent),
+              0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+.chat-orb::before {
+  content: '';
+  position: absolute;
+  inset: -32%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 48%, transparent), transparent 60%);
+  filter: blur(16px);
+  animation: chatOrbGlow 4.2s ease-in-out infinite;
+}
+
+/* Suggested-prompt cards */
+.chat-suggest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface) 72%, transparent);
+  color: var(--text-2);
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.chat-suggest:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--surface));
+  box-shadow: 0 14px 28px -18px color-mix(in oklab, var(--accent) 75%, transparent);
+}
+.chat-suggest:disabled { opacity: 0.5; cursor: default; }
+.chat-suggest .cs-ico {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-2);
+  background: color-mix(in oklab, var(--accent) 15%, transparent);
+}
+.chat-suggest .cs-arrow {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--accent-2);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.chat-suggest:hover:not(:disabled) .cs-arrow { opacity: 1; transform: none; }
+
+/* Composer: focus-glow container wrapping a seamless textarea + send button */
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.chat-composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+}
+.chat-composer textarea {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  max-height: 140px;
+  padding: 6px 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  resize: none;
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.55;
+}
+.chat-composer textarea::placeholder { color: var(--muted); }
+.chat-composer textarea:disabled { opacity: 0.6; }
+.chat-send {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.chat-send:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
+.chat-send:active:not(:disabled) { transform: scale(0.94); }
+.chat-send:disabled { opacity: 0.45; cursor: default; }
+
+/* Message reveal + typing indicator */
+.chat-bubble-ai, .chat-bubble-user { animation: fadeIn 0.28s ease both; }
+.chat-typing { display: inline-flex; align-items: center; padding: 2px 0; }
+.chat-typing span {
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: pulseDot 1.2s ease-in-out infinite;
+}
+.chat-typing span:nth-child(2) { animation-delay: 0.18s; }
+.chat-typing span:nth-child(3) { animation-delay: 0.36s; }
+
 
 /* ═══════════════════════════════════════════════════════
    EZmeet — Mobile-First Responsive Design

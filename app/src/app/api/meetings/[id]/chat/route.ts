@@ -114,8 +114,8 @@ Attendees: ${attendees || 'unknown'}.
 Rules:
 - Reply in ${langName}, unless the user clearly writes in another language — then match the user's language.
 - Use ONLY information present in the transcript below. If the answer is not in the transcript, say plainly that it was not discussed in this meeting. NEVER invent facts, names, numbers or decisions.
-- Whenever you state something from the meeting, cite the supporting transcript line number(s) in square brackets, e.g. [12] or [12, 15]. Cite precisely; never fabricate a line number.
-- Be concise and well-structured. Plain prose; short "-" bullet lists are fine. Avoid markdown headings, tables and code fences.
+- Whenever you state something from the meeting, cite the supporting transcript line number(s) in square brackets — use specific single line numbers like [12] or [12, 15], NOT ranges like [12-18]. Cite precisely; never fabricate a line number.
+- Be concise and well-structured. Use plain text — you may use **bold** for key terms and short "-" bullet lists. Do NOT use markdown headings, tables, code fences or images.
 ${truncated ? '- NOTE: the transcript was truncated for length; answer from what is available and say so if a detail might be missing.\n' : ''}
 TRANSCRIPT (numbered, "speaker: text"):
 ${numbered}`;
