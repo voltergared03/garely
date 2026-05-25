@@ -17,7 +17,7 @@ import { fmtTime, fmtRelative, fmtDateLong, getInitials, getAvatarColor } from '
 
 interface Participant {
   id: string;
-  user: { id: string; name: string; image: string | null } | null;
+  user: { id: string; name: string; email?: string | null; image: string | null } | null;
   guestName: string | null;
 }
 
@@ -45,6 +45,7 @@ interface ActionItem {
   text: string;
   assignee: string;
   assigneeImage?: string | null;
+  assigneeRegistered?: boolean;
   dueDate: string | null;
   priority: 'high' | 'medium' | 'low';
   done: boolean;
@@ -122,6 +123,7 @@ function transformApiData(data: any): Meeting {
       text: t.title || t.text || '',
       assignee: t.assigneeName || t.assignee?.name || t.assignee || '',
       assigneeImage: t.assignee?.image || null,
+      assigneeRegistered: !!(t.assigneeId || t.assignee?.id),
       dueDate: t.dueDate || null,
       priority: (t.priority || 'medium') as 'high' | 'medium' | 'low',
       done: t.status === 'done' || t.done || false,
@@ -189,7 +191,7 @@ function ReportAssigneeDropdown({
   users,
   onAssign,
 }: {
-  item: { id: string; assignee: string; assigneeImage?: string | null };
+  item: { id: string; assignee: string; assigneeImage?: string | null; assigneeRegistered?: boolean };
   users: UserItem[];
   onAssign: (itemId: string, userId: string, user: UserItem) => void;
 }) {
@@ -246,6 +248,24 @@ function ReportAssigneeDropdown({
       >
         <Avatar name={item.assignee || 'U'} image={item.assigneeImage || null} size="sm" />
         <span>{item.assignee || tr('report.unassigned')}</span>
+        {item.assignee && !item.assigneeRegistered && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '.04em',
+              color: 'var(--amber)',
+              background: 'color-mix(in oklab, var(--amber) 16%, transparent)',
+              border: '1px solid color-mix(in oklab, var(--amber) 30%, transparent)',
+              borderRadius: 5,
+              padding: '1px 5px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tr('report.notRegistered')}
+          </span>
+        )}
         <ChevronDown size={10} style={{ opacity: 0.5 }} />
       </button>
       {open && typeof document !== 'undefined' && createPortal(
@@ -593,7 +613,7 @@ export default function MeetingReportPage() {
     setActionItems((prev) =>
       prev.map((item) =>
         item.id === itemId
-          ? { ...item, assignee: user.name, assigneeImage: user.image }
+          ? { ...item, assignee: user.name, assigneeImage: user.image, assigneeRegistered: true }
           : item
       )
     );
@@ -631,6 +651,10 @@ export default function MeetingReportPage() {
   const report = meeting?.reports?.[0] ?? null;
   const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
   const canFixLanguage = isAdmin || isHost;
+  // The reassignment dropdown lists the registered users who were on THIS meeting.
+  const meetingUsers: UserItem[] = (meeting?.participants || [])
+    .filter((p) => !!p.user)
+    .map((p) => ({ id: p.user!.id, name: p.user!.name, email: p.user!.email || '', image: p.user!.image }));
 
   const toggleActionItem = useCallback((id: string) => {
     setActionItems((prev) =>
@@ -1255,7 +1279,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                           {item.text}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <ReportAssigneeDropdown item={item} users={users} onAssign={reassignTask} />
+                          <ReportAssigneeDropdown item={item} users={meetingUsers.length ? meetingUsers : users} onAssign={reassignTask} />
                           {item.dueDate && (
                             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
                               {tr('report.due', { date: `${new Date(item.dueDate).getDate()}.${String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}` })}

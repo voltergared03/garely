@@ -386,7 +386,8 @@
     "openQuestions": "Open questions",
     "jumpToTranscript": "Jump to transcript",
     "noExtended": "No detailed report yet",
-    "noExtendedDesc": "It's generated automatically after each meeting."
+    "noExtendedDesc": "It's generated automatically after each meeting.",
+    "notRegistered": "not registered"
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

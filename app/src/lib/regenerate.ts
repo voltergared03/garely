@@ -136,7 +136,7 @@ export async function generateMeetingReport(
   const segments = await prisma.transcriptSegment.findMany({
     where: { meetingId },
     orderBy: { startTime: 'asc' },
-    select: { speakerName: true, content: true, language: true, startTime: true },
+    select: { speakerName: true, speakerId: true, content: true, language: true, startTime: true },
   });
   if (segments.length === 0) return { topics: 0 };
 
@@ -145,31 +145,51 @@ export async function generateMeetingReport(
   const wsLoc = await workspaceLocale();
   const langName = wsLoc === 'uk' ? 'Ukrainian' : 'English';
 
-  // Auto-assignment is restricted to ACTUAL meeting participants — never a
-  // random workspace user, never an invented name from the transcript. If the
-  // model's suggested assignee isn't a participant, the task is left unassigned.
-  const participants = await prisma.meetingParticipant.findMany({
-    where: { meetingId, userId: { not: null } },
+  // Meeting ATTENDEES = registered users (formal participants + any registered
+  // transcript speaker) and guests (people who joined by name, with no account —
+  // found as participants or as transcript speakers without a speakerId).
+  // Auto-assignment is restricted to this list; a guest is assigned by the name
+  // they joined with, with id=null (the UI flags them as "not registered").
+  type Attendee = { id: string | null; name: string; preferences: any };
+  const participantRows = await prisma.meetingParticipant.findMany({
+    where: { meetingId },
     include: { user: { select: { id: true, name: true, preferences: true } } },
   });
-  const participantUsers = participants
-    .map((p) => p.user)
-    .filter((u): u is NonNullable<typeof u> => !!u);
-  const matchParticipant = (name: any): { id: string; name: string; preferences: any } | null => {
+  const registered = new Map<string, Attendee>();
+  const guestNames = new Set<string>();
+  for (const p of participantRows) {
+    if (p.user) registered.set(p.user.id, { id: p.user.id, name: p.user.name || '', preferences: p.user.preferences });
+    else if (p.guestName) guestNames.add(p.guestName);
+  }
+  for (const s of segments) {
+    if (s.speakerId) {
+      if (!registered.has(s.speakerId)) registered.set(s.speakerId, { id: s.speakerId, name: s.speakerName || '', preferences: null });
+    } else if (s.speakerName) {
+      guestNames.add(s.speakerName);
+    }
+  }
+  const regNameSet = new Set(
+    [...registered.values()].map((r) => (r.name || '').toLowerCase()).filter(Boolean)
+  );
+  const attendees: Attendee[] = [
+    ...registered.values(),
+    ...[...guestNames]
+      .filter((g) => g && !regNameSet.has(g.toLowerCase()))
+      .map((g) => ({ id: null, name: g, preferences: null })),
+  ];
+  const matchParticipant = (name: any): Attendee | null => {
     if (!name || typeof name !== 'string') return null;
     const n = name.trim().toLowerCase();
     if (!n) return null;
-    for (const u of participantUsers) {
-      const un = (u.name || '').toLowerCase();
-      if (un && (un.includes(n) || n.includes(un))) {
-        return { id: u.id, name: u.name || '', preferences: u.preferences };
-      }
+    for (const a of attendees) {
+      const an = (a.name || '').toLowerCase();
+      if (an && (an.includes(n) || n.includes(an))) return a;
     }
     return null;
   };
-  const participantsLine = participantUsers.length
-    ? `\nMeeting participants (use ONLY these exact names for any assignee/owner, otherwise null): ${participantUsers.map((u) => u.name).filter(Boolean).join(', ')}.\n`
-    : '\nThere are no registered participants — set every assignee and owner to null.\n';
+  const participantsLine = attendees.length
+    ? `\nMeeting attendees (use ONLY these exact names for any assignee/owner, otherwise null): ${attendees.map((a) => a.name).filter(Boolean).join(', ')}.\n`
+    : '\nNo identifiable attendees — set every assignee and owner to null.\n';
 
   const numbered = segments
     .map((s, i) => `${i + 1}. [${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
@@ -182,7 +202,7 @@ Rules:
 - NEVER invent facts that are not present in the transcript.
 - Write all textual content in ${langName}.
 - Extract ALL decisions, tasks and open questions that were discussed — never omit an item, even when nobody is clearly responsible for it.
-- For a task's "assignee" or a decision's "owner": use a participant's exact name (from the list below) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a non-participant name, and never drop an item just because its owner is unknown.
+- For a task's "assignee" or a decision's "owner": use an attendee's exact name (from the list below — it includes guests who joined by name) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a name that is not a listed attendee, and never drop an item just because its owner is unknown.
 - Respond with valid JSON only, in exactly this shape:
 {
   "summary": "2-3 paragraph TL;DR of the whole meeting in ${langName}",
@@ -276,7 +296,7 @@ ${numbered}`;
       assigneeName: m?.name || null,
       priority: k.priority,
       dueDate: k.due ? parseDueDate(String(k.due)) : null,
-      notifyAssignee: m ? (m.preferences as any)?.actionItemNotif !== false : false,
+      notifyAssignee: m && m.id ? (m.preferences as any)?.actionItemNotif !== false : false,
     };
   });
 
