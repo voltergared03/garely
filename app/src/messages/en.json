@@ -537,6 +537,8 @@
     "role": "Role",
     "timezone": "Timezone",
     "interfaceLanguage": "Interface language",
+    "spokenLanguage": "Spoken language",
+    "spokenLanguageAuto": "Auto-detect",
     "audioVideo": "Audio & video",
     "micOnJoin": "Join meetings with microphone on",
     "camOnJoin": "Join meetings with camera on",

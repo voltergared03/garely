@@ -164,6 +164,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
   const [displayRole, setDisplayRole] = useState('');
   const [timezone, setTimezone] = useState('Europe/Kyiv');
   const [language, setLanguage] = useState('uk');
+  const [spokenLang, setSpokenLang] = useState(''); // '' = auto-detect
   const [micOnJoin, setMicOnJoin] = useState(false);
   const [camOnJoin, setCamOnJoin] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState(true);
@@ -183,6 +184,7 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
         const p = data.preferences || {};
         setDisplayRole(p.displayRole || '');
         setLanguage(p.language || 'uk');
+        setSpokenLang(p.spokenLanguageLocked ? (p.spokenLanguage || '') : '');
         setMicOnJoin(p.micOnJoin ?? false);
         setCamOnJoin(p.camOnJoin ?? false);
         setLiveTranscript(p.liveTranscript ?? true);
@@ -201,20 +203,20 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
     setSaving(true);
     setSaved(false);
     try {
+      // spokenLanguageLocked=true forces this language (auto-detect won't override).
+      const prefs: any = { displayRole, language, micOnJoin, camOnJoin, liveTranscript, emailReminder, emailReport, actionItemNotif, weeklyDigest, spokenLanguageLocked: !!spokenLang };
+      if (spokenLang) prefs.spokenLanguage = spokenLang;
       await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name, timezone,
-          preferences: { displayRole, language, micOnJoin, camOnJoin, liveTranscript, emailReminder, emailReport, actionItemNotif, weeklyDigest },
-        }),
+        body: JSON.stringify({ name, timezone, preferences: prefs }),
       });
       setSaved(true);
       if (name !== user?.name) await updateSession({ name });
       setTimeout(() => setSaved(false), 2500);
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
-  }, [name, timezone, displayRole, language, micOnJoin, camOnJoin, liveTranscript, emailReminder, emailReport, actionItemNotif, weeklyDigest, user?.name, updateSession]);
+  }, [name, timezone, displayRole, language, spokenLang, micOnJoin, camOnJoin, liveTranscript, emailReminder, emailReport, actionItemNotif, weeklyDigest, user?.name, updateSession]);
 
   // Interface language switches instantly: persist the preference, drop the
   // `locale` cookie that drives server rendering, refresh the session token,
@@ -270,6 +272,14 @@ function ProfileTab({ session: sess, updateSession }: { session: any; updateSess
             <Select value={language} onChange={changeLanguage} options={[
               { value: 'uk', label: 'Українська' },
               { value: 'en', label: 'English' },
+            ]} />
+          </FieldWrapper>
+          <FieldWrapper label={t('settings.spokenLanguage')}>
+            <Select value={spokenLang} onChange={setSpokenLang} options={[
+              { value: '', label: t('settings.spokenLanguageAuto') },
+              { value: 'uk', label: 'Українська' },
+              { value: 'en', label: 'English' },
+              { value: 'ru', label: 'Русский' },
             ]} />
           </FieldWrapper>
         </div>

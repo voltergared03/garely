@@ -98,16 +98,19 @@ export async function POST(
       });
       if (u) {
         const prefs = (u.preferences as any) || {};
-        await prisma.user.update({
-          where: { id: track.speakerId },
-          data: {
-            preferences: {
-              ...prefs,
-              spokenLanguage: language,
-              spokenLanguageMeta: { confidence: 1, source: 'manual', at: new Date().toISOString() },
+        // Don't override a language the user has explicitly forced in Settings.
+        if (!prefs.spokenLanguageLocked) {
+          await prisma.user.update({
+            where: { id: track.speakerId },
+            data: {
+              preferences: {
+                ...prefs,
+                spokenLanguage: language,
+                spokenLanguageMeta: { confidence: 1, source: 'manual', at: new Date().toISOString() },
+              },
             },
-          },
-        });
+          });
+        }
       }
     } catch {
       /* non-fatal */

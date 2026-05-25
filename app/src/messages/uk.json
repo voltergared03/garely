@@ -537,6 +537,8 @@
     "role": "Роль",
     "timezone": "Часовий пояс",
     "interfaceLanguage": "Мова інтерфейсу",
+    "spokenLanguage": "Розмовна мова",
+    "spokenLanguageAuto": "Автовизначення",
     "audioVideo": "Аудіо & відео",
     "micOnJoin": "Заходити в мітинг з увімкненим мікрофоном",
     "camOnJoin": "Заходити в мітинг з увімкненою камерою",

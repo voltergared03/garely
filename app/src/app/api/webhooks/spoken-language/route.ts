@@ -29,9 +29,17 @@ export async function POST(req: NextRequest) {
     }
 
     const prefs = (user.preferences as any) || {};
+
+    // Respect an explicit choice: if the user forced their spoken language in
+    // Settings, auto-detection must not override it.
+    if (prefs.spokenLanguageLocked) {
+      return NextResponse.json({ ok: true, skipped: 'locked', spokenLanguage: prefs.spokenLanguage || null });
+    }
+
     const updated = {
       ...prefs,
       spokenLanguage: lang,
+      spokenLanguageLocked: false,
       spokenLanguageMeta: {
         confidence: typeof confidence === 'number' ? confidence : null,
         source: typeof source === 'string' ? source : 'detected',
