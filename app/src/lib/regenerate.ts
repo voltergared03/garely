@@ -145,6 +145,32 @@ export async function generateMeetingReport(
   const wsLoc = await workspaceLocale();
   const langName = wsLoc === 'uk' ? 'Ukrainian' : 'English';
 
+  // Auto-assignment is restricted to ACTUAL meeting participants — never a
+  // random workspace user, never an invented name from the transcript. If the
+  // model's suggested assignee isn't a participant, the task is left unassigned.
+  const participants = await prisma.meetingParticipant.findMany({
+    where: { meetingId, userId: { not: null } },
+    include: { user: { select: { id: true, name: true, preferences: true } } },
+  });
+  const participantUsers = participants
+    .map((p) => p.user)
+    .filter((u): u is NonNullable<typeof u> => !!u);
+  const matchParticipant = (name: any): { id: string; name: string; preferences: any } | null => {
+    if (!name || typeof name !== 'string') return null;
+    const n = name.trim().toLowerCase();
+    if (!n) return null;
+    for (const u of participantUsers) {
+      const un = (u.name || '').toLowerCase();
+      if (un && (un.includes(n) || n.includes(un))) {
+        return { id: u.id, name: u.name || '', preferences: u.preferences };
+      }
+    }
+    return null;
+  };
+  const participantsLine = participantUsers.length
+    ? `\nMeeting participants (use ONLY these exact names for any assignee/owner, otherwise null): ${participantUsers.map((u) => u.name).filter(Boolean).join(', ')}.\n`
+    : '\nThere are no registered participants — set every assignee and owner to null.\n';
+
   const numbered = segments
     .map((s, i) => `${i + 1}. [${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
     .join('\n');
@@ -155,6 +181,8 @@ Rules:
 - For EVERY decision, task and open question, include a "cites" array with the exact transcript line numbers that support it.
 - NEVER invent facts that are not present in the transcript.
 - Write all textual content in ${langName}.
+- Extract ALL decisions, tasks and open questions that were discussed — never omit an item, even when nobody is clearly responsible for it.
+- For a task's "assignee" or a decision's "owner": use a participant's exact name (from the list below) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a non-participant name, and never drop an item just because its owner is unknown.
 - Respond with valid JSON only, in exactly this shape:
 {
   "summary": "2-3 paragraph TL;DR of the whole meeting in ${langName}",
@@ -169,7 +197,7 @@ Rules:
     }
   ]
 }
-
+${participantsLine}
 TRANSCRIPT:
 ${numbered}`;
 
@@ -216,12 +244,12 @@ ${numbered}`;
     discussion: String(t.discussion || '').trim(),
     decisions: (Array.isArray(t.decisions) ? t.decisions : []).map((d: any) => ({
       text: String(d.text || '').trim(),
-      owner: d.owner || null,
+      owner: matchParticipant(d.owner)?.name ?? null,
       cites: citeTimes(d.cites),
     })),
     tasks: (Array.isArray(t.tasks) ? t.tasks : []).map((k: any) => ({
       title: String(k.title || '').trim(),
-      assignee: k.assignee || null,
+      assignee: matchParticipant(k.assignee)?.name ?? null,
       priority: ['high', 'medium', 'low'].includes(k.priority) ? k.priority : 'medium',
       due: k.due || null,
       cites: citeTimes(k.cites),
@@ -238,30 +266,19 @@ ${numbered}`;
   const followUps = topics.flatMap((t: any) => t.openQuestions.map((q: any) => q.text)).filter(Boolean);
 
   const flatTasks = topics.flatMap((t: any) => t.tasks);
-  const resolvedTasks = await Promise.all(
-    flatTasks.map(async (k: any) => {
-      let assigneeId: string | null = null;
-      let notifyAssignee = true;
-      if (k.assignee) {
-        const u = await prisma.user.findFirst({
-          where: { name: { contains: String(k.assignee), mode: 'insensitive' } },
-          select: { id: true, preferences: true },
-        });
-        if (u) {
-          assigneeId = u.id;
-          notifyAssignee = (u.preferences as any)?.actionItemNotif !== false;
-        }
-      }
-      return {
-        title: k.title || '(untitled)',
-        assigneeId,
-        assigneeName: k.assignee || null,
-        priority: k.priority,
-        dueDate: k.due ? parseDueDate(String(k.due)) : null,
-        notifyAssignee,
-      };
-    })
-  );
+  // Task assignees were already normalised to a participant name (or null) when
+  // building topics, so this only resolves the name → participant id.
+  const resolvedTasks = flatTasks.map((k: any) => {
+    const m = matchParticipant(k.assignee);
+    return {
+      title: k.title || '(untitled)',
+      assigneeId: m?.id || null,
+      assigneeName: m?.name || null,
+      priority: k.priority,
+      dueDate: k.due ? parseDueDate(String(k.due)) : null,
+      notifyAssignee: m ? (m.preferences as any)?.actionItemNotif !== false : false,
+    };
+  });
 
   await prisma.$transaction(async (tx) => {
     await tx.meetingTask.deleteMany({ where: { meetingId, source: 'ai' } });
