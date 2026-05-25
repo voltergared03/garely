@@ -380,7 +380,13 @@
     "fixLangBusy": "Re-transcribing…",
     "fixLangDone": "Done — report updated",
     "fixLangNoSpeech": "No speech recognized in that language",
-    "fixLangFailed": "Couldn't re-transcribe. Please try again."
+    "fixLangFailed": "Couldn't re-transcribe. Please try again.",
+    "tabDetailed": "Detailed",
+    "detailTasks": "Tasks",
+    "openQuestions": "Open questions",
+    "jumpToTranscript": "Jump to transcript",
+    "noExtended": "No detailed report yet",
+    "noExtendedDesc": "It's generated automatically after each meeting."
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

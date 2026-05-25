@@ -246,6 +246,30 @@ select.field option:checked {
 
 .fade-in { animation: fadeIn 0.3s ease; }
 .spin { animation: spin 0.8s linear infinite; }
+
+/* Extended-report citation chip → jumps to the cited transcript moment. */
+.cite-chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.cite-chip:hover {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+@keyframes segFlash {
+  0% { background: color-mix(in oklab, var(--accent) 28%, transparent); }
+  100% { background: transparent; }
+}
+.seg-highlight { animation: segFlash 1.8s ease; }
 .mono { font-family: var(--mono); }
 .live-dot {
   display: inline-block;

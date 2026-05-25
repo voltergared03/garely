@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import {
   ChevronLeft, Sparkles, Copy, Send, FileText, Check, Clock,
   Users, Search, X, ChevronRight, Video, Play, ListChecks,
-  CheckCircle, Download, ChevronDown, User, Loader2, Trash2, Bookmark, Languages,
+  CheckCircle, Download, ChevronDown, User, Loader2, Trash2, Bookmark, Languages, HelpCircle,
 } from 'lucide-react';
 import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, fmtDateLong, getInitials, getAvatarColor } from '@/lib/utils';
@@ -36,6 +36,7 @@ interface TranscriptSegment {
   speakerImage?: string | null;
   language: 'ua' | 'en' | 'ru';
   timestamp: string;
+  startTime: number;
   text: string;
 }
 
@@ -56,12 +57,22 @@ interface UserItem {
   image: string | null;
 }
 
+interface Topic {
+  title: string;
+  discussion: string;
+  decisions: { text: string; owner: string | null; cites: number[] }[];
+  tasks: { title: string; assignee: string | null; priority: string; due: string | null; cites: number[] }[];
+  openQuestions: { text: string; cites: number[] }[];
+  cites: number[];
+}
+
 interface Report {
   id: string;
   summary: string;
   actionItems: ActionItem[];
   decisions: string[];
   followUps: string[];
+  topics: Topic[];
   analytics: {
     durationMin: number;
     wordsCount: number;
@@ -99,6 +110,7 @@ function transformApiData(data: any): Meeting {
     speakerImage: t.speaker?.image || null,
     language: (t.language || 'uk').toLowerCase().replace('uk', 'ua') as 'ua' | 'en' | 'ru',
     timestamp: formatTimestamp(t.startTime || 0),
+    startTime: Number(t.startTime) || 0,
     text: t.content || t.text || '',
   }));
 
@@ -121,6 +133,7 @@ function transformApiData(data: any): Meeting {
       actionItems,
       decisions: Array.isArray(r.decisions) ? r.decisions : [],
       followUps: Array.isArray(r.followUps) ? r.followUps : [],
+      topics: Array.isArray(r.topics) ? r.topics : [],
       analytics: r.analytics || null,
       recording: r.recording || null,
     };
@@ -428,7 +441,7 @@ export default function MeetingReportPage() {
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary' | 'transcript'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'detailed' | 'transcript'>('summary');
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -592,6 +605,28 @@ export default function MeetingReportPage() {
       });
     } catch (e) { console.error(e); }
   }, []);
+
+  // Jump from an extended-report citation to the cited moment in the transcript.
+  const jumpToTime = useCallback((t: number) => {
+    setSearchQuery('');
+    setActiveTab('transcript');
+    const list = meeting?.transcripts || [];
+    let bestIdx = -1;
+    let bestDiff = Infinity;
+    list.forEach((s, i) => {
+      const d = Math.abs((s.startTime || 0) - t);
+      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
+    });
+    if (bestIdx < 0) return;
+    setTimeout(() => {
+      const el = document.getElementById(`seg-${bestIdx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('seg-highlight');
+        setTimeout(() => el.classList.remove('seg-highlight'), 1800);
+      }
+    }, 130);
+  }, [meeting]);
 
   const report = meeting?.reports?.[0] ?? null;
   const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
@@ -1011,6 +1046,48 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
   const scheduledDate = new Date(meeting.scheduledAt);
   const doneCount = actionItems.filter((a) => a.done).length;
 
+  // Clickable transcript-timestamp chips for an extended-report item.
+  const renderCites = (cites: number[]) =>
+    cites && cites.length > 0 ? (
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginLeft: 6, verticalAlign: 'middle' }}>
+        {cites.slice(0, 10).map((ct, i) => (
+          <button key={i} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(ct)}>
+            {formatTimestamp(ct)}
+          </button>
+        ))}
+      </span>
+    ) : null;
+
+  // One labelled block (decisions / tasks / open questions) inside a topic card.
+  const renderSection = (
+    label: string,
+    color: string,
+    icon: React.ReactNode,
+    items: { text: string; meta?: string | null; cites: number[] }[]
+  ) =>
+    items.length > 0 ? (
+      <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+          <span style={{ color, display: 'inline-flex' }}>{icon}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {label}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {items.map((it, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10 }}>
+              <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: '50%', background: color, marginTop: 7 }} />
+              <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
+                {it.text}
+                {it.meta ? <span style={{ color: 'var(--muted)' }}> — {it.meta}</span> : null}
+                {renderCites(it.cites)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
   /* ─── Render ──────────────────────────────────────────────────── */
 
   return (
@@ -1067,6 +1144,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
         <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
           {[
             { key: 'summary' as const, label: tr('report.tabSummary'), icon: ListChecks },
+            { key: 'detailed' as const, label: tr('report.tabDetailed'), icon: Sparkles },
             { key: 'transcript' as const, label: tr('report.tabTranscript'), icon: FileText },
           ].map((tab) => (
             <button
@@ -1472,6 +1550,72 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
           </div>
         )}
 
+        {/* ─── Detailed (Extended) Report Tab ─────────────────────── */}
+        {activeTab === 'detailed' && (
+          <div>
+            {report.topics && report.topics.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {report.topics.map((topic, ti) => (
+                  <div key={ti} className="card fade-in" style={{ padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          width: 26,
+                          height: 26,
+                          borderRadius: 8,
+                          background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
+                          color: 'var(--accent)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          fontFamily: 'var(--mono)',
+                        }}
+                      >
+                        {ti + 1}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 15.5, lineHeight: 1.35 }}>{topic.title}</div>
+                        {topic.discussion ? (
+                          <div style={{ marginTop: 6, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.65 }}>
+                            {topic.discussion}
+                          </div>
+                        ) : null}
+                        {renderSection(
+                          tr('report.decisions'),
+                          'var(--green)',
+                          <CheckCircle size={14} />,
+                          topic.decisions.map((d) => ({ text: d.text, meta: d.owner, cites: d.cites }))
+                        )}
+                        {renderSection(
+                          tr('report.detailTasks'),
+                          'var(--accent)',
+                          <ListChecks size={14} />,
+                          topic.tasks.map((k) => ({ text: k.title, meta: k.assignee, cites: k.cites }))
+                        )}
+                        {renderSection(
+                          tr('report.openQuestions'),
+                          'var(--amber)',
+                          <HelpCircle size={14} />,
+                          topic.openQuestions.map((q) => ({ text: q.text, meta: null, cites: q.cites }))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="card" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--muted)' }}>
+                <Sparkles size={28} style={{ opacity: 0.4, marginBottom: 10 }} />
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>{tr('report.noExtended')}</div>
+                <div style={{ fontSize: 12.5, marginTop: 4 }}>{tr('report.noExtendedDesc')}</div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ─── Transcript Tab ─────────────────────────────────────── */}
         {activeTab === 'transcript' && (
           <div>
@@ -1623,12 +1767,13 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
 
             {/* Transcript list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {filteredTranscripts.map((segment) => {
+              {filteredTranscripts.map((segment, idx) => {
                 const langClass = `lang-${segment.language}`;
                 const langLabel = segment.language.toUpperCase();
                 return (
                   <div
                     key={segment.id}
+                    id={`seg-${idx}`}
                     className="fade-in"
                     style={{
                       display: 'flex',
