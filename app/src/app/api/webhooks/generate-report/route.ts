@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'meetingId required' }, { status: 400 });
   }
 
+  // The agent (live, first generation) notifies + emails; a bulk/manual
+  // regeneration passes notify:false to avoid re-notifying and resetting endedAt.
+  const notify = body.notify !== false;
+
   // Fire-and-forget: do not make the agent wait for DeepSeek.
-  void generateMeetingReport(meetingId, { notify: true }).catch((e) =>
+  void generateMeetingReport(meetingId, { notify }).catch((e) =>
     console.error('generate-report failed:', e)
   );
 
