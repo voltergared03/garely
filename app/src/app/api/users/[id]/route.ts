@@ -25,30 +25,61 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { role } = body;
+  const { role, spokenLanguage, spokenLanguageLocked } = body;
 
-  if (!role || !['admin', 'member', 'viewer'].includes(role)) {
-    return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  const data: any = {};
+
+  if (role !== undefined) {
+    if (!role || !['admin', 'member', 'viewer'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+    }
+    // Prevent removing the last admin
+    if (role !== 'admin' && currentUser.id === id) {
+      const adminCount = await prisma.user.count({ where: { role: 'admin' } });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: 'Cannot remove the last admin' },
+          { status: 400 },
+        );
+      }
+    }
+    data.role = role;
   }
 
-  // Prevent removing the last admin
-  if (role !== 'admin' && currentUser.id === id) {
-    const adminCount = await prisma.user.count({ where: { role: 'admin' } });
-    if (adminCount <= 1) {
-      return NextResponse.json(
-        { error: 'Cannot remove the last admin' },
-        { status: 400 },
-      );
+  // Admin can force a user's spoken transcription language (or unlock = Auto).
+  if (spokenLanguage !== undefined || spokenLanguageLocked !== undefined) {
+    const target = await prisma.user.findUnique({ where: { id }, select: { preferences: true } });
+    if (!target) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    const prefs = (target.preferences as any) || {};
+    const next: any = { ...prefs };
+    if (spokenLanguageLocked !== undefined) next.spokenLanguageLocked = !!spokenLanguageLocked;
+    if (typeof spokenLanguage === 'string' && spokenLanguage.trim()) {
+      next.spokenLanguage = spokenLanguage.trim().toLowerCase().slice(0, 8);
+    }
+    next.spokenLanguageMeta = { source: 'admin', at: new Date().toISOString() };
+    data.preferences = next;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
   const updated = await prisma.user.update({
     where: { id },
-    data: { role },
-    select: { id: true, name: true, email: true, role: true },
+    data,
+    select: { id: true, name: true, email: true, role: true, preferences: true },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    role: updated.role,
+    spokenLanguage: (updated.preferences as any)?.spokenLanguage ?? null,
+    spokenLanguageLocked: !!(updated.preferences as any)?.spokenLanguageLocked,
+  });
 }
 
 // DELETE /api/users/[id] — delete a user (admin only). Created meetings are

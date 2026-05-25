@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import {
-  Globe, LogOut, Save, Check, Mic, Video as VideoIcon, Volume2,
+  Globe, Languages, LogOut, Save, Check, Mic, Video as VideoIcon, Volume2,
   Users, Shield, ShieldAlert, Sparkles, Search, Plus,
   Video, Mail, Archive, Download, Settings as SettingsIcon,
   Key, Eye, EyeOff, Loader2, Trash2, X, Copy,
@@ -326,6 +326,8 @@ interface UserRecord {
   id: string; name: string; email: string; image?: string | null;
   role: 'admin' | 'member' | 'viewer'; lastLogin?: string | null; createdAt?: string;
   hasPassword?: boolean;
+  spokenLanguage?: string | null;
+  spokenLanguageLocked?: boolean;
 }
 
 type UserStatus =
@@ -533,7 +535,7 @@ function UsersTab() {
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{u.email}</div>
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
                 <Select
                   value={u.role}
                   options={[
@@ -558,6 +560,32 @@ function UsersTab() {
                     } catch {
                       alert(t('settings.networkError'));
                       setUsers((us) => us.map((x) => x.id === u.id ? { ...x, role: prev } : x));
+                    }
+                  }}
+                />
+                <Select
+                  value={u.spokenLanguageLocked ? (u.spokenLanguage || '') : ''}
+                  icon={<Languages size={13} style={{ color: 'var(--muted)' }} />}
+                  options={[
+                    { value: '', label: t('settings.spokenLanguageAuto') },
+                    { value: 'uk', label: 'Українська' },
+                    { value: 'en', label: 'English' },
+                    { value: 'ru', label: 'Русский' },
+                  ]}
+                  style={{ height: 30, fontSize: 12, width: 132, maxWidth: '100%' }}
+                  onChange={async (v) => {
+                    const prevLang = u.spokenLanguage; const prevLock = u.spokenLanguageLocked;
+                    setUsers((us) => us.map((x) => x.id === u.id ? { ...x, spokenLanguage: v || x.spokenLanguage, spokenLanguageLocked: !!v } : x));
+                    try {
+                      const res = await fetch(`/api/users/${u.id}`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(v ? { spokenLanguage: v, spokenLanguageLocked: true } : { spokenLanguageLocked: false }),
+                      });
+                      if (!res.ok) {
+                        setUsers((us) => us.map((x) => x.id === u.id ? { ...x, spokenLanguage: prevLang, spokenLanguageLocked: prevLock } : x));
+                      }
+                    } catch {
+                      setUsers((us) => us.map((x) => x.id === u.id ? { ...x, spokenLanguage: prevLang, spokenLanguageLocked: prevLock } : x));
                     }
                   }}
                 />

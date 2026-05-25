@@ -24,15 +24,18 @@ export async function GET(req: NextRequest) {
       lastLogin: true,
       createdAt: true,
       passwordHash: true,
+      preferences: true,
     } as any,
     orderBy: { createdAt: "asc" },
   });
 
-  // Expose only whether a password is set (for the "reset password" action) —
-  // never the hash itself.
-  const safe = (users as any[]).map(({ passwordHash, ...u }) => ({
+  // Expose only whether a password is set (never the hash). Also surface the
+  // forced spoken language so admins can see/change it in the Users list.
+  const safe = (users as any[]).map(({ passwordHash, preferences, ...u }) => ({
     ...u,
     hasPassword: !!passwordHash,
+    spokenLanguage: (preferences as any)?.spokenLanguage ?? null,
+    spokenLanguageLocked: !!(preferences as any)?.spokenLanguageLocked,
   }));
 
   return NextResponse.json(safe);
