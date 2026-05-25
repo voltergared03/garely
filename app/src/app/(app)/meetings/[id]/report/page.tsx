@@ -686,14 +686,16 @@ export default function MeetingReportPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [chatMessages, chatBusy]);
 
-  // Auto-grow the chat composer up to a max height (resets when cleared).
+  // Auto-grow the chat composer up to a max height (resets when cleared);
+  // only show a scrollbar once it hits the cap so the empty box stays clean.
   useEffect(() => {
     const ta = chatTaRef.current;
     if (ta) {
       ta.style.height = 'auto';
       ta.style.height = `${Math.min(ta.scrollHeight, 140)}px`;
+      ta.style.overflowY = ta.scrollHeight > 140 ? 'auto' : 'hidden';
     }
-  }, [chatInput]);
+  }, [chatInput, activeTab]);
 
   // Send a chat turn and stream the assistant's reply. `override` lets a
   // suggestion chip ask its question directly without typing.
@@ -2059,7 +2061,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
 
         {/* ─── Chat Tab ───────────────────────────────────────────── */}
         {activeTab === 'chat' && (
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: 'min(70vh, 660px)', minHeight: 440 }}>
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', minHeight: 420 }}>
             {/* Ambient glow from the top */}
             <div
               aria-hidden
@@ -2081,8 +2083,6 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                 overflowX: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 18,
-                padding: '10px 2px 12px',
               }}
             >
               {chatMessages.length === 0 ? (
@@ -2135,7 +2135,8 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   </div>
                 </div>
               ) : (
-                chatMessages.map((msg, i) => {
+                <div style={{ width: '100%', maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18, padding: '10px 0 4px' }}>
+                  {chatMessages.map((msg, i) => {
                   const isUser = msg.role === 'user';
                   const streaming = chatBusy && !isUser && i === chatMessages.length - 1 && !msg.content;
                   return (
@@ -2194,13 +2195,15 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       </div>
                     </div>
                   );
-                })
+                  })}
+                </div>
               )}
             </div>
 
             {/* Composer */}
             <div style={{ position: 'relative', paddingTop: 12 }}>
-              <div className="chat-composer">
+              <div style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
+                <div className="chat-composer">
                 <textarea
                   ref={chatTaRef}
                   rows={1}
@@ -2231,6 +2234,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                     <Trash2 size={12} /> {tr('report.chatClear')}
                   </button>
                 )}
+                </div>
               </div>
             </div>
           </div>

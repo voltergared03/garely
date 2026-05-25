@@ -356,10 +356,11 @@ select.field option:checked {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 8px 8px 8px 14px;
+  padding: 8px 8px 8px 16px;
   border-radius: 16px;
   background: var(--bg-2);
   border: 1px solid var(--border);
+  box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.6);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .chat-composer:focus-within {
@@ -369,16 +370,17 @@ select.field option:checked {
 .chat-composer textarea {
   flex: 1;
   min-width: 0;
-  height: 24px;
   max-height: 140px;
-  padding: 6px 0;
+  padding: 7px 0;
   background: transparent;
   border: 0;
   outline: 0;
   resize: none;
+  overflow-y: hidden; /* no scrollbar until the JS auto-grow hits the cap */
   color: var(--text);
   font-family: var(--font);
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.5;
 }
 .chat-composer textarea::placeholder { color: var(--muted); }
 .chat-composer textarea:disabled { opacity: 0.6; }
