@@ -233,9 +233,10 @@ ${numbered}`;
       ],
       response_format: { type: 'json_object' },
       temperature: 0.2,
-      // Generous: some configured models are reasoning models that spend a large
-      // share of the budget on hidden reasoning before emitting the JSON.
-      max_tokens: 8000,
+      // Generous: reasoning models (deepseek-v4-pro / -flash) spend a large share
+      // of the budget on hidden reasoning before emitting the JSON. pro reasons
+      // deeper, so 8000 truncated it to empty content — 16000 leaves headroom.
+      max_tokens: 16000,
     }),
   });
   if (!res.ok) {
