@@ -43,6 +43,13 @@ APP_URL = os.getenv("APP_URL", "http://localhost:3000")
 # Shared secret for the app's internal endpoints (webhooks + key sync).
 INTERNAL_KEY = os.getenv("INTERNAL_API_SECRET") or os.getenv("NEXTAUTH_SECRET") or os.getenv("AUTH_SECRET") or ""
 
+# Live in-meeting AI (running notes + action-item chips) ALWAYS uses the fast
+# model, NOT the configured report model. A reasoning model (e.g. deepseek-v4-pro)
+# spends the small live token budget on hidden reasoning and returns empty
+# content, so live features silently break. The post-meeting report (generated in
+# the Next.js app) still honours the configured DEEPSEEK_MODEL.
+LIVE_MODEL = "deepseek-v4-flash"
+
 # Initial keys from env (will be overridden by DB values)
 _cached_keys: dict[str, str] = {
     "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY", ""),
@@ -227,7 +234,7 @@ async def entrypoint(ctx: JobContext):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
+                        "model": LIVE_MODEL,
                         "messages": [
                             {"role": "system", "content": "You are a live meeting analyst. Respond with valid JSON only. Be concise."},
                             {"role": "user", "content": f"Analyze this partial meeting transcript. Respond in {lang_name}.\n\n{text}\n\nJSON format:\n{{\"summary\": \"1-2 sentence summary of the current discussion\", \"decisions\": [\"decision\"], \"action_items\": [\"task\"]}}"},
@@ -288,7 +295,7 @@ async def entrypoint(ctx: JobContext):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
+                        "model": LIVE_MODEL,
                         "messages": [
                             {"role": "system", "content": "You detect action items from meeting speech. Return JSON. If the text does NOT contain an action item, return {\"is_action\": false}. If it does, return {\"is_action\": true, \"title\": \"concise task in " + lang_name + "\", \"assignee\": \"name or null\"}."},
                             {"role": "user", "content": f"Speaker: {speaker}\nText: {text}"},
