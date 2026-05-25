@@ -203,6 +203,7 @@ Rules:
 - Write all textual content in ${langName}.
 - Extract ALL decisions, tasks and open questions that were discussed — never omit an item, even when nobody is clearly responsible for it.
 - Be EXHAUSTIVE with tasks: capture every distinct action item, commitment, request or "I will / we need to / let's …" as its OWN separate task. Do not merge different tasks into one.
+- A task's "title" (and a decision's "text") must state ONLY the action or outcome, in imperative form — NEVER include the responsible person's name, because tasks can be reassigned. e.g. write "Develop native apps for Android, iOS, Mac and Windows", NOT "Vitaliy will develop native apps". The person goes ONLY in the separate "assignee" / "owner" field.
 - Be EQUALLY EXHAUSTIVE with DECISIONS: capture every conclusion, choice, agreement or settled direction ("we'll go with X", "let's use Y", "decided to…", "agreed that…", "the plan is…") as its own decision.
 - Be EQUALLY EXHAUSTIVE with OPEN QUESTIONS / follow-ups: capture everything left unresolved, deferred or to revisit ("we still need to figure out…", "to be decided", "let's come back to this", any unanswered question or risk raised).
 - Classify by intent and POPULATE ALL THREE categories — a typical working meeting has SEVERAL tasks, several decisions and a few open questions, so do not leave tasks (or any category) empty when the transcript contains them:
@@ -219,7 +220,7 @@ Rules:
       "title": "short topic title in ${langName}",
       "discussion": "a thorough multi-sentence narrative of this topic in ${langName} — the context, the main points raised, who said what, and the reasoning / outcome",
       "decisions": [ { "text": "decision in ${langName}", "owner": "person name or null", "cites": [1, 2] } ],
-      "tasks": [ { "title": "task in ${langName}", "assignee": "person name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3] } ],
+      "tasks": [ { "title": "the action only, imperative, in ${langName} — NO person name", "assignee": "person name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3] } ],
       "open_questions": [ { "text": "open question in ${langName}", "cites": [4] } ],
       "cites": [1, 2, 3, 4]
     }
