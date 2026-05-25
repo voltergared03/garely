@@ -197,7 +197,7 @@ export async function generateMeetingReport(
 
   const prompt = `You are a meeting documentarian. From the NUMBERED transcript below, produce a DETAILED, well-structured report.
 Rules:
-- Organise the report by TOPIC (one entry per agenda item / theme actually discussed).
+- Organise the report by TOPIC — create a SEPARATE topic for EACH distinct theme or agenda item actually discussed. A substantive meeting usually has 5-10 topics; do NOT consolidate everything into 2-3 broad topics. Prefer more, finer-grained topics, and within each capture every decision, task and open question raised.
 - For EVERY decision, task and open question, include a "cites" array with the exact transcript line numbers that support it.
 - NEVER invent facts that are not present in the transcript.
 - Write all textual content in ${langName}.
