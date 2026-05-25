@@ -66,12 +66,25 @@ export async function POST(
     let participantId: string;
     let isHost = false;
     let isAdmin = false;
+    // Per-speaker transcription language, embedded in the LiveKit token metadata
+    // so the agent starts this participant's STT in the right language.
+    let metadata: Record<string, unknown> | undefined;
 
     if (session?.user) {
       participantName = session.user.name || 'User';
       participantId = (session.user as any).id;
       isHost = meeting.createdById === participantId || id === 'quick';
       isAdmin = (session.user as any).role === 'admin';
+      // Learned spokenLanguage wins; otherwise the user's UI language is a prior
+      // (helps Deepgram break the uk↔ru tie). Guests have neither → agent uses
+      // the workspace default (WS_LANGUAGE).
+      const u = await prisma.user.findUnique({
+        where: { id: participantId },
+        select: { preferences: true },
+      });
+      const prefs = (u?.preferences as any) || {};
+      const lang = prefs.spokenLanguage || prefs.language;
+      if (typeof lang === 'string' && lang.trim()) metadata = { lang: lang.trim() };
     } else if (body.guestName) {
       if (meeting.allowGuests === false) {
         return NextResponse.json({ error: 'This meeting does not allow guests' }, { status: 403 });
@@ -110,7 +123,8 @@ export async function POST(
       meeting.livekitRoom,
       participantName,
       participantId,
-      isHost || isAdmin
+      isHost || isAdmin,
+      metadata
     );
 
     const wsUrl = process.env.LIVEKIT_URL || process.env.LIVEKIT_WS_URL || 'ws://localhost:7880';

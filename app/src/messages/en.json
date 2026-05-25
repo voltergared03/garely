@@ -373,7 +373,14 @@
     "langEn": "English",
     "langRu": "Russian",
     "langPt": "Portuguese",
-    "langHi": "Hindi"
+    "langHi": "Hindi",
+    "fixLangTitle": "Fix transcription language",
+    "fixLangDesc": "Re-transcribe a speaker's audio in the correct language and regenerate the report. The choice is remembered for that person's future meetings.",
+    "fixLangAction": "Re-transcribe",
+    "fixLangBusy": "Re-transcribing…",
+    "fixLangDone": "Done — report updated",
+    "fixLangNoSpeech": "No speech recognized in that language",
+    "fixLangFailed": "Couldn't re-transcribe. Please try again."
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

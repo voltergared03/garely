@@ -14,11 +14,20 @@ export async function createLivekitToken(
   roomName: string,
   participantName: string,
   participantId: string,
-  isHost: boolean = false
+  isHost: boolean = false,
+  metadata?: Record<string, unknown> | string
 ): Promise<string> {
   const token = new AccessToken(apiKey, apiSecret, {
     identity: participantId,
     name: participantName,
+    // Serialized to JSON so the LiveKit agent can read participant.metadata
+    // (e.g. the participant's transcription language) at join time.
+    metadata:
+      metadata === undefined
+        ? undefined
+        : typeof metadata === 'string'
+          ? metadata
+          : JSON.stringify(metadata),
   });
 
   token.addGrant({

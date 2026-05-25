@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import {
   ChevronLeft, Sparkles, Copy, Send, FileText, Check, Clock,
   Users, Search, X, ChevronRight, Video, Play, ListChecks,
-  CheckCircle, Download, ChevronDown, User, Loader2, Trash2, Bookmark,
+  CheckCircle, Download, ChevronDown, User, Loader2, Trash2, Bookmark, Languages,
 } from 'lucide-react';
 import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, fmtDateLong, getInitials, getAvatarColor } from '@/lib/utils';
@@ -19,6 +19,15 @@ interface Participant {
   id: string;
   user: { id: string; name: string; image: string | null } | null;
   guestName: string | null;
+}
+
+interface SpeakerTrackItem {
+  id: string;
+  speakerId: string | null;
+  participantIdentity: string;
+  speakerName: string | null;
+  durationSec: number | null;
+  detectedLanguage: string | null;
 }
 
 interface TranscriptSegment {
@@ -117,11 +126,22 @@ function transformApiData(data: any): Meeting {
     };
   });
 
-  // Compute actual durationMin from real meeting time
-  let durationMin = 0;
+  // Actual meeting length. The scheduled/created time is unreliable — a meeting
+  // can start earlier or later than planned, so `endedAt − scheduledAt` can be
+  // wildly off (even negative). Prefer the real speech span from transcript
+  // timestamps (seconds), then a sanity-guarded elapsed time, then the planned
+  // duration as a last resort.
   const meetStart = data.scheduledAt || data.createdAt;
-  if (meetStart && data.endedAt) {
-    durationMin = Math.round((new Date(data.endedAt).getTime() - new Date(meetStart).getTime()) / 60000);
+  let durationMin = 0;
+  const segEnds = (data.transcripts || []).map((t: any) => Number(t.endTime ?? t.startTime ?? 0)).filter((n: number) => n > 0);
+  const segStarts = (data.transcripts || []).map((t: any) => Number(t.startTime ?? 0)).filter((n: number) => n >= 0);
+  if (segEnds.length && segStarts.length) {
+    const spanSec = Math.max(...segEnds) - Math.min(...segStarts);
+    if (spanSec > 0) durationMin = Math.round(spanSec / 60);
+  }
+  if (!durationMin && meetStart && data.endedAt) {
+    const diff = Math.round((new Date(data.endedAt).getTime() - new Date(meetStart).getTime()) / 60000);
+    if (diff > 0) durationMin = diff;
   }
   if (!durationMin) durationMin = data.durationMin || 0;
 
@@ -418,6 +438,11 @@ export default function MeetingReportPage() {
   const [recBusy, setRecBusy] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tracks, setTracks] = useState<SpeakerTrackItem[]>([]);
+  const [meetingCreatorId, setMeetingCreatorId] = useState<string | null>(null);
+  const [fixingId, setFixingId] = useState<string | null>(null);
+  const [fixMsg, setFixMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [trackLangSel, setTrackLangSel] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -431,6 +456,7 @@ export default function MeetingReportPage() {
             // Transform API data to match page interfaces
             const transformed = transformApiData(data);
             setMeeting(transformed);
+            setMeetingCreatorId(data.createdById ?? data.createdBy?.id ?? null);
             if (transformed.reports?.[0]?.actionItems) {
               setActionItems(transformed.reports[0].actionItems);
             }
@@ -461,6 +487,61 @@ export default function MeetingReportPage() {
       .then((d) => setRecording(d.recording || null))
       .catch(() => {});
   }, [meetingId]);
+
+  // Re-fetch the meeting (transcript + report) after a language fix.
+  const reloadMeeting = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const transformed = transformApiData(data);
+        setMeeting(transformed);
+        setMeetingCreatorId(data.createdById ?? data.createdBy?.id ?? null);
+        if (transformed.reports?.[0]?.actionItems) {
+          setActionItems(transformed.reports[0].actionItems);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [meetingId]);
+
+  const loadTracks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/speaker-tracks`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setTracks(data);
+      }
+    } catch { /* ignore */ }
+  }, [meetingId]);
+
+  useEffect(() => { loadTracks(); }, [loadTracks]);
+
+  const runFixLanguage = useCallback(async (trackId: string) => {
+    const language = trackLangSel[trackId];
+    if (!language || fixingId) return;
+    setFixingId(trackId);
+    setFixMsg(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/fix-language`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackId, language }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setFixMsg({ ok: true, text: d.warning || tr('report.fixLangDone') });
+        await Promise.all([reloadMeeting(), loadTracks()]);
+      } else {
+        const text = res.status === 422 ? tr('report.fixLangNoSpeech') : (d.error || tr('report.fixLangFailed'));
+        setFixMsg({ ok: false, text });
+      }
+    } catch {
+      setFixMsg({ ok: false, text: tr('report.fixLangFailed') });
+    } finally {
+      setFixingId(null);
+      setTimeout(() => setFixMsg(null), 6000);
+    }
+  }, [meetingId, trackLangSel, fixingId, reloadMeeting, loadTracks, tr]);
 
   const sendReport = useCallback(async () => {
     setSending(true); setSendMsg(null);
@@ -513,6 +594,8 @@ export default function MeetingReportPage() {
   }, []);
 
   const report = meeting?.reports?.[0] ?? null;
+  const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
+  const canFixLanguage = isAdmin || isHost;
 
   const toggleActionItem = useCallback((id: string) => {
     setActionItems((prev) =>
@@ -587,21 +670,10 @@ export default function MeetingReportPage() {
     // If mock data already has analytics, use it directly
     if (rep?.analytics) return rep.analytics;
 
-    // Duration: prefer actual time (endedAt - scheduledAt/createdAt), fallback to transcript range, then planned durationMin
-    let durationMin = 0;
-    const startTime = meeting.scheduledAt || meeting.createdAt;
-    if (startTime && meeting.endedAt) {
-      const diffMs = new Date(meeting.endedAt).getTime() - new Date(startTime).getTime();
-      durationMin = Math.round(diffMs / 60000);
-    }
-    if (!durationMin && transcripts.length >= 2) {
-      // Fallback: use transcript timestamps range
-      const times = transcripts.map((t: any) => parseFloat(t.timestamp) || 0).filter((t: number) => t > 0);
-      if (times.length >= 2) {
-        durationMin = Math.round((Math.max(...times) - Math.min(...times)) / 60);
-      }
-    }
-    if (!durationMin) durationMin = meeting.durationMin || 0;
+    // durationMin is already resolved reliably in transformApiData
+    // (transcript span → sanity-guarded elapsed → planned), so reuse it here
+    // instead of recomputing from the unreliable scheduled time.
+    const durationMin = meeting.durationMin || 0;
 
     // Word count from transcripts
     const wordsCount = transcripts.reduce((sum: number, t: any) => sum + (t.text || '').split(/\s+/).filter(Boolean).length, 0);
@@ -1403,6 +1475,82 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
         {/* ─── Transcript Tab ─────────────────────────────────────── */}
         {activeTab === 'transcript' && (
           <div>
+            {canFixLanguage && tracks.length > 0 && (
+              <div
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Languages size={15} style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                    {tr('report.fixLangTitle')}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  {tr('report.fixLangDesc')}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {tracks.map((t) => {
+                    const sel = trackLangSel[t.id] ?? (t.detectedLanguage || '');
+                    const busy = fixingId === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          flexWrap: 'wrap',
+                          padding: '8px 10px',
+                          background: 'var(--surface-3)',
+                          borderRadius: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, flex: 1, minWidth: 120 }}>
+                          {t.speakerName || t.participantIdentity}
+                        </span>
+                        <select
+                          className="field"
+                          value={sel}
+                          disabled={busy}
+                          onChange={(e) => setTrackLangSel((p) => ({ ...p, [t.id]: e.target.value }))}
+                          style={{ width: 'auto', minWidth: 130, padding: '6px 10px' }}
+                        >
+                          <option value="">—</option>
+                          <option value="uk">{tr('report.langUk')}</option>
+                          <option value="en">{tr('report.langEn')}</option>
+                          <option value="ru">{tr('report.langRu')}</option>
+                        </select>
+                        <button
+                          className="btn btn-sm"
+                          disabled={busy || !sel}
+                          onClick={() => runFixLanguage(t.id)}
+                        >
+                          {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Languages size={13} />}
+                          {busy ? tr('report.fixLangBusy') : tr('report.fixLangAction')}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {fixMsg && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 12.5,
+                      color: fixMsg.ok ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)',
+                    }}
+                  >
+                    {fixMsg.text}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Toolbar */}
             <div
               style={{

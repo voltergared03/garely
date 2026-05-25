@@ -71,6 +71,7 @@ model User {
   transcriptSegments  TranscriptSegment[]
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
+  speakerTracks       SpeakerTrack[]
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -135,6 +136,7 @@ model Meeting {
   notifications   Notification[]
   notes           MeetingNote?
   recordings      Recording[]
+  speakerTracks   SpeakerTrack[]
   joinRequests    JoinRequest[]
 }
 
@@ -166,6 +168,30 @@ model Recording {
 
   @@index([meetingId])
   @@index([expiresAt])
+}
+
+// Per-speaker audio captured by the LiveKit agent (one file per participant per
+// meeting). Unlike Recording (room_composite video), these isolate each
+// speaker's voice so we can detect their language and re-transcribe a single
+// speaker without affecting the others.
+model SpeakerTrack {
+  id                  String    @id @default(cuid())
+  meetingId           String
+  meeting             Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speakerId           String?   // User.id for registered participants; null for guests
+  speaker             User?     @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  participantIdentity String    // LiveKit participant identity (userId or guest-xxxx)
+  speakerName         String?
+  fileName            String
+  filePath            String
+  fileSize            BigInt?
+  durationSec         Float?
+  detectedLanguage    String?   // post-meeting Deepgram detect_language result (ru | uk | en …)
+  detectConfidence    Float?
+  createdAt           DateTime  @default(now())
+
+  @@index([meetingId])
+  @@index([speakerId])
 }
 
 model MeetingParticipant {

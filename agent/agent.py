@@ -12,9 +12,12 @@ This agent:
 """
 
 import asyncio
+import io
 import json
 import logging
 import os
+import re
+import wave
 from datetime import datetime
 
 import httpx
@@ -47,6 +50,20 @@ _cached_keys: dict[str, str] = {
     "DEEPGRAM_API_KEY": os.getenv("DEEPGRAM_API_KEY", ""),
 }
 _keys_last_fetched: float = 0
+
+# Per-speaker audio capture: the agent writes one WAV per participant into this
+# shared volume so we can later detect each speaker's language and re-transcribe
+# a single speaker. An empty/unwritable dir disables capture.
+SPEAKER_AUDIO_DIR = os.getenv("SPEAKER_AUDIO_DIR", "/speaker-audio") or ""
+if SPEAKER_AUDIO_DIR:
+    try:
+        os.makedirs(SPEAKER_AUDIO_DIR, exist_ok=True)
+    except Exception as _e:
+        logger.warning(f"speaker-audio dir unavailable ({SPEAKER_AUDIO_DIR}): {_e}")
+        SPEAKER_AUDIO_DIR = ""
+MIN_TRACK_SEC = 3.0  # discard speaker tracks shorter than this
+LANG_DETECT_MIN_CONF = 0.70      # store spokenLanguage only at/above this confidence
+LANG_PRIOR_OVERRIDE_CONF = 0.85  # below this, trust the UI prior for the uk↔ru pair
 
 
 async def fetch_api_keys() -> dict[str, str]:
@@ -92,22 +109,71 @@ def prewarm(proc: JobProcess):
     )
 
 
-async def create_stt_with_latest_key() -> STT | None:
-    """Create a new STT instance with the latest Deepgram key from DB."""
+def participant_language(participant: rtc.RemoteParticipant) -> str | None:
+    """Read a participant's transcription language from their LiveKit token
+    metadata ({"lang": "uk"}). The app sets this to the user's learned
+    spokenLanguage, falling back to their UI-language prior. Returns None for
+    guests / no metadata (caller then uses the workspace default)."""
+    raw = (getattr(participant, "metadata", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        lang = data.get("lang")
+        if isinstance(lang, str) and lang.strip():
+            return lang.strip()
+    except Exception:
+        pass
+    return None
+
+
+def _open_audio_stream(participant: rtc.RemoteParticipant) -> rtc.AudioStream:
+    """Subscribe to a participant's mic. Prefer 16 kHz mono (smaller WAVs, ideal
+    for Deepgram); fall back to SDK defaults if those kwargs aren't supported."""
+    try:
+        return rtc.AudioStream.from_participant(
+            participant=participant,
+            track_source=rtc.TrackSource.SOURCE_MICROPHONE,
+            sample_rate=16000,
+            num_channels=1,
+        )
+    except TypeError:
+        return rtc.AudioStream.from_participant(
+            participant=participant,
+            track_source=rtc.TrackSource.SOURCE_MICROPHONE,
+        )
+
+
+async def create_stt_for_language(lang: str | None) -> STT | None:
+    """Create a Deepgram STT bound to a specific language (one per participant).
+
+    `lang` comes from the participant's token metadata. When absent we fall back
+    to the workspace language (WS_LANGUAGE), then DEEPGRAM_LANGUAGE."""
     keys = await fetch_api_keys()
     dgram_key = keys.get("DEEPGRAM_API_KEY", "")
     if not dgram_key:
         return None
+    resolved = (lang or keys.get("WS_LANGUAGE") or keys.get("DEEPGRAM_LANGUAGE", "multi")).strip()
+    model = keys.get("DEEPGRAM_MODEL", "nova-3")
+    # 'multi' (code-switching) is only supported on nova-3. If an admin set
+    # nova-2 + multi, bump the model so the stream doesn't error.
+    if resolved == "multi" and not model.startswith("nova-3"):
+        model = "nova-3"
     return STT(
         api_key=dgram_key,
-        language=keys.get("DEEPGRAM_LANGUAGE", "multi"),
-        model=keys.get("DEEPGRAM_MODEL", "nova-3"),
+        language=resolved,
+        model=model,
         smart_format=True,
         no_delay=True,
         endpointing_ms=500,
         interim_results=True,
         punctuate=True,
     )
+
+
+async def create_stt_with_latest_key() -> STT | None:
+    """STT in the workspace/default language (used as a fallback)."""
+    return await create_stt_for_language(None)
 
 
 async def entrypoint(ctx: JobContext):
@@ -127,6 +193,7 @@ async def entrypoint(ctx: JobContext):
     stt: STT = fresh_stt if fresh_stt else ctx.proc.userdata["stt"]
 
     transcript_segments: list[dict] = []
+    speaker_recordings: dict[str, dict] = {}
     segment_counter = 0
     last_ai_notes_count = 0  # Track when we last sent AI notes
 
@@ -249,20 +316,47 @@ async def entrypoint(ctx: JobContext):
     async def process_participant(participant: rtc.RemoteParticipant):
         nonlocal segment_counter
 
-        logger.info(f"Processing audio for: {participant.identity} ({participant.name})")
-
-        audio_stream = rtc.AudioStream.from_participant(
-            participant=participant,
-            track_source=rtc.TrackSource.SOURCE_MICROPHONE,
+        lang = participant_language(participant)
+        logger.info(
+            f"Processing audio for: {participant.identity} ({participant.name}) "
+            f"lang={lang or 'fallback'}"
         )
 
-        stt_stream = stt.stream()
+        audio_stream = _open_audio_stream(participant)
+
+        # Each participant gets their own STT bound to their language.
+        participant_stt = await create_stt_for_language(lang)
+        if participant_stt is None:
+            participant_stt = stt  # fall back to the prewarmed/default STT
+        stt_stream = participant_stt.stream()
+
+        # Per-speaker audio capture (WAV) for post-meeting language detection and
+        # single-speaker re-transcription.
+        rec: dict = {"wav": None, "path": None, "frames": 0, "sr": 0}
+        if SPEAKER_AUDIO_DIR:
+            safe_id = re.sub(r"[^A-Za-z0-9_.-]", "_", participant.identity)[:60]
+            rec["path"] = os.path.join(SPEAKER_AUDIO_DIR, f"{meeting_id}__{safe_id}.wav")
 
         async def feed_audio():
             try:
                 async for event in audio_stream:
                     if isinstance(event, rtc.AudioFrameEvent):
-                        stt_stream.push_frame(event.frame)
+                        frame = event.frame
+                        stt_stream.push_frame(frame)
+                        if rec["path"]:
+                            try:
+                                if rec["wav"] is None:
+                                    rec["sr"] = frame.sample_rate
+                                    w = wave.open(rec["path"], "wb")
+                                    w.setnchannels(frame.num_channels)
+                                    w.setsampwidth(2)  # int16 PCM
+                                    w.setframerate(frame.sample_rate)
+                                    rec["wav"] = w
+                                rec["wav"].writeframes(bytes(frame.data))
+                                rec["frames"] += frame.samples_per_channel
+                            except Exception as e:
+                                logger.warning(f"speaker-audio write failed for {participant.identity}: {e}")
+                                rec["path"] = None  # stop trying for this participant
             except Exception as e:
                 logger.error(f"Audio stream error for {participant.identity}: {e}")
 
@@ -354,6 +448,22 @@ async def entrypoint(ctx: JobContext):
         except Exception as e:
             logger.error(f"Error processing {participant.identity}: {e}")
         finally:
+            # Close the WAV first (sync — always runs, even on cancellation) and
+            # stash its info; the room-end handler detects/registers each track.
+            if rec["wav"] is not None:
+                try:
+                    rec["wav"].close()
+                except Exception:
+                    pass
+                dur = rec["frames"] / rec["sr"] if rec["sr"] else 0.0
+                speaker_recordings[participant.identity] = {
+                    "identity": participant.identity,
+                    "speakerId": participant.identity if not participant.identity.startswith("guest-") else None,
+                    "speakerName": participant.name or participant.identity,
+                    "path": rec["path"],
+                    "durationSec": dur,
+                    "priorLang": lang,
+                }
             await stt_stream.aclose()
 
     participant_tasks: dict[str, asyncio.Task] = {}
@@ -385,8 +495,14 @@ async def entrypoint(ctx: JobContext):
 
     logger.info(f"Room ended. Total segments: {len(transcript_segments)}")
 
+    # Stop per-participant processing and wait for their finally blocks to close
+    # the WAV files before we detect/register them.
     for task in participant_tasks.values():
         task.cancel()
+    await asyncio.gather(*participant_tasks.values(), return_exceptions=True)
+
+    for info in speaker_recordings.values():
+        await finalize_speaker_track(meeting_id, info)
 
     if transcript_segments:
         await generate_report(meeting_id, transcript_segments)
@@ -431,6 +547,169 @@ async def store_segment(meeting_id: str, segment: dict):
             logger.error(f"Failed to store segment (attempt {attempt + 1}): {e}")
         await asyncio.sleep(1.5 * (attempt + 1))
     logger.error("store_segment: giving up after 3 attempts")
+
+
+async def register_speaker_track(meeting_id: str, info: dict):
+    """Register a captured per-speaker audio file as a SpeakerTrack row."""
+    path = info.get("path") or ""
+    try:
+        file_size = os.path.getsize(path) if path and os.path.exists(path) else None
+    except Exception:
+        file_size = None
+    payload = {
+        "meetingId": meeting_id,
+        "participantIdentity": info.get("identity"),
+        "speakerId": info.get("speakerId"),
+        "speakerName": info.get("speakerName"),
+        "fileName": os.path.basename(path) if path else None,
+        "filePath": path,
+        "fileSize": file_size,
+        "durationSec": info.get("durationSec", 0.0),
+        "detectedLanguage": info.get("detectedLanguage"),
+        "detectConfidence": info.get("detectConfidence"),
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                f"{APP_URL}/api/webhooks/speaker-track",
+                json=payload,
+                headers={"x-internal-key": INTERNAL_KEY},
+                timeout=15,
+            )
+            if res.status_code >= 300:
+                logger.warning(f"speaker-track register HTTP {res.status_code}: {res.text[:200]}")
+            else:
+                logger.info(
+                    f"Registered speaker track for {info.get('identity')} "
+                    f"({info.get('durationSec', 0):.0f}s, lang={info.get('detectedLanguage')})"
+                )
+    except Exception as e:
+        logger.warning(f"Failed to register speaker track: {e}")
+
+
+async def finalize_speaker_track(meeting_id: str, info: dict):
+    """Close-out a captured speaker track: drop tiny clips, detect the speaker's
+    language (seeding spokenLanguage for known users), then register the track."""
+    path = info.get("path")
+    if not path or not os.path.exists(path):
+        return
+    if info.get("durationSec", 0.0) < MIN_TRACK_SEC:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+        return
+    await detect_and_seed_language(meeting_id, info)
+    await register_speaker_track(meeting_id, info)
+
+
+def _read_wav_sample(path: str, max_seconds: int = 60) -> bytes | None:
+    """Return a valid WAV byte string containing up to max_seconds of audio."""
+    try:
+        with wave.open(path, "rb") as w:
+            sr = w.getframerate()
+            ch = w.getnchannels()
+            sw = w.getsampwidth()
+            n = min(w.getnframes(), int(sr * max_seconds))
+            if n <= 0:
+                return None
+            frames = w.readframes(n)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as out:
+            out.setnchannels(ch)
+            out.setsampwidth(sw)
+            out.setframerate(sr)
+            out.writeframes(frames)
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"wav sample read failed ({path}): {e}")
+        return None
+
+
+def _parse_detected_language(data: dict) -> tuple[str | None, float]:
+    """Pull detected_language + confidence from a Deepgram pre-recorded result."""
+    try:
+        ch = data["results"]["channels"][0]
+        lang = ch.get("detected_language")
+        conf = ch.get("language_confidence")
+        if isinstance(lang, str) and lang:
+            return lang, float(conf) if conf is not None else 0.0
+    except Exception:
+        pass
+    return None, 0.0
+
+
+def _apply_language_prior(detected: str, conf: float, prior: str | None) -> str:
+    """Break the easily-confused uk↔ru pair using the user's UI-language prior."""
+    if not prior or prior == detected:
+        return detected
+    confusable = {"uk", "ru"}
+    if detected in confusable and prior in confusable and conf < LANG_PRIOR_OVERRIDE_CONF:
+        return prior
+    return detected
+
+
+async def detect_and_seed_language(meeting_id: str, info: dict):
+    """Detect the speaker's language from their WAV (Deepgram detect_language),
+    apply the UI-language prior, store it on `info`, and seed spokenLanguage for
+    known users when confident."""
+    path = info.get("path")
+    if not path or not os.path.exists(path):
+        return
+    keys = await fetch_api_keys()
+    dgram_key = keys.get("DEEPGRAM_API_KEY", "")
+    if not dgram_key:
+        return
+    prior = info.get("priorLang")
+    try:
+        sample = _read_wav_sample(path, max_seconds=60)
+        if not sample:
+            return
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.deepgram.com/v1/listen",
+                params={"detect_language": "true", "model": "nova-2"},
+                headers={
+                    "Authorization": f"Token {dgram_key}",
+                    "Content-Type": "audio/wav",
+                },
+                content=sample,
+                timeout=60,
+            )
+        if res.status_code != 200:
+            logger.warning(f"detect_language HTTP {res.status_code}: {res.text[:200]}")
+            return
+        detected, conf = _parse_detected_language(res.json())
+        if not detected:
+            return
+        final_lang = _apply_language_prior(detected, conf, prior)
+        info["detectedLanguage"] = final_lang
+        info["detectConfidence"] = conf
+        logger.info(
+            f"Detected language for {info.get('identity')}: {detected} "
+            f"(conf={conf:.2f}, prior={prior}) → {final_lang}"
+        )
+        sid = info.get("speakerId")
+        if sid and final_lang and (conf >= LANG_DETECT_MIN_CONF or final_lang == prior):
+            await seed_spoken_language(sid, final_lang, conf)
+    except Exception as e:
+        logger.warning(f"Language detection failed for {info.get('identity')}: {e}")
+
+
+async def seed_spoken_language(user_id: str, lang: str, conf: float, source: str = "detected"):
+    """Persist a user's spoken language so future meetings start in it."""
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                f"{APP_URL}/api/webhooks/spoken-language",
+                json={"userId": user_id, "language": lang, "confidence": conf, "source": source},
+                headers={"x-internal-key": INTERNAL_KEY},
+                timeout=15,
+            )
+            if res.status_code >= 300:
+                logger.warning(f"spoken-language seed HTTP {res.status_code}: {res.text[:200]}")
+    except Exception as e:
+        logger.warning(f"Failed to seed spokenLanguage: {e}")
 
 
 async def generate_report(meeting_id: str, segments: list[dict]):
