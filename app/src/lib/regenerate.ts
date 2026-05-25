@@ -1,12 +1,17 @@
-// Re-transcription + report regeneration used by the report "fix language &
-// regenerate" feature. Reads a single speaker's captured WAV, re-runs Deepgram
-// in a corrected language, then regenerates the DeepSeek report from the (now
-// corrected) full transcript. Deliberately does NOT notify/email participants —
-// this is a manual, human-in-the-loop correction.
+// Report generation (standard summary + extended topic-structured report with
+// transcript citations) and single-speaker re-transcription.
+//
+// generateMeetingReport() runs server-side, so it is not constrained by the
+// LiveKit agent's shutdown window and controls its own token budget (some
+// configured models are reasoning models that need a large max_tokens). It is
+// triggered by the agent on room end (notify=true) and by the report
+// "fix language & regenerate" flow (notify=false).
 import fs from 'node:fs/promises';
 import { prisma } from './prisma';
 import { readConfig, getDeepSeekConfig } from './config';
 import { workspaceLocale } from './i18n-server';
+import { notify } from './notify';
+import { sendReportEmail } from './report-email';
 
 export interface ReTranscribedSegment {
   content: string;
@@ -26,8 +31,6 @@ export async function transcribeSpeakerFile(
 
   const audio = await fs.readFile(filePath);
 
-  // nova-2 + a single explicit language is the most accurate combo for the
-  // confusable uk/ru/en set (validated); utterances give clean segment splits.
   const url = new URL('https://api.deepgram.com/v1/listen');
   url.searchParams.set('model', 'nova-2');
   url.searchParams.set('language', language);
@@ -58,7 +61,6 @@ export async function transcribeSpeakerFile(
       });
     }
   }
-  // Fallback: no utterances → use the whole-channel transcript as one segment.
   if (out.length === 0) {
     const alt = data?.results?.channels?.[0]?.alternatives?.[0];
     const t = String(alt?.transcript || '').trim();
@@ -94,50 +96,82 @@ function parseDueDate(desc: string): Date | null {
   return null;
 }
 
+/** Parse JSON that may be wrapped in markdown fences or surrounded by prose. */
+function parseJsonLoose(s: string): any | null {
+  if (!s) return null;
+  const tryParse = (x: string) => {
+    try {
+      return JSON.parse(x);
+    } catch {
+      return null;
+    }
+  };
+  let r = tryParse(s);
+  if (r) return r;
+  let t = s.trim();
+  if (t.startsWith('```')) {
+    t = t.replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim();
+    r = tryParse(t);
+    if (r) return r;
+  }
+  const i = t.indexOf('{');
+  const j = t.lastIndexOf('}');
+  if (i >= 0 && j > i) return tryParse(t.slice(i, j + 1));
+  return null;
+}
+
 /**
- * Regenerate the meeting report from the current transcript via DeepSeek, in the
- * workspace language. Replaces the previous report + AI tasks atomically;
- * preserves manual tasks. No notifications/emails (manual correction).
+ * Generate the full meeting report — a short summary plus a topic-structured
+ * extended report where every decision/task/open question cites the transcript.
+ * Topics are the source of truth; the flat agenda/decisions/follow-ups and AI
+ * tasks are derived from them. Replaces the previous report + AI tasks atomically
+ * (manual tasks are preserved). When notify=true (first generation, from the
+ * agent), it also marks the meeting ended, notifies participants and emails the
+ * report.
  */
-export async function regenerateMeetingReport(meetingId: string): Promise<void> {
+export async function generateMeetingReport(
+  meetingId: string,
+  opts: { notify?: boolean } = {}
+): Promise<{ topics: number }> {
   const segments = await prisma.transcriptSegment.findMany({
     where: { meetingId },
     orderBy: { startTime: 'asc' },
-    select: { speakerName: true, content: true, language: true },
+    select: { speakerName: true, content: true, language: true, startTime: true },
   });
-  if (segments.length === 0) return;
+  if (segments.length === 0) return { topics: 0 };
 
   const ds = await getDeepSeekConfig();
   if (!ds.apiKey) throw new Error('DeepSeek API key not configured');
-
   const wsLoc = await workspaceLocale();
   const langName = wsLoc === 'uk' ? 'Ukrainian' : 'English';
-  const transcriptText = segments
-    .map((s) => `[${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
+
+  const numbered = segments
+    .map((s, i) => `${i + 1}. [${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
     .join('\n');
 
-  const prompt = `Analyze this meeting transcript and provide a structured JSON response.
-The meeting was conducted in multiple languages (Ukrainian, English, Russian).
-Respond in ${langName}.
+  const prompt = `You are a meeting documentarian. From the NUMBERED transcript below, produce a DETAILED, well-structured report.
+Rules:
+- Organise the report by TOPIC (one entry per agenda item / theme actually discussed).
+- For EVERY decision, task and open question, include a "cites" array with the exact transcript line numbers that support it.
+- NEVER invent facts that are not present in the transcript.
+- Write all textual content in ${langName}.
+- Respond with valid JSON only, in exactly this shape:
+{
+  "summary": "2-3 paragraph TL;DR of the whole meeting in ${langName}",
+  "topics": [
+    {
+      "title": "short topic title in ${langName}",
+      "discussion": "what was discussed and why, in ${langName}",
+      "decisions": [ { "text": "decision in ${langName}", "owner": "person name or null", "cites": [1, 2] } ],
+      "tasks": [ { "title": "task in ${langName}", "assignee": "person name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3] } ],
+      "open_questions": [ { "text": "open question in ${langName}", "cites": [4] } ],
+      "cites": [1, 2, 3, 4]
+    }
+  ]
+}
 
 TRANSCRIPT:
-${transcriptText}
-
-Provide a JSON response with this exact structure:
-{
-  "summary": "2-3 paragraph TL;DR of the meeting in ${langName}",
-  "agenda": ["topic 1", "topic 2"],
-  "decisions": ["decision 1", "decision 2"],
-  "action_items": [
-    {
-      "title": "task description",
-      "assignee_name": "person name from transcript or null",
-      "priority": "high|medium|low",
-      "due_description": "timeframe mentioned or null"
-    }
-  ],
-  "follow_ups": ["follow-up item 1", "follow-up item 2"]
-}`;
+${numbered}`;
 
   const res = await fetch(`${ds.baseUrl}/v1/chat/completions`, {
     method: 'POST',
@@ -149,8 +183,10 @@ Provide a JSON response with this exact structure:
         { role: 'user', content: prompt },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4096,
+      temperature: 0.2,
+      // Generous: some configured models are reasoning models that spend a large
+      // share of the budget on hidden reasoning before emitting the JSON.
+      max_tokens: 8000,
     }),
   });
   if (!res.ok) {
@@ -158,27 +194,71 @@ Provide a JSON response with this exact structure:
     throw new Error(`DeepSeek ${res.status}: ${txt.slice(0, 200)}`);
   }
   const data: any = await res.json();
-  const content: string = data.choices?.[0]?.message?.content || '{}';
-  const report = JSON.parse(content);
-  const items = Array.isArray(report.action_items) ? report.action_items : [];
+  const content: string = data.choices?.[0]?.message?.content || '';
+  const rep = parseJsonLoose(content);
+  if (!rep) throw new Error('DeepSeek returned no parseable JSON');
 
-  // Resolve assignees by name before opening the transaction.
-  const resolved = await Promise.all(
-    items.map(async (item: any) => {
+  // Map a 1-based transcript line number -> that segment's start time (seconds),
+  // so the UI can jump to the cited moment. Drop out-of-range (fabricated) cites.
+  const citeTimes = (cs: any): number[] => {
+    if (!Array.isArray(cs)) return [];
+    const out: number[] = [];
+    for (const c of cs) {
+      const i = typeof c === 'number' ? c : parseInt(c, 10);
+      if (Number.isFinite(i) && i >= 1 && i <= segments.length) out.push(segments[i - 1].startTime);
+    }
+    return out;
+  };
+
+  const rawTopics = Array.isArray(rep.topics) ? rep.topics : [];
+  const topics = rawTopics.map((t: any) => ({
+    title: String(t.title || '').trim(),
+    discussion: String(t.discussion || '').trim(),
+    decisions: (Array.isArray(t.decisions) ? t.decisions : []).map((d: any) => ({
+      text: String(d.text || '').trim(),
+      owner: d.owner || null,
+      cites: citeTimes(d.cites),
+    })),
+    tasks: (Array.isArray(t.tasks) ? t.tasks : []).map((k: any) => ({
+      title: String(k.title || '').trim(),
+      assignee: k.assignee || null,
+      priority: ['high', 'medium', 'low'].includes(k.priority) ? k.priority : 'medium',
+      due: k.due || null,
+      cites: citeTimes(k.cites),
+    })),
+    openQuestions: (Array.isArray(t.open_questions) ? t.open_questions : []).map((q: any) => ({
+      text: String(q.text || '').trim(),
+      cites: citeTimes(q.cites),
+    })),
+    cites: citeTimes(t.cites),
+  }));
+
+  const agenda = topics.map((t: any) => t.title).filter(Boolean);
+  const decisions = topics.flatMap((t: any) => t.decisions.map((d: any) => d.text)).filter(Boolean);
+  const followUps = topics.flatMap((t: any) => t.openQuestions.map((q: any) => q.text)).filter(Boolean);
+
+  const flatTasks = topics.flatMap((t: any) => t.tasks);
+  const resolvedTasks = await Promise.all(
+    flatTasks.map(async (k: any) => {
       let assigneeId: string | null = null;
-      if (item.assignee_name) {
+      let notifyAssignee = true;
+      if (k.assignee) {
         const u = await prisma.user.findFirst({
-          where: { name: { contains: String(item.assignee_name), mode: 'insensitive' } },
+          where: { name: { contains: String(k.assignee), mode: 'insensitive' } },
           select: { id: true, preferences: true },
         });
-        assigneeId = u?.id || null;
+        if (u) {
+          assigneeId = u.id;
+          notifyAssignee = (u.preferences as any)?.actionItemNotif !== false;
+        }
       }
       return {
-        title: String(item.title || '').trim() || '(untitled)',
+        title: k.title || '(untitled)',
         assigneeId,
-        assigneeName: item.assignee_name || null,
-        priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : 'medium',
-        dueDate: item.due_description ? parseDueDate(String(item.due_description)) : null,
+        assigneeName: k.assignee || null,
+        priority: k.priority,
+        dueDate: k.due ? parseDueDate(String(k.due)) : null,
+        notifyAssignee,
       };
     })
   );
@@ -189,10 +269,11 @@ Provide a JSON response with this exact structure:
     const created = await tx.meetingReport.create({
       data: {
         meetingId,
-        summary: report.summary || '',
-        agenda: report.agenda || [],
-        decisions: report.decisions || [],
-        followUps: report.follow_ups || [],
+        summary: rep.summary || '',
+        agenda,
+        decisions,
+        followUps,
+        topics: topics as any,
         modelUsed: ds.model,
         tokensInput: data.usage?.prompt_tokens || 0,
         tokensOutput: data.usage?.completion_tokens || 0,
@@ -200,7 +281,7 @@ Provide a JSON response with this exact structure:
         rawResponse: content,
       },
     });
-    for (const r of resolved) {
+    for (const r of resolvedTasks) {
       await tx.meetingTask.create({
         data: {
           meetingId,
@@ -216,4 +297,66 @@ Provide a JSON response with this exact structure:
       });
     }
   });
+
+  if (opts.notify) {
+    try {
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: { status: 'ended', endedAt: new Date() },
+      });
+    } catch {
+      /* ignore */
+    }
+    try {
+      for (const r of resolvedTasks) {
+        if (r.assigneeId && r.notifyAssignee) {
+          await notify({
+            userIds: [r.assigneeId],
+            type: 'task_assigned',
+            titleKey: 'taskAssignedTitle',
+            body: r.title,
+            link: '/tasks',
+            meetingId,
+          });
+        }
+      }
+      const meeting = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+        include: { participants: { where: { userId: { not: null } } } },
+      });
+      if (meeting) {
+        const userIds = meeting.participants
+          .map((p) => p.userId)
+          .filter((u): u is string => !!u);
+        if (userIds.length > 0) {
+          await notify({
+            userIds,
+            type: 'report_ready',
+            titleKey: 'reportReadyTitle',
+            bodyKey: 'reportReadyBody',
+            values: { title: meeting.title },
+            link: `/meetings/${meetingId}/report`,
+            meetingId,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('report notify failed:', e);
+    }
+    try {
+      await sendReportEmail(meetingId, { respectPref: true });
+    } catch (e) {
+      console.error('report email failed:', e);
+    }
+  }
+
+  return { topics: topics.length };
+}
+
+/**
+ * Regenerate the report from the current transcript (e.g. after a manual
+ * language fix). No notifications/emails. Thin wrapper over generateMeetingReport.
+ */
+export async function regenerateMeetingReport(meetingId: string): Promise<void> {
+  await generateMeetingReport(meetingId, { notify: false });
 }

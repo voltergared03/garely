@@ -234,7 +234,9 @@ async def entrypoint(ctx: JobContext):
                         ],
                         "response_format": {"type": "json_object"},
                         "temperature": 0.3,
-                        "max_tokens": 800,
+                        # Generous headroom: a configured reasoning model spends
+                        # part of the budget on hidden reasoning before the JSON.
+                        "max_tokens": 2500,
                     },
                     timeout=30,
                 )
@@ -293,7 +295,8 @@ async def entrypoint(ctx: JobContext):
                         ],
                         "response_format": {"type": "json_object"},
                         "temperature": 0.2,
-                        "max_tokens": 200,
+                        # Headroom for reasoning models (else content comes back empty).
+                        "max_tokens": 1200,
                     },
                     timeout=15,
                 )
@@ -716,112 +719,21 @@ async def seed_spoken_language(user_id: str, lang: str, conf: float, source: str
 
 
 async def generate_report(meeting_id: str, segments: list[dict]):
-    """Send transcript to DeepSeek for summarization and task extraction.
-    Fetches latest API keys from DB before making the request."""
-    logger.info(f"Generating AI report for meeting {meeting_id}...")
-
-    # Fetch latest keys from DB
-    keys = await fetch_api_keys()
-    deepseek_key = keys.get("DEEPSEEK_API_KEY", "")
-    deepseek_base = keys.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    lang_name = "Ukrainian" if keys.get("WS_LANGUAGE", "en") == "uk" else "English"
-
-    if not deepseek_key:
-        logger.error("No DeepSeek API key available, skipping report generation")
-        return
-
-    transcript_text = "\n".join(
-        f"[{s.get('language', '??').upper()}] {s['speakerName']}: {s['content']}"
-        for s in segments
-    )
-
-    prompt = f"""Analyze this meeting transcript and provide a structured JSON response.
-The meeting was conducted in multiple languages (Ukrainian, English, Russian).
-Respond in {lang_name}.
-
-TRANSCRIPT:
-{transcript_text}
-
-Provide a JSON response with this exact structure:
-{{
-  "summary": "2-3 paragraph TL;DR of the meeting in {lang_name}",
-  "agenda": ["topic 1", "topic 2", ...],
-  "decisions": ["decision 1", "decision 2", ...],
-  "action_items": [
-    {{
-      "title": "task description",
-      "assignee_name": "person name from transcript or null",
-      "priority": "high|medium|low",
-      "due_description": "timeframe mentioned or null"
-    }}
-  ],
-  "follow_ups": ["follow-up item 1", "follow-up item 2", ...],
-  "language_stats": {{
-    "ua_percent": 58,
-    "en_percent": 30,
-    "ru_percent": 12
-  }},
-  "speaker_stats": [
-    {{"name": "speaker name", "word_count": 500, "percent": 42}}
-  ]
-}}"""
-
+    """Trigger server-side report generation. The Next.js app does the DeepSeek
+    work (summary + extended topic-structured report with transcript citations),
+    free of the agent's shutdown-window time pressure and token-budget limits.
+    Returns immediately; the app generates in the background."""
     try:
         async with httpx.AsyncClient() as client:
             res = await client.post(
-                f"{deepseek_base}/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {deepseek_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
-                    "messages": [
-                        {"role": "system", "content": "You are a meeting analysis assistant. Always respond with valid JSON."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.3,
-                    "max_tokens": 4096,
-                },
-                timeout=60,
-            )
-
-            if res.status_code != 200:
-                logger.error(f"DeepSeek API error: {res.status_code} {res.text}")
-                return
-
-            data = res.json()
-            content = data["choices"][0]["message"]["content"]
-            report = json.loads(content)
-
-            logger.info("AI report generated successfully")
-
-            await client.post(
-                f"{APP_URL}/api/webhooks/report",
+                f"{APP_URL}/api/webhooks/generate-report",
+                json={"meetingId": meeting_id},
                 headers={"x-internal-key": INTERNAL_KEY},
-                json={
-                    "meetingId": meeting_id,
-                    "summary": report.get("summary", ""),
-                    "agenda": report.get("agenda", []),
-                    "decisions": report.get("decisions", []),
-                    "followUps": report.get("follow_ups", []),
-                    "actionItems": report.get("action_items", []),
-                    "languageStats": report.get("language_stats", {}),
-                    "speakerStats": report.get("speaker_stats", []),
-                    "modelUsed": keys.get("DEEPSEEK_MODEL", "deepseek-chat"),
-                    "tokensInput": data.get("usage", {}).get("prompt_tokens", 0),
-                    "tokensOutput": data.get("usage", {}).get("completion_tokens", 0),
-                    "rawPrompt": prompt,
-                    "rawResponse": content,
-                },
-                timeout=30,
+                timeout=20,
             )
-
-            logger.info("Report stored successfully")
-
+        logger.info(f"Triggered server-side report generation: HTTP {res.status_code}")
     except Exception as e:
-        logger.error(f"Failed to generate report: {e}")
+        logger.error(f"Failed to trigger report generation: {e}")
 
 
 if __name__ == "__main__":

@@ -237,6 +237,7 @@ model MeetingReport {
   agenda       Json?
   decisions    Json?
   followUps    Json?
+  topics       Json?    // extended report: per-topic discussion/decisions/tasks/openQuestions with transcript citations
   rawPrompt    String?  @db.Text
   rawResponse  String?  @db.Text
   modelUsed    String?
