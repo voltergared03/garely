@@ -863,6 +863,24 @@ export default function MeetingReportPage() {
       ? (report.followUps || []).map(f => `<li>${esc(f)}</li>`).join('')
       : '';
 
+    // Extended (topic-structured) report.
+    const topicsHtml = (report.topics || []).length > 0
+      ? (report.topics || []).map((t, i) => {
+          const sub = (label: string, items: string, cls: string) =>
+            items ? `<div class="tp-sub"><div class="tp-sub-h ${cls}">${label}</div><ul class="tp-list">${items}</ul></div>` : '';
+          const decs = (t.decisions || []).map(d => `<li>${esc(d.text)}${d.owner ? ` <span class="tp-owner">— ${esc(d.owner)}</span>` : ''}</li>`).join('');
+          const tks = (t.tasks || []).map(k => `<li>${esc(k.title)}${k.assignee ? ` <span class="tp-owner">— ${esc(k.assignee)}</span>` : ''}</li>`).join('');
+          const qs = (t.openQuestions || []).map(q => `<li>${esc(q.text)}</li>`).join('');
+          return `<div class="topic">
+            <div class="tp-head"><span class="tp-n">${i + 1}</span><span class="tp-title">${esc(t.title)}</span></div>
+            ${t.discussion ? `<p class="tp-disc">${esc(t.discussion)}</p>` : ''}
+            ${sub(tr('report.decisions'), decs, 'dh-green')}
+            ${sub(tr('report.detailTasks'), tks, 'dh-blue')}
+            ${sub(tr('report.openQuestions'), qs, 'dh-amber')}
+          </div>`;
+        }).join('')
+      : '';
+
     const avatarsHtml = participants.slice(0, 8).map(n =>
       `<span class="pav">${initials(n)}</span>`
     ).join('');
@@ -987,6 +1005,21 @@ ul.flu li::before{content:'';position:absolute;left:0;top:14px;width:5px;height:
 .card-label{font-family:'DM Mono',monospace;font-size:6.5pt;font-weight:500;color:#94a3b8;
 text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 
+/* ─ Detailed report (topics) ─ */
+.topic{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:10px;break-inside:avoid}
+.tp-head{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.tp-n{width:20px;height:20px;border-radius:6px;background:#eff6ff;color:#3b82f6;font-size:7.5pt;font-weight:700;
+display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #dbeafe}
+.tp-title{font-size:11pt;font-weight:700;color:#0f172a}
+.tp-disc{font-size:9pt;color:#475569;line-height:1.6;margin:0 0 8px}
+.tp-sub{margin-top:8px}
+.tp-sub-h{font-family:'DM Mono',monospace;font-size:6.5pt;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px}
+.dh-green{color:#16a34a}.dh-blue{color:#3b82f6}.dh-amber{color:#d97706}
+ul.tp-list{list-style:none;margin:0;padding:0}
+ul.tp-list li{padding:3px 0 3px 14px;position:relative;font-size:8.7pt;color:#334155;line-height:1.5}
+ul.tp-list li::before{content:'';position:absolute;left:2px;top:9px;width:4px;height:4px;border-radius:50%;background:#cbd5e1}
+.tp-owner{color:#94a3b8;font-size:8pt}
+
 @media print{
   body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .sec{break-inside:avoid}
@@ -1022,6 +1055,9 @@ text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 
 <!-- ═══ SUMMARY ═══ -->
 ${summaryPs ? `<div class="sec"><div class="sec-title">${tr('report.summary')}</div><div class="card">${summaryPs}</div></div>` : ''}
+
+<!-- ═══ DETAILED (TOPICS) ═══ -->
+${topicsHtml ? `<div class="sec"><div class="sec-title">${tr('report.tabDetailed')}</div>${topicsHtml}</div>` : ''}
 
 <!-- ═══ DECISIONS ═══ -->
 ${decisionsHtml ? `<div class="sec"><div class="sec-title">${tr('report.decisions')}</div><div class="card">${decisionsHtml}</div></div>` : ''}

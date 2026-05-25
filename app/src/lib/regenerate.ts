@@ -205,7 +205,11 @@ Rules:
 - Be EXHAUSTIVE with tasks: capture every distinct action item, commitment, request or "I will / we need to / let's …" as its OWN separate task. Do not merge different tasks into one.
 - Be EQUALLY EXHAUSTIVE with DECISIONS: capture every conclusion, choice, agreement or settled direction ("we'll go with X", "let's use Y", "decided to…", "agreed that…", "the plan is…") as its own decision.
 - Be EQUALLY EXHAUSTIVE with OPEN QUESTIONS / follow-ups: capture everything left unresolved, deferred or to revisit ("we still need to figure out…", "to be decided", "let's come back to this", any unanswered question or risk raised).
-- Do NOT put everything into tasks: a settled conclusion is a DECISION; something unresolved is an OPEN QUESTION; only an action someone should do is a TASK. Aim for a balanced report across all three.
+- Classify by intent and POPULATE ALL THREE categories — a typical working meeting has SEVERAL tasks, several decisions and a few open questions, so do not leave tasks (or any category) empty when the transcript contains them:
+    • TASK = actionable work someone should do or build going forward ("develop…", "send…", "automate…", "I will…", "we need to…"). Keep it as a TASK even if it was also agreed upon — do not turn every action into a decision.
+    • DECISION = a settled conclusion, choice, policy or direction (no direct action by itself).
+    • OPEN QUESTION = anything unresolved, deferred or to revisit.
+- Write rich, SPECIFIC content: include concrete details, names, numbers, examples and reasoning from the transcript — not vague generalities. The result should read like thorough, well-organised minutes.
 - For a task's "assignee" or a decision's "owner": use an attendee's exact name (from the list below — it includes guests who joined by name) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a name that is not a listed attendee, and never drop an item just because its owner is unknown.
 - Respond with valid JSON only, in exactly this shape:
 {
@@ -213,7 +217,7 @@ Rules:
   "topics": [
     {
       "title": "short topic title in ${langName}",
-      "discussion": "what was discussed and why, in ${langName}",
+      "discussion": "a thorough multi-sentence narrative of this topic in ${langName} — the context, the main points raised, who said what, and the reasoning / outcome",
       "decisions": [ { "text": "decision in ${langName}", "owner": "person name or null", "cites": [1, 2] } ],
       "tasks": [ { "title": "task in ${langName}", "assignee": "person name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3] } ],
       "open_questions": [ { "text": "open question in ${langName}", "cites": [4] } ],
@@ -236,18 +240,48 @@ ${numbered}`;
       ],
       response_format: { type: 'json_object' },
       temperature: 0.2,
-      // Generous: reasoning models (deepseek-v4-pro / -flash) spend a large share
-      // of the budget on hidden reasoning before emitting the JSON. pro reasons
-      // deeper, so 8000 truncated it to empty content — 16000 leaves headroom.
-      max_tokens: 16000,
+      // Large headroom: reasoning models spend much of the budget on hidden
+      // reasoning before the JSON, and a detailed report can be long.
+      max_tokens: 64000,
+      // Stream the response so a multi-minute generation doesn't trip fetch's
+      // header/idle timeouts (the full JSON only arrives at the very end).
+      stream: true,
+      stream_options: { include_usage: true },
     }),
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
+  if (!res.ok || !res.body) {
+    const txt = res.ok ? '(no response body)' : await res.text().catch(() => '');
     throw new Error(`DeepSeek ${res.status}: ${txt.slice(0, 200)}`);
   }
-  const data: any = await res.json();
-  const content: string = data.choices?.[0]?.message?.content || '';
+
+  // Accumulate the streamed completion (OpenAI-compatible SSE).
+  let content = '';
+  let usage: any = {};
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() || '';
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith('data:')) continue;
+      const payload = s.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const j = JSON.parse(payload);
+        const delta = j.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string') content += delta;
+        if (j.usage) usage = j.usage;
+      } catch {
+        /* ignore keep-alive / partial chunks */
+      }
+    }
+  }
+
   const rep = parseJsonLoose(content);
   if (!rep) throw new Error('DeepSeek returned no parseable JSON');
 
@@ -317,8 +351,8 @@ ${numbered}`;
         followUps,
         topics: topics as any,
         modelUsed: ds.model,
-        tokensInput: data.usage?.prompt_tokens || 0,
-        tokensOutput: data.usage?.completion_tokens || 0,
+        tokensInput: usage.prompt_tokens || 0,
+        tokensOutput: usage.completion_tokens || 0,
         rawPrompt: prompt,
         rawResponse: content,
       },
