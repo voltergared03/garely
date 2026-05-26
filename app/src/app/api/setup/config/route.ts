@@ -13,7 +13,7 @@ function ipOf(req: NextRequest): string {
 
 // POST /api/setup/config { token, values: { KEY: value } } — token-gated config write.
 async function postHandler(req: NextRequest) {
-  const rl = rateLimit(`setup-config:${ipOf(req)}`, 60, 60_000);
+  const rl = await rateLimit(`setup-config:${ipOf(req)}`, 60, 60_000);
   if (!rl.ok) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
   }

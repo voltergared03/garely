@@ -19,7 +19,7 @@ function ipOf(req: NextRequest): string {
 // Password-gated: the status is only revealed to someone who knows the password
 // set at registration, so it can't be used to enumerate pending sign-ups.
 async function postHandler(req: NextRequest) {
-  if (!rateLimit(`regstatus:${ipOf(req)}`, 10, 10 * 60_000).ok) {
+  if (!(await rateLimit(`regstatus:${ipOf(req)}`, 10, 10 * 60_000)).ok) {
     return NextResponse.json({ status: 'none' });
   }
 

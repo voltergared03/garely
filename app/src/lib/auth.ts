@@ -42,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
 
           // Brute-force throttle (in-process; single-container deployment).
           const key = `login:${email}`;
-          if (!rateLimit(key, 10, 5 * 60_000).ok) return null;
+          if (!(await rateLimit(key, 10, 5 * 60_000)).ok) return null;
 
           const user = (await prisma.user.findUnique({
             where: { email },
@@ -56,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
           if (!user || !user.passwordHash || user.status !== 'active') return null;
           if (!(await verifyPassword(password, user.passwordHash))) return null;
 
-          rateLimitReset(key);
+          await rateLimitReset(key);
           return { id: user.id, email: user.email, name: user.name, image: user.image };
         },
       }),

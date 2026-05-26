@@ -32,7 +32,7 @@ async function getHandler(req: NextRequest) {
 // POST /api/auth/set-password { token, password } — set the password for an
 // invited (pre-created) user, activate them, and burn the token.
 async function postHandler(req: NextRequest) {
-  if (!rateLimit(`set-password:${ipOf(req)}`, 20, 10 * 60_000).ok) {
+  if (!(await rateLimit(`set-password:${ipOf(req)}`, 20, 10 * 60_000)).ok) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
   }
 

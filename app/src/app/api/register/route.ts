@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const t = await getTranslations('errors');
 
   // Throttle hard — this is unauthenticated.
-  if (!rateLimit(`register:${ipOf(req)}`, 5, 10 * 60_000).ok) {
+  if (!(await rateLimit(`register:${ipOf(req)}`, 5, 10 * 60_000)).ok) {
     return NextResponse.json({ error: t('tooManyAttempts') }, { status: 429 });
   }
 

@@ -15,7 +15,7 @@ async function postHandler(req: NextRequest) {
   const userId = session.user.id as string;
 
   const t = await getTranslations('errors');
-  const rl = rateLimit(`2fa-disable:${userId}`, 8, 5 * 60 * 1000);
+  const rl = await rateLimit(`2fa-disable:${userId}`, 8, 5 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json({ error: t('tooManyAttemptsRetry', { seconds: rl.retryAfter }) }, { status: 429 });
   }
@@ -39,7 +39,7 @@ async function postHandler(req: NextRequest) {
     where: { id: userId },
     data: { totpEnabled: false, totpSecret: null, totpBackupCodes: null } as any,
   });
-  rateLimitReset(`2fa-disable:${userId}`);
+  await rateLimitReset(`2fa-disable:${userId}`);
 
   const res = NextResponse.json({ success: true });
   res.cookies.set(TWOFA_COOKIE, '', { path: '/', maxAge: 0 });

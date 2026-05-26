@@ -21,7 +21,7 @@ async function postHandler(req: NextRequest) {
   const userId = session.user.id as string;
 
   const t = await getTranslations('errors');
-  const rl = rateLimit(`2fa-verify:${userId}`, 8, 5 * 60 * 1000);
+  const rl = await rateLimit(`2fa-verify:${userId}`, 8, 5 * 60 * 1000);
   if (!rl.ok) {
     return NextResponse.json({ error: t('tooManyAttemptsRetry', { seconds: rl.retryAfter }) }, { status: 429 });
   }
@@ -58,7 +58,7 @@ async function postHandler(req: NextRequest) {
 
   if (!ok) return NextResponse.json({ error: t('invalidCode') }, { status: 400 });
 
-  rateLimitReset(`2fa-verify:${userId}`);
+  await rateLimitReset(`2fa-verify:${userId}`);
   const res = NextResponse.json({ success: true, backupUsed, remaining });
   res.cookies.set(TWOFA_COOKIE, makeTwoFactorCookie(userId), TWOFA_COOKIE_OPTS);
   return res;

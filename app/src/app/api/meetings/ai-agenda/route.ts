@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rl = rateLimit(`ai-agenda:${session.user.id}`, 20, 5 * 60 * 1000);
+  const rl = await rateLimit(`ai-agenda:${session.user.id}`, 20, 5 * 60 * 1000);
   if (!rl.ok) {
     const t = await getTranslations("errors");
     return NextResponse.json({ error: t("rateLimited", { seconds: rl.retryAfter }) }, { status: 429 });

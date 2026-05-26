@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { logger } from './logger';
 import { jsonError } from './http';
+import { captureException } from './error-tracking';
 
 // Wrap a route handler so an unhandled throw becomes a logged, consistent
 // 500 instead of an opaque framework error. 36 of 62 route files currently
@@ -30,6 +31,7 @@ export function withRoute<A extends unknown[]>(
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
       });
+      captureException(err, { route: name, method: req.method, path: req.nextUrl?.pathname });
       return jsonError('internal_error', 500);
     }
   };
