@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
-import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from '@/lib/config';
+import { readConfig, CONFIG_DEFAULTS, publicBaseUrl, getAuthConfig } from '@/lib/config';
+import crypto from 'node:crypto';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 // POST /api/users/invite — invite a user by email (admin only).
@@ -50,15 +51,34 @@ export async function POST(req: NextRequest) {
   const inviterName = session.user.name || t('emails.common.adminFallback');
   const roleLabel = role === 'admin' ? t('emails.invite.roles.admin') : role === 'viewer' ? t('emails.invite.roles.viewer') : t('emails.invite.roles.member');
 
+  // When password auth is enabled and the invited user has no password yet, send
+  // a one-time "create your password" link (which activates the account) instead
+  // of the Google-SSO sign-in link. The token reuses the otherwise-unused NextAuth
+  // VerificationToken table — no schema change.
+  const authCfg = await getAuthConfig();
+  const needsPassword = authCfg.passwordEnabled && !(user as any).passwordHash;
+  let url = `${appUrl}/login`;
+  if (needsPassword && appUrl) {
+    const token = crypto.randomBytes(32).toString('base64url');
+    await prisma.verificationToken.deleteMany({ where: { identifier: email } }).catch(() => {});
+    await prisma.verificationToken.create({
+      data: { identifier: email, token, expires: new Date(Date.now() + 7 * 86400000) },
+    });
+    url = `${appUrl}/set-password?token=${token}`;
+  }
+
+  const richB = (c: any) => `<b style="color:#e8eaed">${c}</b>`;
   const sent = await sendEmail({
     to: email,
     template: 'invite',
     subject: t('emails.invite.subject'),
-    text: t('emails.invite.bodyText', { inviter: inviterName, role: roleLabel, url: `${appUrl}/login` }),
+    text: needsPassword
+      ? t('emails.invite.setupBodyText', { inviter: inviterName, role: roleLabel, url })
+      : t('emails.invite.bodyText', { inviter: inviterName, role: roleLabel, url }),
     html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f1115;border-radius:16px;color:#e8eaed">
       <div style="font-size:22px;font-weight:700;margin-bottom:8px">${t('emails.invite.heading')}</div>
-      <p style="color:#9aa0a6;line-height:1.5;margin:0 0 18px">${t.rich('emails.invite.bodyHtml', { inviter: inviterName, role: roleLabel, b: (c: any) => `<b style="color:#e8eaed">${c}</b>` })}</p>
-      <a href="${appUrl}/login" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">${t('emails.invite.cta')} →</a>
+      <p style="color:#9aa0a6;line-height:1.5;margin:0 0 18px">${needsPassword ? t.rich('emails.invite.setupBodyHtml', { inviter: inviterName, role: roleLabel, b: richB }) : t.rich('emails.invite.bodyHtml', { inviter: inviterName, role: roleLabel, b: richB })}</p>
+      <a href="${url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">${needsPassword ? t('emails.invite.setupCta') : t('emails.invite.cta')} →</a>
     </div>`,
   });
 
