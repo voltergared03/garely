@@ -548,10 +548,15 @@ function UsersTab() {
         </div>
         {filtered.map((u) => {
           const isMe = session?.user?.email === u.email;
+          const st = getUserStatus(u.lastLogin);
+          const roleColor = u.role === 'admin' ? 'var(--accent)' : u.role === 'viewer' ? 'var(--muted)' : 'var(--text-2)';
           return (
-            <div key={u.id} className="admin-table-row" style={{ display: 'grid', padding: '12px 16px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 13 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Avatar name={u.name} image={u.image} size="md" />
+            <div key={u.id} className="admin-table-row user-row" style={{ display: 'grid', padding: '14px 16px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 13 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                <span style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+                  <Avatar name={u.name} image={u.image} size="md" />
+                  <span className={st.kind === 'online' ? 'av-presence av-online' : 'av-presence'} style={{ background: st.color }} />
+                </span>
                 <div style={{ minWidth: 0 }}>
                   {editNameId === u.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -587,7 +592,16 @@ function UsersTab() {
                       </button>
                     </div>
                   )}
-                  <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{t(`settings.role_${u.role}`)}</div>
+                  <div style={{ marginTop: 3 }}>
+                    <span style={{
+                      display: 'inline-block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.04em',
+                      textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, color: roleColor,
+                      background: `color-mix(in oklab, ${roleColor} 15%, transparent)`,
+                      border: `1px solid color-mix(in oklab, ${roleColor} 30%, transparent)`,
+                    }}>
+                      {t(`settings.role_${u.role}`)}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{u.email}</div>
@@ -648,22 +662,28 @@ function UsersTab() {
               </div>
               <div>
                 {(() => {
-                  const st = getUserStatus(u.lastLogin);
                   const label =
                     st.kind === 'never' ? t('settings.statusNeverLoggedIn')
                     : st.kind === 'online' ? t('settings.statusOnline')
                     : st.kind === 'minutes' ? t('settings.statusMinutesAgo', { count: st.value })
                     : st.kind === 'hours' ? t('settings.statusHoursAgo', { count: st.value })
                     : t('settings.statusDaysAgo', { count: st.value });
+                  const online = st.kind === 'online';
                   return (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: st.color, flexShrink: 0 }} />
-                      <span style={{ color: 'var(--text-2)' }}>{label}</span>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 500,
+                      padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+                      background: online ? 'color-mix(in oklab, var(--green) 13%, transparent)' : 'var(--surface-2)',
+                      border: `1px solid ${online ? 'color-mix(in oklab, var(--green) 32%, transparent)' : 'var(--border)'}`,
+                      color: online ? 'var(--green)' : 'var(--text-2)',
+                    }}>
+                      {online && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />}
+                      {label}
                     </span>
                   );
                 })()}
               </div>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                 {!isMe && u.hasPassword && (
                   <button
                     className="btn btn-ghost btn-icon"
@@ -705,6 +725,12 @@ function UsersTab() {
             </div>
           );
         })}
+        {filtered.length === 0 && (
+          <div style={{ padding: '44px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+            <Search size={26} style={{ opacity: 0.4, marginBottom: 10 }} />
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>{t('settings.noUsersFound')}</div>
+          </div>
+        )}
       </div>
 
       {inviteOpen && (

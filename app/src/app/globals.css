@@ -414,6 +414,34 @@ select.field option:checked {
 .chat-typing span:nth-child(2) { animation-delay: 0.18s; }
 .chat-typing span:nth-child(3) { animation-delay: 0.36s; }
 
+/* ── Admin users list — refined rows ──────────────────── */
+.user-row { transition: background 0.14s ease; }
+.user-row:hover { background: var(--surface-2); }
+/* Row actions stay out of the way until you hover (or focus) the row. */
+.user-row .row-actions { opacity: 0; transition: opacity 0.14s ease; }
+.user-row:hover .row-actions,
+.user-row:focus-within .row-actions { opacity: 1; }
+.user-row .row-actions button:active { transform: scale(0.9); }
+@media (hover: none) {
+  .user-row .row-actions { opacity: 1; }
+}
+
+/* Presence dot on the avatar (green = online, breathing). */
+.av-presence {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+.av-online { animation: presencePulse 2.2s ease-in-out infinite; }
+@keyframes presencePulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--green) 50%, transparent); }
+  70% { box-shadow: 0 0 0 5px transparent; }
+}
+
 
 /* ═══════════════════════════════════════════════════════
    EZmeet — Mobile-First Responsive Design

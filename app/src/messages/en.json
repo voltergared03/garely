@@ -609,6 +609,7 @@
     "role_viewer": "Viewer",
     "changeRoleFailed": "Could not change the role",
     "editName": "Edit name",
+    "noUsersFound": "No users match your search",
     "you": "You",
     "statusNeverLoggedIn": "Never logged in",
     "statusOnline": "Online",

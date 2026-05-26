@@ -609,6 +609,7 @@
     "role_viewer": "Глядач",
     "changeRoleFailed": "Не вдалося змінити роль",
     "editName": "Змінити ім'я",
+    "noUsersFound": "Користувачів за запитом не знайдено",
     "you": "Ви",
     "statusNeverLoggedIn": "Не входив",
     "statusOnline": "Online",
