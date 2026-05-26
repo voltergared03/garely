@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: session.user.id },
     select: {
       name: true,
       email: true,
@@ -70,14 +70,14 @@ export async function PATCH(req: NextRequest) {
   if (preferences !== undefined) {
     // Merge with existing preferences
     const existing = await prisma.user.findUnique({
-      where: { id: (session.user as any).id },
+      where: { id: session.user.id },
       select: { preferences: true },
     });
     updateData.preferences = { ...(existing?.preferences as any || {}), ...preferences };
   }
 
   const user = await prisma.user.update({
-    where: { id: (session.user as any).id },
+    where: { id: session.user.id },
     data: updateData,
     select: {
       name: true,

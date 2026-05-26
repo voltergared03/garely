@@ -6,7 +6,7 @@ import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 // POST /api/settings/email/test — send a test email using the saved SMTP config
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const t = getTranslator(locale);
 
   const body = await req.json().catch(() => ({} as any));
-  const to = String(body.to || (session.user as any).email || '').trim();
+  const to = String(body.to || session.user.email || '').trim();
   if (!to) return NextResponse.json({ error: t('emails.test.errors.noRecipient') }, { status: 400 });
 
   const result = await sendEmail({

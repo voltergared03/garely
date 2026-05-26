@@ -12,7 +12,7 @@ export default async function TwoFactorSetupPage() {
   const t = await getTranslations();
   const session = await auth();
   if (!session?.user) redirect('/login');
-  const userId = (session.user as any).id as string;
+  const userId = session.user.id as string;
   const u = (await prisma.user.findUnique({
     where: { id: userId },
     select: { totpEnabled: true } as any,
@@ -20,7 +20,7 @@ export default async function TwoFactorSetupPage() {
   if (u?.totpEnabled) redirect('/'); // already enrolled → verify happens via /2fa
 
   const cfg = await readConfig(['WS_REQUIRE_2FA']);
-  const forced = cfg.WS_REQUIRE_2FA === 'true' && (session.user as any).role === 'admin';
+  const forced = cfg.WS_REQUIRE_2FA === 'true' && session.user.role === 'admin';
 
   return (
     <div

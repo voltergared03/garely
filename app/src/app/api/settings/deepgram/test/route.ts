@@ -6,7 +6,7 @@ import { readConfig } from '@/lib/config';
 // POST /api/settings/deepgram/test — validate the saved Deepgram key.
 export async function POST() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const t = await getTranslations('errors');

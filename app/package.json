@@ -49,6 +49,7 @@
     "@types/web-push": "^3.6.4",
     "prisma": "^6.2.0",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "vitest-mock-extended": "^4.0.0"
   }
 }

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function TwoFactorPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
-  const userId = (session.user as any).id as string;
+  const userId = session.user.id as string;
   const u = (await prisma.user.findUnique({
     where: { id: userId },
     select: { totpEnabled: true } as any,

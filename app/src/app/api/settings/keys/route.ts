@@ -13,13 +13,13 @@ export async function GET(req: NextRequest) {
   const internal = isInternalAuthed(req);
   if (!internal) {
     const session = await auth();
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
 
   const t = await getTranslations('errors');
-  const configs = await (prisma as any).systemConfig.findMany({
+  const configs = await prisma.systemConfig.findMany({
     where: { key: { in: ALLOWED_KEYS } },
   });
 
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   // The Python agent needs the workspace language to generate reports / live
   // notes / action items in the admin-chosen language. Internal callers only.
   if (internal) {
-    const wsLang = await (prisma as any).systemConfig.findUnique({ where: { key: 'WS_LANGUAGE' } });
+    const wsLang = await prisma.systemConfig.findUnique({ where: { key: 'WS_LANGUAGE' } });
     result['WS_LANGUAGE'] = { value: wsLang?.value || 'en', masked: '', updatedAt: '' };
   }
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 // PATCH /api/settings/keys — update API keys
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   for (const { key, value } of updates) {
-    await (prisma as any).systemConfig.upsert({
+    await prisma.systemConfig.upsert({
       where: { key },
       update: { value },
       create: { key, value },

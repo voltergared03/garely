@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Sign in with Google before finishing setup' }, { status: 401 });
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = session.user.id as string;
   try {
     await prisma.user.update({ where: { id: userId }, data: { role: 'admin' } });
   } catch {

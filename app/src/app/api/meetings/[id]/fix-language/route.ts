@@ -26,8 +26,8 @@ export async function POST(
   if (!meeting) {
     return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
   }
-  const isAdmin = (session.user as any).role === 'admin';
-  const isHost = meeting.createdById === (session.user as any).id;
+  const isAdmin = session.user.role === 'admin';
+  const isHost = meeting.createdById === session.user.id;
   if (!isAdmin && !isHost) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

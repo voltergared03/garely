@@ -14,8 +14,8 @@ export async function GET(
   }
 
   const { id } = await params;
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -82,8 +82,8 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
 
   const existing = await prisma.meeting.findUnique({
     where: { id },
@@ -191,8 +191,8 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
 
   const meeting = await prisma.meeting.findUnique({ where: { id } });
   if (!meeting) {

@@ -470,7 +470,7 @@ export default function MeetingReportPage() {
   const router = useRouter();
   const meetingId = params.id as string;
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'admin';
+  const isAdmin = session?.user?.role === 'admin';
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
@@ -764,7 +764,7 @@ export default function MeetingReportPage() {
   }, []);
 
   const report = meeting?.reports?.[0] ?? null;
-  const isHost = !!meetingCreatorId && (session?.user as any)?.id === meetingCreatorId;
+  const isHost = !!meetingCreatorId && session?.user?.id === meetingCreatorId;
   const canFixLanguage = isAdmin || isHost;
   // The reassignment dropdown lists the registered users who were on THIS meeting.
   // Reassign dropdown options: registered participants + guests (people who
@@ -2146,7 +2146,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                       style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}
                     >
                       {isUser ? (
-                        <Avatar name={(session?.user as any)?.name || 'U'} image={(session?.user as any)?.image || null} size="sm" />
+                        <Avatar name={session?.user?.name || 'U'} image={session?.user?.image || null} size="sm" />
                       ) : (
                         <div
                           style={{

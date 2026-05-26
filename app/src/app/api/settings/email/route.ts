@@ -10,11 +10,11 @@ const FIELDS = [
 // GET /api/settings/email — current SMTP config (password never returned)
 export async function GET() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const rows = await (prisma as any).systemConfig.findMany({ where: { key: { in: FIELDS } } });
+  const rows = await prisma.systemConfig.findMany({ where: { key: { in: FIELDS } } });
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value || '';
 
@@ -32,7 +32,7 @@ export async function GET() {
 // PATCH /api/settings/email — save SMTP config (password only updated if provided)
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.pass === 'string' && body.pass.length > 0) updates.SMTP_PASS = body.pass;
 
   for (const [key, value] of Object.entries(updates)) {
-    await (prisma as any).systemConfig.upsert({
+    await prisma.systemConfig.upsert({
       where: { key },
       update: { value },
       create: { key, value },

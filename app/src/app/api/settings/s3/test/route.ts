@@ -6,7 +6,7 @@ import { getS3Config, testS3 } from '@/lib/s3';
 // POST /api/settings/s3/test — verify saved S3 config (put + delete a tiny object)
 export async function POST() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const t = await getTranslations('errors');

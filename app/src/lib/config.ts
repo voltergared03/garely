@@ -2,7 +2,7 @@ import { prisma } from './prisma';
 
 /** Read multiple SystemConfig keys at once → { key: value }. Missing keys are absent. */
 export async function readConfig(keys: string[]): Promise<Record<string, string>> {
-  const rows = await (prisma as any).systemConfig.findMany({ where: { key: { in: keys } } });
+  const rows = await prisma.systemConfig.findMany({ where: { key: { in: keys } } });
   const m: Record<string, string> = {};
   for (const r of rows) m[r.key] = r.value ?? '';
   return m;
@@ -11,7 +11,7 @@ export async function readConfig(keys: string[]): Promise<Record<string, string>
 /** Upsert multiple SystemConfig keys. */
 export async function writeConfig(updates: Record<string, string>): Promise<void> {
   for (const [key, value] of Object.entries(updates)) {
-    await (prisma as any).systemConfig.upsert({
+    await prisma.systemConfig.upsert({
       where: { key },
       update: { value },
       create: { key, value },

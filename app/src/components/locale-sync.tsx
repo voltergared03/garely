@@ -25,7 +25,7 @@ export function LocaleSync() {
   const router = useRouter();
 
   useEffect(() => {
-    const pref = (session?.user as any)?.locale;
+    const pref = session?.user?.locale;
     if (!isLocale(pref)) return;
     if (readCookie(LOCALE_COOKIE) === pref) return;
     document.cookie = `${LOCALE_COOKIE}=${pref}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;

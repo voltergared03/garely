@@ -7,7 +7,7 @@ const FIELDS = ['S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SE
 // GET /api/settings/s3 — current S3 config (secret never returned)
 export async function GET() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const m = await readConfig(FIELDS);
@@ -24,7 +24,7 @@ export async function GET() {
 // PATCH /api/settings/s3 — save S3 config (secret only updated if provided)
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const body = await req.json().catch(() => ({} as any));

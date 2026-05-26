@@ -28,7 +28,7 @@ export async function POST(
       meeting = await prisma.meeting.create({
         data: {
           title: t('quickMeetingTitle'),
-          createdById: (session.user as any).id,
+          createdById: session.user.id,
           livekitRoom: roomName,
           joinToken: joinSlug,
           status: 'active',
@@ -72,9 +72,9 @@ export async function POST(
 
     if (session?.user) {
       participantName = session.user.name || 'User';
-      participantId = (session.user as any).id;
+      participantId = session.user.id;
       isHost = meeting.createdById === participantId || id === 'quick';
-      isAdmin = (session.user as any).role === 'admin';
+      isAdmin = session.user.role === 'admin';
       // Learned spokenLanguage wins; otherwise the user's UI language is a prior
       // (helps Deepgram break the uk↔ru tie). Guests have neither → agent uses
       // the workspace default (WS_LANGUAGE).
@@ -92,7 +92,7 @@ export async function POST(
       // Waiting room: guests must be approved by a participant before joining
       const reqId = body.requestId as string | undefined;
       if (reqId) {
-        const jr = await (prisma as any).joinRequest.findUnique({ where: { id: reqId } });
+        const jr = await prisma.joinRequest.findUnique({ where: { id: reqId } });
         if (!jr || jr.meetingId !== meeting.id) {
           return NextResponse.json({ error: t('joinRequestNotFound') }, { status: 404 });
         }
@@ -105,7 +105,7 @@ export async function POST(
         participantName = jr.guestName;
         participantId = `guest-${jr.id.slice(0, 8)}`;
       } else {
-        const jr = await (prisma as any).joinRequest.create({
+        const jr = await prisma.joinRequest.create({
           data: { meetingId: meeting.id, guestName: body.guestName, status: 'pending' },
         });
         return NextResponse.json({ pending: true, requestId: jr.id }, { status: 202 });

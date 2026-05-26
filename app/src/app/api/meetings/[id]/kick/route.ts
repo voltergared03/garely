@@ -21,8 +21,8 @@ export async function POST(
       return NextResponse.json({ error: 'participantIdentity is required' }, { status: 400 });
     }
 
-    const userId = (session.user as any).id;
-    const userRole = (session.user as any).role;
+    const userId = session.user.id;
+    const userRole = session.user.role;
 
     // Get meeting
     const meeting = await prisma.meeting.findUnique({

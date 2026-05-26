@@ -9,7 +9,7 @@ import { getS3Config } from '@/lib/s3';
 // GET /api/settings/integrations — real status + metrics for each integration
 export async function GET() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

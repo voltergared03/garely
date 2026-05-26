@@ -12,8 +12,8 @@ export default async function DashboardPage() {
   const weekEnd = new Date(todayStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
 
-  const userId = (session.user as any).id;
-  const isAdmin = (session.user as any).role === 'admin';
+  const userId = session.user.id;
+  const isAdmin = session.user.role === 'admin';
 
   // Non-admins only see meetings they created or participate in. Admins see all.
   // (Keeps the dashboard consistent with the per-meeting access checks in the
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      userName={(session.user as any).name || null}
+      userName={session.user.name || null}
       upcoming={JSON.parse(JSON.stringify(upcoming))}
       past={JSON.parse(JSON.stringify(past))}
       myTasks={JSON.parse(JSON.stringify(myTasks))}

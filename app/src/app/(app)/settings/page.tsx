@@ -459,7 +459,7 @@ function UsersTab() {
       .catch(() => {
         if (!cancelled && session?.user) {
           setUsers([{
-            id: (session.user as any).id ?? '1',
+            id: session.user.id ?? '1',
             name: session.user.name ?? t('settings.you'),
             email: session.user.email ?? '',
             image: session.user.image,
@@ -1543,7 +1543,7 @@ function BillingTab() {
 export default function SettingsPage() {
   const tr = useTranslations();
   const { data: session, update: updateSession } = useSession();
-  const role = (session?.user as any)?.role;
+  const role = session?.user?.role;
   const isAdmin = role === 'admin';
 
   const [tab, setTab] = useState<TabKey>('profile');

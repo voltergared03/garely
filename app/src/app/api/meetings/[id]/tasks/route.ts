@@ -15,7 +15,7 @@ export async function GET(
   }
 
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -41,7 +41,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

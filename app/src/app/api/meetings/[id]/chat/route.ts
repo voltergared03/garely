@@ -30,8 +30,8 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
 
   // Same access rule as GET /api/meetings/:id — admin, creator or participant.
   const meeting = await prisma.meeting.findUnique({

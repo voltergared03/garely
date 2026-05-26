@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (p.user?.email) emails.add(p.user.email);
     if (p.guestEmail) emails.add(p.guestEmail);
   }
-  const reqEmail = (session.user as any).email;
+  const reqEmail = session.user.email;
   if (reqEmail) emails.add(reqEmail);
   const recipients = [...emails];
   if (recipients.length === 0) return NextResponse.json({ error: t('emails.report.errors.noRecipients') }, { status: 400 });

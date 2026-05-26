@@ -94,9 +94,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
           // every 2 minutes of activity, so the admin status reflects real recent
           // activity (Online for active users) instead of only the last sign-in.
           const now = Date.now();
-          const seenAt = (token as any).seenAt as number | undefined;
+          const seenAt = token.seenAt;
           if (user || !seenAt || now - seenAt > 120_000) {
-            (token as any).seenAt = now;
+            token.seenAt = now;
             await prisma.user
               .update({
                 where: { id: token.id as string },
@@ -109,11 +109,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
       },
       async session({ session, token }) {
         if (session.user) {
-          (session.user as any).id = token.id;
-          (session.user as any).role = token.role;
-          (session.user as any).status = (token as any).status || 'active';
-          (session.user as any).mustChangePassword = !!(token as any).mustChangePassword;
-          (session.user as any).locale = (token as any).locale;
+          session.user.id = token.id ?? '';
+          session.user.role = token.role ?? 'member';
+          session.user.status = token.status ?? 'active';
+          session.user.mustChangePassword = !!token.mustChangePassword;
+          session.user.locale = token.locale;
         }
         return session;
       },

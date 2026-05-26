@@ -32,7 +32,7 @@ export default async function AppLayout({
     redirect('/login');
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = session.user.id as string;
   const dbUser = (await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true, totpEnabled: true, status: true, mustChangePassword: true } as any,

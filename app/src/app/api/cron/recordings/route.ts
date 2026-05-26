@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
-  const expired = await (prisma as any).recording.findMany({
+  const expired = await prisma.recording.findMany({
     where: { permanent: false, expiresAt: { not: null, lte: now } },
   });
 
   let deleted = 0;
   for (const rec of expired) {
     if (rec.filePath) await fs.unlink(rec.filePath).catch(() => {});
-    await (prisma as any).recording.delete({ where: { id: rec.id } }).catch(() => {});
+    await prisma.recording.delete({ where: { id: rec.id } }).catch(() => {});
     deleted++;
   }
 

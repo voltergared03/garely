@@ -12,7 +12,7 @@ const ALL_KEYS = [...BOOL_KEYS, ...STR_KEYS, ...NUM_KEYS];
 // GET /api/settings/workspace — workspace + pricing config (merged with defaults)
 export async function GET() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -35,7 +35,7 @@ export async function GET() {
 // PATCH /api/settings/workspace — save workspace + pricing config
 export async function PATCH(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest) {
     const current = await readConfig(['WS_REQUIRE_2FA']);
     if (current.WS_REQUIRE_2FA !== 'true') {
       const me = (await prisma.user.findUnique({
-        where: { id: (session.user as any).id },
+        where: { id: session.user.id },
         select: { totpEnabled: true } as any,
       })) as any;
       if (!me?.totpEnabled) {

@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!isInternalAuthed(req)) {
     const session = await auth();
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }

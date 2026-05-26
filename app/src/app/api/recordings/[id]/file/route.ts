@@ -11,11 +11,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const rec = await (prisma as any).recording.findUnique({ where: { id } });
+  const rec = await prisma.recording.findUnique({ where: { id } });
   if (!rec || !rec.filePath) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   // Authorization: only members of the recording's meeting (or admin) may stream it.
-  if (!(await userCanAccessMeeting(rec.meetingId, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(rec.meetingId, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

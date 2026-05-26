@@ -9,10 +9,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const pending = await (prisma as any).joinRequest.findMany({
+  const pending = await prisma.joinRequest.findMany({
     where: { meetingId: id, status: 'pending' },
     orderBy: { createdAt: 'asc' },
     select: { id: true, guestName: true, createdAt: true },
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const t = await getTranslations('errors');
@@ -36,11 +36,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: t('requestIdAndActionRequired') }, { status: 400 });
   }
 
-  const jr = await (prisma as any).joinRequest.findUnique({ where: { id: requestId } });
+  const jr = await prisma.joinRequest.findUnique({ where: { id: requestId } });
   if (!jr || jr.meetingId !== id) {
     return NextResponse.json({ error: t('joinRequestNotFound') }, { status: 404 });
   }
-  await (prisma as any).joinRequest.update({
+  await prisma.joinRequest.update({
     where: { id: requestId },
     data: { status: action, decidedAt: new Date() },
   });

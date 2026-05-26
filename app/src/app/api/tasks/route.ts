@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
   const isAdmin = userRole === "admin";
   const url = new URL(req.url);
   const scope = url.searchParams.get("scope") || "mine"; // mine | all
@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest) {
 
   // Authorization: tasks tied to a meeting require access to that meeting.
   const mId = await meetingIdOfTask(taskId);
-  if (mId && !(await userCanAccessMeeting(mId, (session.user as any).id, (session.user as any).role))) {
+  if (mId && !(await userCanAccessMeeting(mId, session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -182,7 +182,7 @@ export async function DELETE(req: NextRequest) {
 
   // Authorization: tasks tied to a meeting require access to that meeting.
   const mId = await meetingIdOfTask(taskId);
-  if (mId && !(await userCanAccessMeeting(mId, (session.user as any).id, (session.user as any).role))) {
+  if (mId && !(await userCanAccessMeeting(mId, session.user.id, session.user.role))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

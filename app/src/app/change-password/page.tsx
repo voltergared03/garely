@@ -7,5 +7,5 @@ export const dynamic = 'force-dynamic';
 export default async function ChangePasswordPage() {
   const session = await auth();
   if (!session?.user?.id) redirect('/login');
-  return <ChangePasswordClient forced={!!(session.user as any).mustChangePassword} />;
+  return <ChangePasswordClient forced={!!session.user.mustChangePassword} />;
 }

@@ -10,7 +10,7 @@ import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 // Pre-creates the user with the chosen role and emails a login link.
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') {
+  if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

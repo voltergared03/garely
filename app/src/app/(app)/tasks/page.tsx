@@ -857,8 +857,8 @@ export default function TasksPage() {
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Task | null | "new">(null);
 
-  const isAdmin = (session?.user as any)?.role === "admin";
-  const userId = (session?.user as any)?.id;
+  const isAdmin = session?.user?.role === "admin";
+  const userId = session?.user?.id;
   const isMobile = useIsMobile();
 
   const fetchTasks = useCallback(async () => {

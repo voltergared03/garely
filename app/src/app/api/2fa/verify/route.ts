@@ -17,7 +17,7 @@ import { getTranslations } from 'next-intl/server';
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const userId = (session.user as any).id as string;
+  const userId = session.user.id as string;
 
   const t = await getTranslations('errors');
   const rl = rateLimit(`2fa-verify:${userId}`, 8, 5 * 60 * 1000);

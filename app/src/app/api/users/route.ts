@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 // to change it on first login. A credentials email is also sent if SMTP works.
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== "admin") {
+  if (!session?.user || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

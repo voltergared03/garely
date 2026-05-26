@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const userId = (session.user as any).id;
-  const userRole = (session.user as any).role;
+  const userId = session.user.id;
+  const userRole = session.user.role;
 
   const status = searchParams.get('status');
   const from = searchParams.get('from');
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
       data: {
         title: cleanTitle,
         description: description || null,
-        createdById: (session.user as any).id,
+        createdById: session.user.id,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         durationMin: dur,
         recurrence: recurrence || null,
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
         participants: {
           create: [
             // Creator as host
-            { userId: (session.user as any).id, role: 'host', rsvpStatus: 'accepted' },
+            { userId: session.user.id, role: 'host', rsvpStatus: 'accepted' },
             // Other participants
             ...safeParticipants.map((p: { userId?: string; guestEmail?: string; guestName?: string }) => ({
               userId: p.userId || null,

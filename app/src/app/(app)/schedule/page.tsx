@@ -71,7 +71,7 @@ export default function SchedulePage() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const currentUserId = (session?.user as any)?.id;
+  const currentUserId = session?.user?.id;
   const filteredUsers = allUsers.filter(u => {
     if (u.id === currentUserId) return false; // exclude self (already host)
     if (selectedUsers.some(s => s.id === u.id)) return false;

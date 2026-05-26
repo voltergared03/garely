@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         } else {
           data.status = 'processing';
         }
-        await (prisma as any).recording.updateMany({ where: { egressId: info.egressId }, data });
+        await prisma.recording.updateMany({ where: { egressId: info.egressId }, data });
       }
     } catch (e) {
       console.error('egress webhook error:', e);
@@ -105,13 +105,13 @@ export async function POST(req: NextRequest) {
             try {
               const cfg = await readConfig(['WS_RECORD_ALL']);
               if (cfg.WS_RECORD_ALL === 'true') {
-                const existing = await (prisma as any).recording.findFirst({
+                const existing = await prisma.recording.findFirst({
                   where: { meetingId: meeting.id, status: { in: ['processing', 'ready'] } },
                 });
                 if (!existing) {
                   const rec = await startRoomRecording(roomName);
                   if (rec) {
-                    await (prisma as any).recording.create({
+                    await prisma.recording.create({
                       data: {
                         meetingId: meeting.id,
                         egressId: rec.egressId,

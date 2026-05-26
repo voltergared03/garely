@@ -15,7 +15,7 @@ export async function GET() {
     if (session?.user) {
       signedIn = true;
       email = session.user.email ?? null;
-      isAdmin = (session.user as any).role === 'admin';
+      isAdmin = session.user.role === 'admin';
     }
   } catch {
     /* no session */

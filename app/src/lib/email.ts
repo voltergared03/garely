@@ -18,7 +18,7 @@ export interface SmtpConfig {
 
 /** Read SMTP config from the SystemConfig key-value store (DB, not env). */
 export async function getSmtpConfig(): Promise<SmtpConfig | null> {
-  const rows = await (prisma as any).systemConfig.findMany({
+  const rows = await prisma.systemConfig.findMany({
     where: { key: { in: SMTP_KEYS } },
   });
   const map: Record<string, string> = {};
@@ -95,7 +95,7 @@ export async function sendEmail(
   const logAll = (status: string, messageId: string | null) =>
     Promise.all(
       recipients.map((r) =>
-        (prisma as any).emailLog
+        prisma.emailLog
           .create({
             data: {
               recipient: r,

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 async function admin() {
   const session = await auth();
-  if (!session?.user || (session.user as any).role !== 'admin') return null;
+  if (!session?.user || session.user.role !== 'admin') return null;
   return session;
 }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: t('requestNotFound') }, { status: 404 });
   }
 
-  const decidedById = (session.user as any).id as string;
+  const decidedById = session.user.id as string;
   const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE', 'WS_NAME']);
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
   const appUrl = await publicBaseUrl();

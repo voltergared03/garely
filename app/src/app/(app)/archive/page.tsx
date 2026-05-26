@@ -95,7 +95,7 @@ export default function ArchivePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Meeting | null>(null);
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'admin';
+  const isAdmin = session?.user?.role === 'admin';
   const isMobile = useIsMobile();
   const t = useTranslations();
   const locale = useLocale();

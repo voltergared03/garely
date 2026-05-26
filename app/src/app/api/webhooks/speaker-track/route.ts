@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       validSpeakerId = u?.id ?? null;
     }
 
-    const track = await (prisma as any).speakerTrack.create({
+    const track = await prisma.speakerTrack.create({
       data: {
         meetingId,
         participantIdentity,

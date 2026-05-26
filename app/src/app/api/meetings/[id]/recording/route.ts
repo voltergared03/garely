@@ -26,10 +26,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const rec = await (prisma as any).recording.findFirst({
+  const rec = await prisma.recording.findFirst({
     where: { meetingId: id, status: 'ready' },
     orderBy: { createdAt: 'desc' },
   });
@@ -41,18 +41,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const body = await req.json().catch(() => ({} as any));
   const permanent = !!body.permanent;
 
   const t = await getTranslations('errors');
-  const rec = await (prisma as any).recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
+  const rec = await prisma.recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
   if (!rec) return NextResponse.json({ error: t('recordingNotFound') }, { status: 404 });
 
   const expiresAt = permanent ? null : new Date(Date.now() + RETENTION_DAYS * 86400000);
-  const updated = await (prisma as any).recording.update({
+  const updated = await prisma.recording.update({
     where: { id: rec.id },
     data: { permanent, expiresAt },
   });
@@ -64,15 +64,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, (session.user as any).id, (session.user as any).role))) {
+  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const t = await getTranslations('errors');
-  const rec = await (prisma as any).recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
+  const rec = await prisma.recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });
   if (!rec) return NextResponse.json({ error: t('recordingNotFound') }, { status: 404 });
 
   if (rec.filePath) await fs.unlink(rec.filePath).catch(() => {});
-  await (prisma as any).recording.delete({ where: { id: rec.id } });
+  await prisma.recording.delete({ where: { id: rec.id } });
   return NextResponse.json({ success: true });
 }

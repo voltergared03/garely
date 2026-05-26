@@ -77,7 +77,7 @@ export async function verifySetupToken(input: string | null | undefined): Promis
 export async function markSetupComplete(): Promise<void> {
   await writeConfig({ [K_DONE]: 'true' });
   try {
-    await (prisma as any).systemConfig.delete({ where: { key: K_TOKEN } });
+    await prisma.systemConfig.delete({ where: { key: K_TOKEN } });
   } catch {
     /* token already gone — fine */
   }
