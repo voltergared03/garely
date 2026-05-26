@@ -61,6 +61,18 @@ interface Meeting {
   _count?: { transcripts: number; tasks: number };
 }
 
+// A task with a deadline, shown on the calendar on its due date.
+interface CalTask {
+  id: string;
+  title: string;
+  dueDate: string;
+  status: string; // open | in_progress | done
+  priority: string; // high | medium | low
+  meetingId: string | null;
+  meeting?: { id: string; title: string } | null;
+  assignee?: { id: string; name: string | null; image: string | null } | null;
+}
+
 interface WsUser {
   id: string;
   name: string | null;
@@ -82,6 +94,24 @@ function eventAccent(m: Meeting): string {
   if (m.recurrence) return 'var(--accent)';
   if (m.status === 'completed') return 'var(--muted)';
   return 'var(--green)';
+}
+
+// Task deadlines are coloured by priority so urgency reads at a glance.
+function taskAccent(priority: string): string {
+  if (priority === 'high') return 'var(--red)';
+  if (priority === 'low') return 'var(--muted)';
+  return 'var(--amber)';
+}
+
+/** Group task deadlines by day (YYYY-MM-DD) for calendar placement. */
+function tasksByDayMap(tasks: CalTask[]): Record<string, CalTask[]> {
+  const map: Record<string, CalTask[]> = {};
+  for (const tk of tasks) {
+    if (!tk.dueDate) continue;
+    const key = dateKey(new Date(tk.dueDate));
+    (map[key] ||= []).push(tk);
+  }
+  return map;
 }
 
 /* ------------------------------------------------------------------ */
@@ -131,20 +161,75 @@ function getMonthGrid(year: number, month: number): Date[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  TaskChip — a deadline pill shown in week/month cells              */
+/* ------------------------------------------------------------------ */
+function TaskChip({ task, onClick }: { task: CalTask; onClick: (t: CalTask) => void }) {
+  const accent = taskAccent(task.priority);
+  const done = task.status === 'done';
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(task);
+      }}
+      title={task.title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        width: '100%',
+        background: `color-mix(in oklab, ${accent} 13%, transparent)`,
+        border: `1px solid color-mix(in oklab, ${accent} 30%, transparent)`,
+        borderRadius: 5,
+        padding: '2px 6px',
+        fontSize: 11,
+        lineHeight: 1.2,
+        color: 'inherit',
+        cursor: 'pointer',
+        textAlign: 'left',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        opacity: done ? 0.55 : 1,
+      }}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.filter = 'brightness(1.15)')}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.filter = 'none')}
+    >
+      <ListChecks size={10} style={{ color: accent, flexShrink: 0 }} />
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          textDecoration: done ? 'line-through' : 'none',
+        }}
+      >
+        {task.title}
+      </span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  WeekView                                                          */
 /* ------------------------------------------------------------------ */
 
 function WeekView({
   weekStart,
   meetings,
+  tasks,
   today,
   onMeetingClick,
+  onTaskClick,
 }: {
   weekStart: Date;
   meetings: Meeting[];
+  tasks: CalTask[];
   today: Date;
   onMeetingClick: (m: Meeting) => void;
+  onTaskClick: (t: CalTask) => void;
 }) {
+  const t = useTranslations();
   const locale = useLocale();
   const days = useMemo(() => {
     const arr: Date[] = [];
@@ -167,6 +252,12 @@ function WeekView({
     });
     return map;
   }, [meetings]);
+
+  const tasksByDay = useMemo(() => tasksByDayMap(tasks), [tasks]);
+  const weekHasTasks = useMemo(
+    () => days.some((d) => (tasksByDay[dateKey(d)] || []).length > 0),
+    [days, tasksByDay],
+  );
 
   const hours = useMemo(() => {
     const arr: number[] = [];
@@ -246,6 +337,55 @@ function WeekView({
           );
         })}
       </div>
+
+      {/* All-day deadlines row */}
+      {weekHasTasks && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '64px repeat(7, 1fr)',
+            minWidth: 560,
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 9,
+              color: 'var(--muted)',
+              textAlign: 'right',
+              padding: '8px 8px 0',
+              fontFamily: 'var(--mono)',
+              textTransform: 'uppercase',
+              letterSpacing: '.04em',
+            }}
+          >
+            {t('calendar.due')}
+          </div>
+          {days.map((d, i) => {
+            const dayTasks = tasksByDay[dateKey(d)] || [];
+            return (
+              <div
+                key={i}
+                style={{
+                  borderLeft: '1px solid var(--border)',
+                  padding: 6,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  minHeight: 10,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                }}
+              >
+                {dayTasks.map((tk) => (
+                  <TaskChip key={tk.id} task={tk} onClick={onTaskClick} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Time grid */}
       <div
@@ -423,14 +563,18 @@ function MonthView({
   year,
   month,
   meetings,
+  tasks,
   today,
   onDayClick,
+  onTaskClick,
 }: {
   year: number;
   month: number;
   meetings: Meeting[];
+  tasks: CalTask[];
   today: Date;
-  onDayClick: (date: Date, dayMeetings: Meeting[]) => void;
+  onDayClick: (date: Date, dayMeetings: Meeting[], dayTasks: CalTask[]) => void;
+  onTaskClick: (t: CalTask) => void;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -456,6 +600,8 @@ function MonthView({
     });
     return map;
   }, [meetings]);
+
+  const tasksByDay = useMemo(() => tasksByDayMap(tasks), [tasks]);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -501,13 +647,20 @@ function MonthView({
             const tb = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
             return ta - tb;
           });
+          const dayTasks = tasksByDay[key] || [];
+          // When the day has deadlines, leave room for them (2 meetings + 2
+          // tasks); otherwise keep the original 3-meeting cap.
+          const hasTasks = dayTasks.length > 0;
+          const shownM = Math.min(hasTasks ? 2 : 3, dayMeetings.length);
+          const shownT = hasTasks ? Math.min(2, dayTasks.length) : 0;
+          const moreCount = dayMeetings.length - shownM + (dayTasks.length - shownT);
           const otherMonth = d.getMonth() !== month;
           const isToday = isSameDay(d, today);
 
           return (
             <button
               key={i}
-              onClick={() => onDayClick(d, dayMeetings)}
+              onClick={() => onDayClick(d, dayMeetings, dayTasks)}
               style={{
                 borderLeft: '1px solid var(--border)',
                 borderTop: '1px solid var(--border)',
@@ -570,7 +723,7 @@ function MonthView({
                   overflow: 'hidden',
                 }}
               >
-                {dayMeetings.slice(0, 3).map((m) => {
+                {dayMeetings.slice(0, shownM).map((m) => {
                   const accent = eventAccent(m);
                   return (
                     <div
@@ -608,9 +761,12 @@ function MonthView({
                     </div>
                   );
                 })}
-                {dayMeetings.length > 3 && (
+                {dayTasks.slice(0, shownT).map((tk) => (
+                  <TaskChip key={tk.id} task={tk} onClick={onTaskClick} />
+                ))}
+                {moreCount > 0 && (
                   <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                    {t('calendar.moreCount', { count: dayMeetings.length - 3 })}
+                    {t('calendar.moreCount', { count: moreCount })}
                   </div>
                 )}
               </div>
@@ -629,13 +785,17 @@ function MonthView({
 function DayModal({
   date,
   meetings,
+  tasks,
   onClose,
   onMeetingClick,
+  onTaskClick,
 }: {
   date: Date;
   meetings: Meeting[];
+  tasks: CalTask[];
   onClose: () => void;
   onMeetingClick: (m: Meeting) => void;
+  onTaskClick: (t: CalTask) => void;
 }) {
   const t = useTranslations();
   const locale = useLocale();
@@ -706,8 +866,8 @@ function DayModal({
             </button>
           </div>
 
-          {/* Meeting list */}
-          {meetings.length === 0 ? (
+          {/* Meetings + deadlines */}
+          {meetings.length === 0 && tasks.length === 0 ? (
             <div
               style={{
                 padding: '32px 0',
@@ -730,6 +890,8 @@ function DayModal({
               </Link>
             </div>
           ) : (
+            <>
+            {meetings.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {meetings
                 .sort((a, b) => {
@@ -818,6 +980,63 @@ function DayModal({
                   );
                 })}
             </div>
+            )}
+            {tasks.length > 0 && (
+              <div style={{ marginTop: meetings.length > 0 ? 18 : 0 }}>
+                <div
+                  style={{
+                    fontSize: 11.5,
+                    color: 'var(--muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '.06em',
+                    marginBottom: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <ListChecks size={12} /> {t('calendar.deadlines')}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {tasks.map((tk) => {
+                    const accent = taskAccent(tk.priority);
+                    return (
+                      <div
+                        key={tk.id}
+                        onClick={() => onTaskClick(tk)}
+                        style={{
+                          display: 'flex',
+                          gap: 12,
+                          alignItems: 'center',
+                          padding: '12px 14px',
+                          borderRadius: 10,
+                          border: '1px solid var(--border)',
+                          borderLeft: `3px solid ${accent}`,
+                          background: `color-mix(in oklab, ${accent} 5%, var(--surface))`,
+                          cursor: 'pointer',
+                          transition: 'filter .15s',
+                        }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = 'brightness(1.1)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = 'none'; }}
+                      >
+                        <ListChecks size={16} style={{ color: accent, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {tk.title}
+                          </div>
+                          {tk.meeting?.title && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                              {tk.meeting.title}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>
@@ -1320,27 +1539,37 @@ type ViewMode = 'week' | 'month';
 /* ------------------------------------------------------------------ */
 /*  AgendaView (mobile) — chronological upcoming meetings as cards     */
 /* ------------------------------------------------------------------ */
-function AgendaView({ meetings, today, onMeetingClick }: {
+function AgendaView({ meetings, tasks, today, onMeetingClick, onTaskClick }: {
   meetings: Meeting[];
+  tasks: CalTask[];
   today: Date;
   onMeetingClick: (m: Meeting) => void;
+  onTaskClick: (t: CalTask) => void;
 }) {
   const t = useTranslations();
   const locale = useLocale();
   const groups = useMemo(() => {
-    const sorted = meetings
-      .filter((m) => m.scheduledAt)
-      .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
-    const map = new Map<string, { date: Date; items: Meeting[] }>();
-    for (const m of sorted) {
-      const d = new Date(m.scheduledAt!);
+    const map = new Map<string, { date: Date; meetings: Meeting[]; tasks: CalTask[] }>();
+    const bucket = (d0: Date) => {
+      const d = new Date(d0);
       d.setHours(0, 0, 0, 0);
       const key = d.toISOString().slice(0, 10);
-      if (!map.has(key)) map.set(key, { date: d, items: [] });
-      map.get(key)!.items.push(m);
+      if (!map.has(key)) map.set(key, { date: d, meetings: [], tasks: [] });
+      return map.get(key)!;
+    };
+    for (const m of meetings) {
+      if (m.scheduledAt) bucket(new Date(m.scheduledAt)).meetings.push(m);
     }
-    return Array.from(map.values());
-  }, [meetings]);
+    for (const tk of tasks) {
+      if (tk.dueDate) bucket(new Date(tk.dueDate)).tasks.push(tk);
+    }
+    const arr = Array.from(map.values());
+    arr.sort((a, b) => a.date.getTime() - b.date.getTime());
+    for (const g of arr) {
+      g.meetings.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    }
+    return arr;
+  }, [meetings, tasks]);
 
   const dayLabel = (d: Date) => {
     const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
@@ -1369,10 +1598,10 @@ function AgendaView({ meetings, today, onMeetingClick }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? 'var(--accent)' : 'var(--text-2)', textTransform: 'capitalize' }}>{dayLabel(g.date)}</span>
               <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{g.items.length}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{g.meetings.length + g.tasks.length}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {g.items.map((m) => {
+              {g.meetings.map((m) => {
                 const start = new Date(m.scheduledAt!);
                 const users = m.participants.map((p) => ({ name: p.user?.name || p.guestName || 'Guest', image: p.user?.image || null }));
                 return (
@@ -1396,6 +1625,27 @@ function AgendaView({ meetings, today, onMeetingClick }: {
                   </button>
                 );
               })}
+              {g.tasks.map((tk) => {
+                const accent = taskAccent(tk.priority);
+                return (
+                  <button key={tk.id} onClick={() => onTaskClick(tk)} className="card" style={{
+                    textAlign: 'left', cursor: 'pointer', display: 'flex', gap: 14, alignItems: 'center', padding: 16, width: '100%',
+                    borderLeft: `3px solid ${accent}`,
+                  }}>
+                    <div style={{ width: 46, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                      <ListChecks size={20} style={{ color: accent }} />
+                    </div>
+                    <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', minHeight: 34 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tk.title}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ textTransform: 'uppercase', letterSpacing: '.04em', color: accent, fontWeight: 600, fontSize: 10.5 }}>{t('calendar.deadline')}</span>
+                        {tk.meeting?.title && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {tk.meeting.title}</span>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );
@@ -1410,6 +1660,7 @@ export default function CalendarPage() {
   const locale = useLocale();
   const isMobile = useIsMobile();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [tasks, setTasks] = useState<CalTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(() => {
@@ -1417,7 +1668,7 @@ export default function CalendarPage() {
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const [modal, setModal] = useState<{ date: Date; meetings: Meeting[] } | null>(null);
+  const [modal, setModal] = useState<{ date: Date; meetings: Meeting[]; tasks: CalTask[] } | null>(null);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
@@ -1461,6 +1712,20 @@ export default function CalendarPage() {
     fetchMeetings();
   }, [fetchMeetings]);
 
+  /* ---- Fetch task deadlines (accessible tasks that have a due date) ---- */
+  useEffect(() => {
+    fetch('/api/tasks?scope=all')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: CalTask[]) => {
+        if (Array.isArray(data)) {
+          // Only tasks with a deadline; completed ones are dropped (a past
+          // deadline that's already done just clutters the calendar).
+          setTasks(data.filter((tk) => tk.dueDate && tk.status !== 'done'));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   /* ---- Navigation ---- */
   const goToday = () => {
     const d = new Date();
@@ -1492,6 +1757,14 @@ export default function CalendarPage() {
     [],
   );
 
+  /* ---- Task deadline click → the task hub ---- */
+  const handleTaskClick = useCallback(
+    (_tk: CalTask) => {
+      router.push('/tasks');
+    },
+    [router],
+  );
+
   const handleDeleteMeeting = useCallback(async (m: Meeting) => {
     if (!confirm(t('calendar.deleteConfirm'))) return;
     setDeleting(true);
@@ -1513,8 +1786,8 @@ export default function CalendarPage() {
 
   /* ---- Day click in month view ---- */
   const handleDayClick = useCallback(
-    (date: Date, dayMeetings: Meeting[]) => {
-      setModal({ date, meetings: dayMeetings });
+    (date: Date, dayMeetings: Meeting[], dayTasks: CalTask[]) => {
+      setModal({ date, meetings: dayMeetings, tasks: dayTasks });
     },
     [],
   );
@@ -1633,23 +1906,29 @@ export default function CalendarPage() {
       ) : isMobile ? (
         <AgendaView
           meetings={meetings}
+          tasks={tasks}
           today={today}
           onMeetingClick={handleMeetingClick}
+          onTaskClick={handleTaskClick}
         />
       ) : view === 'week' ? (
         <WeekView
           weekStart={weekStart}
           meetings={meetings}
+          tasks={tasks}
           today={today}
           onMeetingClick={handleMeetingClick}
+          onTaskClick={handleTaskClick}
         />
       ) : (
         <MonthView
           year={currentYear}
           month={currentMonth}
           meetings={meetings}
+          tasks={tasks}
           today={today}
           onDayClick={handleDayClick}
+          onTaskClick={handleTaskClick}
         />
       )}
 
@@ -1658,10 +1937,15 @@ export default function CalendarPage() {
         <DayModal
           date={modal.date}
           meetings={modal.meetings}
+          tasks={modal.tasks}
           onClose={() => setModal(null)}
           onMeetingClick={(m) => {
             setModal(null);
             handleMeetingClick(m);
+          }}
+          onTaskClick={(tk) => {
+            setModal(null);
+            handleTaskClick(tk);
           }}
         />
       )}
