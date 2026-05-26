@@ -584,11 +584,11 @@ function UsersTab() {
                       {isMe && <span className="chip">{t('settings.itsYou')}</span>}
                       <button
                         className="btn btn-ghost btn-icon"
-                        style={{ width: 22, height: 22, flexShrink: 0, opacity: 0.7 }}
+                        style={{ width: 28, height: 28, flexShrink: 0, opacity: 0.85 }}
                         title={t('settings.editName')}
                         onClick={() => { setEditNameId(u.id); setEditNameVal(u.name); }}
                       >
-                        <Pencil size={12} />
+                        <Pencil size={15} />
                       </button>
                     </div>
                   )}
