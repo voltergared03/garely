@@ -18,6 +18,7 @@ chmod 600 /etc/cron-secret
 # Wrapper: $1 = cron endpoint name. Reads the secret from the file at run time
 # (APP_URL is baked in now). The response body — which carries no secret — is
 # sent to the container log so `docker compose logs cron` stays useful.
+mkdir -p /usr/local/bin   # busybox image ships without it
 cat > /usr/local/bin/run-cron-job <<EOF
 #!/bin/sh
 set -eu
