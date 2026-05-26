@@ -5,8 +5,7 @@ import { sendEmail } from '@/lib/email';
 import { userCanAccessMeeting } from '@/lib/access';
 import { publicBaseUrl } from '@/lib/config';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
-
-const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+import { esc } from '@/lib/email/html';
 
 // POST — email the meeting report (summary, decisions, action items, follow-ups) to participants
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -4,8 +4,7 @@ import { sendEmail } from '@/lib/email';
 import { notify } from '@/lib/notify';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { publicBaseUrl } from '@/lib/config';
-
-const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+import { esc } from '@/lib/email/html';
 
 // GET /api/cron/reminders?secret=XXX — called by system cron (every few minutes).
 // Sends "meeting starting soon" in-app notifications + emails ~15 min before start.

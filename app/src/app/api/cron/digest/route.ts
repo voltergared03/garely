@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { publicBaseUrl } from '@/lib/config';
-
-const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+import { esc } from '@/lib/email/html';
 
 // GET /api/cron/digest?secret=XXX — weekly digest for users who enabled it.
 export async function GET(req: NextRequest) {

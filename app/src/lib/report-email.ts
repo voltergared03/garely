@@ -2,8 +2,7 @@ import { prisma } from './prisma';
 import { sendEmail } from './email';
 import { getTranslator, workspaceLocale } from './i18n-server';
 import { publicBaseUrl } from './config';
-
-const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+import { esc } from './email/html';
 
 /**
  * Build and send the latest meeting report to participants.
