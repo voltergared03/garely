@@ -69,8 +69,23 @@ services:
     volumes:
       - eam-meet-speaker-audio:/speaker-audio   # per-speaker audio (detection + re-transcription)
     depends_on:
-      - livekit
-      - eam-meet-db
+      livekit:
+        condition: service_started
+      eam-meet-db:
+        condition: service_healthy
+    networks:
+      - eam-meet
+
+  # --- Scheduler (reminders, weekly digest, recording retention, reg-cleanup) ---
+  # Replaces the host crontab: runs EZmeet's periodic jobs against the app's
+  # internal API on the compose network. CRON_SECRET comes from .env.
+  cron:
+    build: ./cron
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      eam-meet:
+        condition: service_started
     networks:
       - eam-meet
 

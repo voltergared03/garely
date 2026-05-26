@@ -295,16 +295,44 @@ through the app's report card (play / download / keep / delete).
 - Egress requires the shared **Redis** (already wired in `docker-compose.yml` +
   the `redis:` blocks of `livekit.yaml` / `egress.yaml`).
 
-Scheduled jobs (add to the host crontab, using `CRON_SECRET` from `.env`):
+**Scheduled jobs are built in.** A small `cron` service (`docker-compose.yml`)
+runs them against the app's internal API — there's no host crontab to edit:
 
-```cron
-*/5 * * * * curl -s "http://127.0.0.1:3100/api/cron/reminders?secret=$CRON_SECRET" >/dev/null 2>&1
-0   9 * * 1 curl -s "http://127.0.0.1:3100/api/cron/digest?secret=$CRON_SECRET"    >/dev/null 2>&1
-0   3 * * * curl -s "http://127.0.0.1:3100/api/cron/recordings?secret=$CRON_SECRET" >/dev/null 2>&1
-0   * * * * curl -s "http://127.0.0.1:3100/api/cron/reg-cleanup?secret=$CRON_SECRET" >/dev/null 2>&1
-```
+| Job | Schedule | Endpoint |
+|---|---|---|
+| Meeting reminders | every 5 min | `/api/cron/reminders` |
+| Weekly digest | Mon 09:00 | `/api/cron/digest` |
+| Recording retention | daily 03:00 | `/api/cron/recordings` |
+| Registration cleanup | hourly | `/api/cron/reg-cleanup` |
+
+Each request is authenticated with `CRON_SECRET` from `.env`; follow runs with
+`docker compose logs -f cron`. Schedules use the container clock (UTC unless you
+set `TZ` on the service).
 
 ---
+
+## Data & backups
+
+All persistent state lives in named Docker volumes:
+
+| Volume | Holds |
+|---|---|
+| `eam-meet-pgdata` | PostgreSQL — **all** users, meetings, reports, tasks |
+| `eam-meet-recordings` | meeting recordings (MP4) |
+| `eam-meet-speaker-audio` | per-speaker audio (re-transcription) |
+| `eam-meet-redis-data` | Redis coordination state (transient) |
+
+> [!WARNING]
+> `docker compose down -v` **deletes these volumes — including the entire
+> database.** To stop the stack use plain `docker compose down` (or `stop`);
+> the `-v` flag is destructive and unrecoverable.
+
+Back up the database regularly:
+
+```bash
+docker compose exec -T eam-meet-db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+  | gzip > ezmeet-db-$(date +%F).sql.gz
+```
 
 ## Updating
 
