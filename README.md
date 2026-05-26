@@ -327,6 +327,21 @@ docker compose exec eam-meet npx prisma db push
 
 ---
 
+## Development
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for local setup, testing and code
+conventions, and [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
+```bash
+cd app
+npm install
+npm run dev            # http://localhost:3000
+npm test               # unit + integration (vitest)
+npm run test:coverage  # coverage of the server libs + API routes
+```
+
+---
+
 ## Security notes
 
 - Real secrets live only in `.env`, `livekit.yaml`, `egress.yaml` — all
