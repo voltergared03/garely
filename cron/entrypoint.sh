@@ -1,24 +1,39 @@
 #!/bin/sh
-# EZmeet scheduler sidecar — materializes the crontab with CRON_SECRET from the
-# container environment, then runs busybox crond in the foreground. Replaces the
-# old "add these lines to your host crontab" step: scheduling now ships in-stack.
+# EZmeet scheduler sidecar — runs the periodic jobs against the app's internal
+# API. Replaces the old host-crontab step.
+#
+# busybox crond logs each job's full command line (at -d 8), so the CRON_SECRET
+# must NOT live in the crontab. Instead we store it in a root-only file and a
+# tiny wrapper reads it at run time; the crontab + crond log only ever show
+# `run-cron-job <name>`, never the secret.
 set -eu
 
 : "${CRON_SECRET:?CRON_SECRET is required (set it in .env)}"
 APP_URL="${CRON_TARGET_URL:-http://eam-meet:3000}"
 
-mkdir -p /var/spool/cron/crontabs
+# Secret lives in a root-only file, never on the crond command line.
+printf '%s' "$CRON_SECRET" > /etc/cron-secret
+chmod 600 /etc/cron-secret
 
-# busybox crond does not reliably export the container env to jobs, so bake the
-# secret + target into the crontab at startup. CRON_SECRET is hex (openssl
-# rand -hex), safe to interpolate. Job output goes to the container log
-# (PID 1, fd 1) so `docker compose logs cron` shows every run.
-cat > /var/spool/cron/crontabs/root <<EOF
-# min hour dom mon dow  command
-*/5 * * * * wget -qO- -T 15 "${APP_URL}/api/cron/reminders?secret=${CRON_SECRET}"   >/proc/1/fd/1 2>&1
-0 9 * * 1   wget -qO- -T 15 "${APP_URL}/api/cron/digest?secret=${CRON_SECRET}"      >/proc/1/fd/1 2>&1
-0 3 * * *   wget -qO- -T 30 "${APP_URL}/api/cron/recordings?secret=${CRON_SECRET}"  >/proc/1/fd/1 2>&1
-0 * * * *   wget -qO- -T 15 "${APP_URL}/api/cron/reg-cleanup?secret=${CRON_SECRET}" >/proc/1/fd/1 2>&1
+# Wrapper: $1 = cron endpoint name. Reads the secret from the file at run time
+# (APP_URL is baked in now). The response body — which carries no secret — is
+# sent to the container log so `docker compose logs cron` stays useful.
+cat > /usr/local/bin/run-cron-job <<EOF
+#!/bin/sh
+set -eu
+secret="\$(cat /etc/cron-secret)"
+wget -qO- -T 30 "${APP_URL}/api/cron/\$1?secret=\${secret}" || echo "[cron] job \$1 failed"
+echo
+EOF
+chmod +x /usr/local/bin/run-cron-job
+
+mkdir -p /var/spool/cron/crontabs
+cat > /var/spool/cron/crontabs/root <<'EOF'
+# min hour dom mon dow  command  (secret is injected by run-cron-job, not stored here)
+*/5 * * * * /usr/local/bin/run-cron-job reminders   >/proc/1/fd/1 2>&1
+0 9 * * 1   /usr/local/bin/run-cron-job digest      >/proc/1/fd/1 2>&1
+0 3 * * *   /usr/local/bin/run-cron-job recordings  >/proc/1/fd/1 2>&1
+0 * * * *   /usr/local/bin/run-cron-job reg-cleanup >/proc/1/fd/1 2>&1
 EOF
 
 echo "[cron] scheduler started — jobs target ${APP_URL}"
