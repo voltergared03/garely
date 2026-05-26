@@ -16,7 +16,8 @@ export default defineConfig({
       // here rather than diluting the number with code we don't unit-test yet.
       include: ['src/lib/**', 'src/app/api/**'],
       exclude: ['**/*.test.{ts,tsx}', '**/__mocks__/**', '**/*.d.ts'],
-      all: true,
+      // vitest 4 removed the `all` flag; the `include` globs above already pull
+      // untested files in those dirs into the denominator (the old `all: true`).
       // Regression floor (just under today's numbers). Only enforced on
       // `test:coverage` / CI — raise as coverage grows. `npm test` is unaffected.
       thresholds: { statements: 14, branches: 11, functions: 13, lines: 14 },
