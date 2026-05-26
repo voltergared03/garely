@@ -4,6 +4,7 @@ import {
   fmtTime,
   dayDiff,
   isToday,
+  zonedHour,
   fmtDateLong,
   fmtRelative,
   getInitials,
@@ -82,5 +83,40 @@ describe('avatar helpers', () => {
 describe('generateMeetingSlug', () => {
   it('produces a 4-4-3 lowercase alphanumeric slug', () => {
     expect(generateMeetingSlug()).toMatch(/^[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{3}$/);
+  });
+});
+
+// Timezone-pinned rendering: the dashboard passes the workspace tz so the
+// server (UTC) and the browser (the viewer's zone) format the SAME instant
+// identically and React no longer throws a #418 hydration mismatch. These
+// assertions use absolute UTC instants + an explicit zone, so they hold no
+// matter what zone the test runner itself is in.
+describe('timezone-pinned date helpers', () => {
+  it('fmtTime renders the instant in the given zone (summer, UTC+3)', () => {
+    expect(fmtTime(new Date('2026-05-26T17:49:00Z'), 'Europe/Kyiv')).toBe('20:49');
+  });
+  it('fmtTime handles day rollover and DST (winter, UTC+2)', () => {
+    expect(fmtTime(new Date('2026-05-26T22:30:00Z'), 'Europe/Kyiv')).toBe('01:30');
+    expect(fmtTime(new Date('2026-01-15T23:30:00Z'), 'Europe/Kyiv')).toBe('01:30');
+  });
+  it('fmtTime in UTC keeps the wall clock', () => {
+    expect(fmtTime(new Date('2026-05-26T17:49:00Z'), 'UTC')).toBe('17:49');
+  });
+  it('zonedHour returns the hour in the given zone', () => {
+    expect(zonedHour(new Date('2026-05-26T17:49:00Z'), 'Europe/Kyiv')).toBe(20);
+    expect(zonedHour(new Date('2026-05-26T22:30:00Z'), 'Europe/Kyiv')).toBe(1);
+  });
+  it('dayDiff respects the zone boundary, not the UTC one', () => {
+    // 22:00Z on the 26th is already 01:00 on the 27th in Kyiv → "tomorrow".
+    const meeting = new Date('2026-05-26T22:00:00Z');
+    const now = new Date('2026-05-26T12:00:00Z'); // 15:00 Kyiv, the 26th
+    expect(dayDiff(meeting, 'Europe/Kyiv', now)).toBe(1);
+    expect(dayDiff(meeting, 'UTC', now)).toBe(0);
+    expect(isToday(meeting, 'Europe/Kyiv', now)).toBe(false);
+    expect(isToday(meeting, 'UTC', now)).toBe(true);
+  });
+  it('an invalid zone falls back to runtime-local instead of throwing', () => {
+    expect(() => fmtTime(new Date('2026-05-26T17:49:00Z'), 'Not/AZone')).not.toThrow();
+    expect(() => dayDiff(new Date(), 'Not/AZone')).not.toThrow();
   });
 });

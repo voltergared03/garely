@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
-import { fmtTime, fmtRelative, isToday } from '@/lib/utils';
+import { fmtTime, fmtRelative, isToday, dayDiff, zonedHour } from '@/lib/utils';
 
 type Tr = ReturnType<typeof useTranslations>;
 
@@ -56,10 +56,12 @@ interface DashTask {
   meeting?: { id: string; title: string; scheduledAt: string | null };
 }
 
-// Short "time until" label for the mobile next-meeting hero.
-function untilLabel(d: string | null, tr: Tr): string | null {
+// Short "time until" label for the mobile next-meeting hero. `nowMs` is the
+// server request time (passed through) so SSR and hydration agree — using
+// Date.now() here would differ between the two renders and trip a #418.
+function untilLabel(d: string | null, tr: Tr, nowMs: number): string | null {
   if (!d) return null;
-  const diff = new Date(d).getTime() - Date.now();
+  const diff = new Date(d).getTime() - nowMs;
   if (diff <= 60_000) return tr('dashboard.now');
   const mins = Math.round(diff / 60_000);
   if (mins < 60) return tr('dashboard.inMinutes', { count: mins });
@@ -73,25 +75,27 @@ function untilLabel(d: string | null, tr: Tr): string | null {
   return null; // farther out — the date line covers it
 }
 
-function dueLabel(d: string | null, locale: string, tr: Tr): { txt: string; overdue: boolean; soon: boolean } | null {
+function dueLabel(d: string | null, locale: string, tr: Tr, tz: string, nowMs: number): { txt: string; overdue: boolean; soon: boolean } | null {
   if (!d) return null;
-  const due = new Date(d); due.setHours(0,0,0,0);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+  const diff = dayDiff(new Date(d), tz, new Date(nowMs));
   if (diff === 0) return { txt: tr('common.today'), overdue: false, soon: true };
   if (diff === 1) return { txt: tr('common.tomorrow'), overdue: false, soon: true };
   if (diff < 0) return { txt: tr('dashboard.overdueDays', { count: -diff }), overdue: true, soon: false };
-  if (diff < 7) return { txt: new Date(d).toLocaleDateString(locale, { weekday: 'short' }), overdue: false, soon: diff < 3 };
-  return { txt: new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' }), overdue: false, soon: false };
+  if (diff < 7) return { txt: new Date(d).toLocaleDateString(locale, { weekday: 'short', timeZone: tz }), overdue: false, soon: diff < 3 };
+  return { txt: new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: tz }), overdue: false, soon: false };
 }
 
 export function DashboardClient({
   userName,
+  tz,
+  nowMs,
   upcoming: initialUpcoming,
   past: initialPast,
   myTasks: initialMyTasks,
 }: {
   userName?: string | null;
+  tz: string;
+  nowMs: number;
   upcoming: Meeting[];
   past: Meeting[];
   myTasks: DashTask[];
@@ -99,11 +103,14 @@ export function DashboardClient({
   const router = useRouter();
   const tr = useTranslations();
   const locale = useLocale();
+  // Pinned to the server request instant + workspace zone so every date/time
+  // below renders identically on the server and on hydration (no #418).
+  const now = new Date(nowMs);
   const [upcoming, setUpcoming] = useState(initialUpcoming);
   const [past, setPast] = useState(initialPast);
   const [myTasks, setMyTasks] = useState(initialMyTasks);
-  const overdueCount = myTasks.filter(t => dueLabel(t.dueDate, locale, tr)?.overdue).length;
-  const hour = new Date().getHours();
+  const overdueCount = myTasks.filter(t => dueLabel(t.dueDate, locale, tr, tz, nowMs)?.overdue).length;
+  const hour = zonedHour(now, tz);
   const greetingText = tr(
     `dashboard.${hour < 5 ? 'greetingNight' : hour < 12 ? 'greetingMorning' : hour < 18 ? 'greetingAfternoon' : 'greetingEvening'}`
   );
@@ -118,10 +125,10 @@ export function DashboardClient({
     }));
 
   const today = upcoming.filter(
-    (m) => m.scheduledAt && isToday(new Date(m.scheduledAt))
+    (m) => m.scheduledAt && isToday(new Date(m.scheduledAt), tz, now)
   );
   const later = upcoming.filter(
-    (m) => !m.scheduledAt || !isToday(new Date(m.scheduledAt))
+    (m) => !m.scheduledAt || !isToday(new Date(m.scheduledAt), tz, now)
   );
 
   const nextMeeting = today[0] || upcoming[0];
@@ -158,7 +165,7 @@ export function DashboardClient({
               {greetingText}{userName ? `, ${userName.split(' ')[0]}` : ''}
             </h1>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3, textTransform: 'capitalize' }}>
-              {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+              {now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })}
             </div>
           </div>
 
@@ -175,15 +182,15 @@ export function DashboardClient({
                 <span className="chip" style={{ background: 'color-mix(in oklab, var(--accent) 22%, transparent)', borderColor: 'color-mix(in oklab, var(--accent) 45%, transparent)', color: '#bfdbfe' }}>
                   <Sparkles size={11} /> {tr('dashboard.next')}
                 </span>
-                {untilLabel(nextMeeting.scheduledAt, tr) && (
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt, tr)}</span>
+                {untilLabel(nextMeeting.scheduledAt, tr, nowMs) && (
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt, tr, nowMs)}</span>
                 )}
               </div>
               <div style={{ position: 'relative' }}>
                 <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>{nextMeeting.title}</div>
                 {nextMeeting.scheduledAt && (
                   <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
-                    {fmtRelative(new Date(nextMeeting.scheduledAt), locale)} · {fmtTime(new Date(nextMeeting.scheduledAt))} · {tr('common.minutes', { count: nextMeeting.durationMin })}
+                    {fmtRelative(new Date(nextMeeting.scheduledAt), locale, tz, now)} · {fmtTime(new Date(nextMeeting.scheduledAt), tz)} · {tr('common.minutes', { count: nextMeeting.durationMin })}
                   </div>
                 )}
               </div>
@@ -259,8 +266,8 @@ export function DashboardClient({
                     </div>
                     {nextMeeting.scheduledAt && (
                       <div style={{ color: 'var(--text-2)', fontSize: 13.5 }}>
-                        {fmtRelative(new Date(nextMeeting.scheduledAt), locale)} &bull;{' '}
-                        {fmtTime(new Date(nextMeeting.scheduledAt))} &bull; {tr('common.minutes', { count: nextMeeting.durationMin })}
+                        {fmtRelative(new Date(nextMeeting.scheduledAt), locale, tz, now)} &bull;{' '}
+                        {fmtTime(new Date(nextMeeting.scheduledAt), tz)} &bull; {tr('common.minutes', { count: nextMeeting.durationMin })}
                       </div>
                     )}
                   </div>
@@ -307,7 +314,7 @@ export function DashboardClient({
           ) : (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {myTasks.slice(0, 5).map((t, i) => {
-                const due = dueLabel(t.dueDate, locale, tr);
+                const due = dueLabel(t.dueDate, locale, tr, tz, nowMs);
                 const isOverdue = due?.overdue;
                 return (
                   <Link key={t.id} href="/tasks" style={{
@@ -360,7 +367,7 @@ export function DashboardClient({
           <Section title={tr('dashboard.today')} right={tr('common.meetings', { count: today.length })}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {today.map((m) => (
-                <MeetingRow key={m.id} meeting={m} users={getParticipantNames(m)}
+                <MeetingRow key={m.id} meeting={m} users={getParticipantNames(m)} tz={tz}
                   menuOpen={menuOpen} setMenuOpen={setMenuOpen}
                   onEdit={() => setEditMeeting(m)} onDelete={() => setDeleteMeeting(m)} />
               ))}
@@ -373,7 +380,7 @@ export function DashboardClient({
           <Section title={tr('dashboard.upcoming')}>
             <div className='dash-upcoming-grid' style={{ display: 'grid', gap: 14 }}>
               {later.slice(0, 4).map((m) => (
-                <MeetingCard key={m.id} meeting={m} users={getParticipantNames(m)}
+                <MeetingCard key={m.id} meeting={m} users={getParticipantNames(m)} tz={tz} now={now}
                   menuOpen={menuOpen} setMenuOpen={setMenuOpen}
                   onEdit={() => setEditMeeting(m)} onDelete={() => setDeleteMeeting(m)} />
               ))}
@@ -411,7 +418,7 @@ export function DashboardClient({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 11.5 }}>
                     <Sparkles size={12} style={{ color: 'var(--accent-2)' }} />
                     <span className="mono">
-                      {m.scheduledAt ? fmtRelative(new Date(m.scheduledAt), locale) : ''}
+                      {m.scheduledAt ? fmtRelative(new Date(m.scheduledAt), locale, tz, now) : ''}
                     </span>
                   </div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</div>
@@ -822,9 +829,10 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
   );
 }
 
-function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }: {
+function MeetingRow({ meeting, users, tz, menuOpen, setMenuOpen, onEdit, onDelete }: {
   meeting: Meeting;
   users: { name: string; image: string | null }[];
+  tz: string;
   menuOpen: string | null;
   setMenuOpen: (id: string | null) => void;
   onEdit: () => void;
@@ -850,7 +858,7 @@ function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }:
     >
       <div style={{ width: 46, textAlign: 'center' }}>
         <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
-          {start ? fmtTime(start) : '--:--'}
+          {start ? fmtTime(start, tz) : '--:--'}
         </div>
         <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
           {t('common.minutes', { count: meeting.durationMin })}
@@ -877,9 +885,11 @@ function MeetingRow({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }:
   );
 }
 
-function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }: {
+function MeetingCard({ meeting, users, tz, now, menuOpen, setMenuOpen, onEdit, onDelete }: {
   meeting: Meeting;
   users: { name: string; image: string | null }[];
+  tz: string;
+  now: Date;
   menuOpen: string | null;
   setMenuOpen: (id: string | null) => void;
   onEdit: () => void;
@@ -896,7 +906,7 @@ function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span className="mono" style={{ color: 'var(--muted)', fontSize: 11.5 }}>
-              {start ? `${fmtTime(start)}–${end ? fmtTime(end) : ''}` : ''}
+              {start ? `${fmtTime(start, tz)}–${end ? fmtTime(end, tz) : ''}` : ''}
             </span>
             {meeting.recurrence && (
               <span className="chip">
@@ -906,7 +916,7 @@ function MeetingCard({ meeting, users, menuOpen, setMenuOpen, onEdit, onDelete }
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{meeting.title}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-            {start ? fmtRelative(start, locale) : ''} &bull; {t('common.minutes', { count: meeting.durationMin })}
+            {start ? fmtRelative(start, locale, tz, now) : ''} &bull; {t('common.minutes', { count: meeting.durationMin })}
           </div>
         </div>
         {meeting.status !== 'ended' && (

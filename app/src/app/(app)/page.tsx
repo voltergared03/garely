@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 import { DashboardClient } from './dashboard-client';
 
 export default async function DashboardPage() {
@@ -7,6 +8,11 @@ export default async function DashboardPage() {
   if (!session?.user) return null;
 
   const now = new Date();
+  // Render all dates/times against the workspace zone, pinned to this request's
+  // instant, so the client hydrates with the exact same strings the server
+  // produced (the server runs in UTC; the browser in the viewer's zone).
+  const cfg = await readConfig(['WS_TIMEZONE']);
+  const tz = cfg.WS_TIMEZONE || CONFIG_DEFAULTS.WS_TIMEZONE;
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
   const weekEnd = new Date(todayStart);
@@ -67,6 +73,8 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       userName={session.user.name || null}
+      tz={tz}
+      nowMs={now.getTime()}
       upcoming={JSON.parse(JSON.stringify(upcoming))}
       past={JSON.parse(JSON.stringify(past))}
       myTasks={JSON.parse(JSON.stringify(myTasks))}
