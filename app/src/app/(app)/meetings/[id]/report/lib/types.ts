@@ -1,0 +1,98 @@
+/* ─── Types ─────────────────────────────────────────────────────── */
+
+export interface Participant {
+  id: string;
+  user: { id: string; name: string; email?: string | null; image: string | null } | null;
+  guestName: string | null;
+}
+
+export interface SpeakerTrackItem {
+  id: string;
+  speakerId: string | null;
+  participantIdentity: string;
+  speakerName: string | null;
+  durationSec: number | null;
+  detectedLanguage: string | null;
+}
+
+export interface TranscriptSegment {
+  id: string;
+  speakerName: string;
+  speakerImage?: string | null;
+  language: 'ua' | 'en' | 'ru';
+  timestamp: string;
+  startTime: number;
+  text: string;
+}
+
+export interface ActionItem {
+  id: string;
+  text: string;
+  assignee: string;
+  assigneeImage?: string | null;
+  assigneeRegistered?: boolean;
+  dueDate: string | null;
+  priority: 'high' | 'medium' | 'low';
+  done: boolean;
+}
+
+export interface UserItem {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+// A selectable assignee in the report dropdown: a registered user (id set) or a
+// guest who joined the meeting by name (id null).
+export interface AssignOption {
+  id: string | null;
+  name: string;
+  email?: string;
+  image?: string | null;
+  guest?: boolean;
+}
+
+export interface Topic {
+  title: string;
+  discussion: string;
+  decisions: { text: string; owner: string | null; cites: number[] }[];
+  tasks: { title: string; assignee: string | null; priority: string; due: string | null; cites: number[] }[];
+  openQuestions: { text: string; cites: number[] }[];
+  cites: number[];
+}
+
+export interface Report {
+  id: string;
+  summary: string;
+  actionItems: ActionItem[];
+  decisions: string[];
+  followUps: string[];
+  topics: Topic[];
+  analytics: {
+    durationMin: number;
+    wordsCount: number;
+    repliesCount: number;
+    languagesCount: number;
+    languages: { label: string; code: string; pct: number; color: string }[];
+    speakers: { name: string; image?: string | null; pct: number }[];
+  };
+  recording?: {
+    fileName: string;
+    fileSize: string;
+    duration: string;
+  } | null;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  scheduledAt: string;
+  createdAt: string;
+  endedAt: string | null;
+  durationMin: number;
+  status: string;
+  participants: Participant[];
+  transcripts: TranscriptSegment[];
+  reports: Report[];
+}
