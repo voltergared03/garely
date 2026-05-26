@@ -28,89 +28,17 @@ import {
   LogOut, Shield, Crown, Settings, Volume2, ChevronDown,
   Smile, StickyNote, Sparkles, Zap, Save,
 } from 'lucide-react';
-
-/* ── Types ─────────────────────────────────────────────── */
-interface TranscriptEntry {
-  id: string;
-  speaker: string;
-  text: string;
-  language: string;
-  timestamp: number;
-}
-
-interface FloatingReaction {
-  id: string;
-  emoji: string;
-  sender: string;
-  x: number;
-}
-
-interface LiveAiNote {
-  summary: string;
-  decisions: string[];
-  actionItems: string[];
-  updatedAt: number;
-}
-
-interface DetectedActionItem {
-  id: string;
-  title: string;
-  assignee: string | null;
-  timestamp: number;
-  dismissed: boolean;
-}
-
-const REACTIONS = ['👍', '👏', '😂', '❤️', '🔥', '✋', '🎉', '💡'];
+import {
+  TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, REACTIONS,
+} from './lib/types';
+import { AdmissionPanel } from './components/AdmissionPanel';
+import { ParticipantTile } from './components/ParticipantTile';
+import { RoomDeviceSelect } from './components/RoomDeviceSelect';
+import { ControlBtn } from './components/ControlBtn';
 
 /* ══════════════════════════════════════════════════════════
    ROOM CONTENT — rendered inside <LiveKitRoom>
    ══════════════════════════════════════════════════════════ */
-function AdmissionPanel({ meetingId }: { meetingId: string }) {
-  const t = useTranslations();
-  const [pending, setPending] = useState<{ id: string; guestName: string }[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/meetings/${meetingId}/admit`);
-        if (res.ok) { const d = await res.json(); if (!cancelled) setPending(d.pending || []); }
-      } catch { /* ignore */ }
-    };
-    poll();
-    const iv = setInterval(poll, 4000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [meetingId]);
-
-  const decide = async (rid: string, action: 'approve' | 'deny') => {
-    setBusy(rid);
-    try {
-      await fetch(`/api/meetings/${meetingId}/admit`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: rid, action }),
-      });
-      setPending((p) => p.filter((x) => x.id !== rid));
-    } catch { /* ignore */ } finally { setBusy(null); }
-  };
-
-  if (pending.length === 0) return null;
-  return (
-    <div style={{ position: 'absolute', top: 70, left: '50%', transform: 'translateX(-50%)', zIndex: 60, display: 'flex', flexDirection: 'column', gap: 8, width: 360, maxWidth: '90vw' }}>
-      {pending.map((p) => (
-        <div key={p.id} style={{ background: 'rgba(20,22,28,.97)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, boxShadow: '0 12px 40px rgba(0,0,0,.5)' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{t('room.guestWantsToJoin')}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.guestName}</div>
-          </div>
-          <button onClick={() => decide(p.id, 'deny')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,.15)', background: 'transparent', color: 'rgba(255,255,255,.7)', cursor: 'pointer', fontSize: 13 }}>{t('room.deny')}</button>
-          <button onClick={() => decide(p.id, 'approve')} disabled={busy === p.id} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{t('room.admit')}</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }: {
   meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean;
 }) {
@@ -1134,133 +1062,6 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
         }
       `}</style>
     </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   PARTICIPANT TILE
-   ══════════════════════════════════════════════════════════ */
-function ParticipantTile({ track, small, fill }: { track: any; small?: boolean; fill?: boolean }) {
-  const t = useTranslations();
-  const p = track.participant;
-  const isCamOn = p.isCameraEnabled;
-  const isMicOn = p.isMicrophoneEnabled;
-  const isSpeaking = p.isSpeaking;
-  const isLocal = p.isLocal;
-
-  return (
-    <div style={{
-      position: 'relative', borderRadius: small ? 10 : 14, overflow: 'hidden',
-      background: '#22252b',
-      ...(fill ? { width: '100%', height: '100%' } : { aspectRatio: '16/9' }),
-      border: isSpeaking ? '2px solid #3b82f6' : '2px solid transparent',
-      transition: 'border-color .2s', maxHeight: small ? 140 : undefined,
-    }}>
-      {isCamOn && track.publication?.track ? (
-        <VideoTrack trackRef={track} style={{
-          width: '100%', height: '100%', objectFit: 'cover',
-          position: 'absolute', inset: 0,
-          ...(isLocal ? { transform: 'scaleX(-1)' } : {}),
-        }} />
-      ) : (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'linear-gradient(145deg, #2a2d35 0%, #1a1d25 100%)',
-        }}>
-          <div style={{
-            width: small ? 48 : 80, height: small ? 48 : 80,
-            borderRadius: '50%', background: '#3b82f6',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: small ? 20 : 32, fontWeight: 700, color: '#fff',
-            boxShadow: '0 4px 20px rgba(59,130,246,.3)',
-          }}>
-            {(p.name || p.identity || 'U')[0]?.toUpperCase()}
-          </div>
-        </div>
-      )}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: small ? '6px 8px' : '8px 12px',
-        background: 'linear-gradient(transparent, rgba(0,0,0,.65))',
-        display: 'flex', alignItems: 'center', gap: 6,
-      }}>
-        {!isMicOn && (
-          <span style={{
-            width: 22, height: 22, borderRadius: 6,
-            background: 'rgba(239,68,68,.25)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}><MicOff size={12} style={{ color: '#fca5a5' }} /></span>
-        )}
-        <span style={{
-          fontSize: small ? 11 : 13, color: '#fff', fontWeight: 500,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {p.name || p.identity}{isLocal ? ` (${t('room.you')})` : ''}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   ROOM DEVICE SELECT
-   ══════════════════════════════════════════════════════════ */
-function RoomDeviceSelect({ label, icon, devices, value, onChange }: {
-  label: string; icon: React.ReactNode; devices: MediaDeviceInfo[];
-  value: string; onChange: (id: string) => void;
-}) {
-  const t = useTranslations();
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>
-        {icon} {label}
-      </div>
-      <Select
-        value={value}
-        onChange={onChange}
-        placeholder={t('room.notFound')}
-        style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', color: '#fff', padding: '7px 9px', fontSize: 12.5 }}
-        options={devices.map(d => ({ value: d.deviceId, label: d.label || t('room.deviceFallback', { id: d.deviceId.slice(0, 6) }) }))}
-      />
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   CONTROL BUTTON
-   ══════════════════════════════════════════════════════════ */
-function ControlBtn({ active, onClick, icon, label, danger, badge, className }: {
-  active: boolean; onClick: () => void; icon: React.ReactNode;
-  label: string; danger?: boolean; badge?: number; className?: string;
-}) {
-  return (
-    <button onClick={onClick} title={label} className={"room-ctrl-btn" + (className ? " " + className : "")} style={{
-      position: 'relative',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-      padding: '8px 14px', borderRadius: 12, cursor: 'pointer',
-      background: danger ? 'rgba(239,68,68,.15)' : active ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.04)',
-      color: danger ? '#fca5a5' : active ? '#fff' : 'rgba(255,255,255,.6)',
-      border: danger ? '1px solid rgba(239,68,68,.3)' : '1px solid rgba(255,255,255,.08)',
-      transition: 'all .15s', minWidth: 0, flexShrink: 0,
-    }}>
-      {icon}
-      <span className="room-ctrl-label" style={{ fontSize: 10, fontWeight: 500 }}>{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span style={{
-          position: 'absolute', top: 2, right: 6,
-          width: 16, height: 16, borderRadius: '50%',
-          background: '#3b82f6', color: '#fff',
-          fontSize: 9, fontWeight: 700,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>{badge > 9 ? '9+' : badge}</span>
-      )}
-      <style>{`
-        @media (max-width: 768px) {
-          .room-ctrl-btn { width: 44px !important; height: 44px !important; padding: 0 !important; border-radius: 50% !important; justify-content: center !important; min-width: 44px !important; }
-          .room-ctrl-label { display: none !important; }
-        }
-      `}</style>
-    </button>
   );
 }
 
