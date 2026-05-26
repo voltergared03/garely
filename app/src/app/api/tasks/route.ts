@@ -3,6 +3,17 @@ import { getTranslations } from "next-intl/server";
 import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, meetingIdOfTask } from "@/lib/access";
+import { z } from "zod";
+import { validateBody } from "@/lib/validate";
+
+const taskCreateSchema = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().nullish(),
+  meetingId: z.string().nullish(),
+  assigneeId: z.string().nullish(),
+  priority: z.string().nullish(),
+  dueDate: z.string().nullish(),
+});
 
 // GET /api/tasks — list tasks with filters
 export async function GET(req: NextRequest) {
@@ -64,12 +75,9 @@ export async function POST(req: NextRequest) {
   const session = await requireAuth();
   if (session instanceof Response) return session;
 
-  const body = await req.json();
-  const { title, description, meetingId, assigneeId, priority, dueDate } = body;
-
-  if (!title) {
-    return NextResponse.json({ error: "title required" }, { status: 400 });
-  }
+  const v = await validateBody(req, taskCreateSchema);
+  if (!v.ok) return v.response;
+  const { title, description, meetingId, assigneeId, priority, dueDate } = v.data;
 
   if (meetingId) {
     const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
