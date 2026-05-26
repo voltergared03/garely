@@ -602,6 +602,7 @@
     "colUser": "User",
     "colEmail": "Email",
     "colRole": "Role",
+    "colLanguage": "Language",
     "colStatus": "Status",
     "itsYou": "It's you",
     "role_admin": "Admin",

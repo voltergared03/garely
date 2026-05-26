@@ -602,6 +602,7 @@
     "colUser": "Користувач",
     "colEmail": "Email",
     "colRole": "Роль",
+    "colLanguage": "Мова",
     "colStatus": "Статус",
     "itsYou": "Це ви",
     "role_admin": "Адмін",

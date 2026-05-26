@@ -543,13 +543,13 @@ function UsersTab() {
       )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="admin-table-header" style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-          <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colStatus')}</div><div />
+        <div style={{ overflowX: 'auto' }}>
+        <div className="admin-table-header" style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+          <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colLanguage')}</div><div>{t('settings.colStatus')}</div><div />
         </div>
         {filtered.map((u) => {
           const isMe = session?.user?.email === u.email;
           const st = getUserStatus(u.lastLogin);
-          const roleColor = u.role === 'admin' ? 'var(--accent)' : u.role === 'viewer' ? 'var(--muted)' : 'var(--text-2)';
           return (
             <div key={u.id} className="admin-table-row user-row" style={{ display: 'grid', padding: '14px 16px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 13 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -592,20 +592,10 @@ function UsersTab() {
                       </button>
                     </div>
                   )}
-                  <div style={{ marginTop: 3 }}>
-                    <span style={{
-                      display: 'inline-block', fontSize: 9.5, fontWeight: 700, letterSpacing: '.04em',
-                      textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, color: roleColor,
-                      background: `color-mix(in oklab, ${roleColor} 15%, transparent)`,
-                      border: `1px solid color-mix(in oklab, ${roleColor} 30%, transparent)`,
-                    }}>
-                      {t(`settings.role_${u.role}`)}
-                    </span>
-                  </div>
                 </div>
               </div>
               <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{u.email}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+              <div style={{ minWidth: 0 }}>
                 <Select
                   value={u.role}
                   options={[
@@ -613,7 +603,7 @@ function UsersTab() {
                     { value: 'member', label: t('settings.role_member') },
                     { value: 'viewer', label: t('settings.role_viewer') },
                   ]}
-                  style={{ height: 32, fontSize: 12.5, width: 132, maxWidth: '100%' }}
+                  style={{ height: 32, fontSize: 12.5, width: '100%' }}
                   onChange={async (newRole) => {
                     const prev = u.role;
                     setUsers((us) => us.map((x) => x.id === u.id ? { ...x, role: newRole as UserRecord['role'] } : x));
@@ -633,6 +623,8 @@ function UsersTab() {
                     }
                   }}
                 />
+              </div>
+              <div style={{ minWidth: 0 }}>
                 <Select
                   value={u.spokenLanguageLocked ? (u.spokenLanguage || '') : ''}
                   icon={<Languages size={13} style={{ color: 'var(--muted)' }} />}
@@ -642,7 +634,7 @@ function UsersTab() {
                     { value: 'en', label: 'English' },
                     { value: 'ru', label: 'Русский' },
                   ]}
-                  style={{ height: 30, fontSize: 12, width: 132, maxWidth: '100%' }}
+                  style={{ height: 32, fontSize: 12.5, width: '100%' }}
                   onChange={async (v) => {
                     const prevLang = u.spokenLanguage; const prevLock = u.spokenLanguageLocked;
                     setUsers((us) => us.map((x) => x.id === u.id ? { ...x, spokenLanguage: v || x.spokenLanguage, spokenLanguageLocked: !!v } : x));
@@ -731,6 +723,7 @@ function UsersTab() {
             <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>{t('settings.noUsersFound')}</div>
           </div>
         )}
+        </div>
       </div>
 
       {inviteOpen && (
