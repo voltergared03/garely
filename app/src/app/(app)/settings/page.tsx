@@ -7,7 +7,7 @@ import {
   Globe, Languages, LogOut, Save, Check, Mic, Video as VideoIcon, Volume2,
   Users, Shield, ShieldAlert, Sparkles, Search, Plus,
   Video, Mail, Archive, Download, Settings as SettingsIcon,
-  Key, Eye, EyeOff, Loader2, Trash2, X, Copy,
+  Key, Eye, EyeOff, Loader2, Trash2, X, Copy, Pencil,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
@@ -352,6 +352,29 @@ function UsersTab() {
   const { data: session } = useSession();
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [editNameId, setEditNameId] = useState<string | null>(null);
+  const [editNameVal, setEditNameVal] = useState('');
+  const saveName = async (u: UserRecord) => {
+    const n = editNameVal.trim();
+    if (!n || n === u.name) { setEditNameId(null); return; }
+    const prev = u.name;
+    setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, name: n } : x)));
+    setEditNameId(null);
+    try {
+      const res = await fetch(`/api/users/${u.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: n }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, name: prev } : x)));
+        alert(err.error || t('settings.changeRoleFailed'));
+      }
+    } catch {
+      setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, name: prev } : x)));
+      alert(t('settings.networkError'));
+    }
+  };
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -529,8 +552,41 @@ function UsersTab() {
             <div key={u.id} className="admin-table-row" style={{ display: 'grid', padding: '12px 16px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 13 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Avatar name={u.name} image={u.image} size="md" />
-                <div>
-                  <div style={{ fontWeight: 500 }}>{u.name}{isMe && <span className="chip" style={{ marginLeft: 6 }}>{t('settings.itsYou')}</span>}</div>
+                <div style={{ minWidth: 0 }}>
+                  {editNameId === u.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        className="field"
+                        value={editNameVal}
+                        autoFocus
+                        onChange={(e) => setEditNameVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveName(u);
+                          if (e.key === 'Escape') setEditNameId(null);
+                        }}
+                        style={{ height: 30, fontSize: 13, padding: '4px 8px', maxWidth: 180 }}
+                      />
+                      <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.save')} onClick={() => saveName(u)}>
+                        <Check size={14} />
+                      </button>
+                      <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.cancel')} onClick={() => setEditNameId(null)}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
+                      {isMe && <span className="chip">{t('settings.itsYou')}</span>}
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        style={{ width: 22, height: 22, flexShrink: 0, opacity: 0.7 }}
+                        title={t('settings.editName')}
+                        onClick={() => { setEditNameId(u.id); setEditNameVal(u.name); }}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  )}
                   <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{t(`settings.role_${u.role}`)}</div>
                 </div>
               </div>

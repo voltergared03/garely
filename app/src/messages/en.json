@@ -608,6 +608,7 @@
     "role_member": "Member",
     "role_viewer": "Viewer",
     "changeRoleFailed": "Could not change the role",
+    "editName": "Edit name",
     "you": "You",
     "statusNeverLoggedIn": "Never logged in",
     "statusOnline": "Online",
@@ -836,6 +837,12 @@
       "startsBefore": "Starts at",
       "startsAfter": "(in about 15 min).",
       "joinButton": "Join →"
+    },
+    "registrationRequest": {
+      "subject": "New registration request",
+      "heading": "New registration request",
+      "body": "{email} requested access. Approve or decline it in your workspace settings.",
+      "cta": "Review requests"
     },
     "registrationApproved": {
       "subject": "{ws} — access approved",

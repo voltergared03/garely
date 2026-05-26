@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
-import { getAuthConfig, emailAllowedForSelfReg } from '@/lib/config';
+import { getAuthConfig, emailAllowedForSelfReg, publicBaseUrl } from '@/lib/config';
+import { sendEmail } from '@/lib/email';
+import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { notify } from '@/lib/notify';
 import { rateLimit } from '@/lib/rate-limit';
 
@@ -70,6 +72,34 @@ export async function POST(req: NextRequest) {
       body: email,
       link: '/settings',
     });
+  } catch {
+    /* non-fatal */
+  }
+
+  // Email admins too — best-effort. In-app + push above only reach an open or
+  // push-subscribed session, so the email is what actually "arrives" off-app.
+  try {
+    const adminEmails = (
+      await prisma.user.findMany({ where: { role: 'admin', email: { not: null } }, select: { email: true } })
+    )
+      .map((a) => a.email!)
+      .filter(Boolean);
+    if (adminEmails.length) {
+      const et = getTranslator(await workspaceLocale());
+      const appUrl = await publicBaseUrl();
+      const link = appUrl ? `${appUrl}/settings` : '';
+      await sendEmail({
+        to: adminEmails,
+        template: 'registration-request',
+        subject: et('emails.registrationRequest.subject'),
+        text: `${et('emails.registrationRequest.body', { email })}${link ? `\n\n${link}` : ''}`,
+        html: `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:28px 24px;background:#0f1115;border-radius:14px;color:#e8eaed">
+          <div style="font-size:20px;font-weight:700;margin-bottom:8px">${et('emails.registrationRequest.heading')}</div>
+          <p style="color:#9aa0a6;margin:0 0 16px;line-height:1.5">${et('emails.registrationRequest.body', { email })}</p>
+          ${link ? `<a href="${link}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px">${et('emails.registrationRequest.cta')} →</a>` : ''}
+        </div>`,
+      });
+    }
   } catch {
     /* non-fatal */
   }

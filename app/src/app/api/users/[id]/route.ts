@@ -25,9 +25,16 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { role, spokenLanguage, spokenLanguageLocked } = body;
+  const { role, spokenLanguage, spokenLanguageLocked, name } = body;
 
   const data: any = {};
+
+  // Admin can rename any user.
+  if (name !== undefined) {
+    const n = String(name).trim().slice(0, 120);
+    if (!n) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+    data.name = n;
+  }
 
   if (role !== undefined) {
     if (!role || !['admin', 'member', 'viewer'].includes(role)) {

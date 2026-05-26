@@ -608,6 +608,7 @@
     "role_member": "Учасник",
     "role_viewer": "Глядач",
     "changeRoleFailed": "Не вдалося змінити роль",
+    "editName": "Змінити ім'я",
     "you": "Ви",
     "statusNeverLoggedIn": "Не входив",
     "statusOnline": "Online",
@@ -836,6 +837,12 @@
       "startsBefore": "Почнеться о",
       "startsAfter": "(приблизно за 15 хв).",
       "joinButton": "Приєднатися →"
+    },
+    "registrationRequest": {
+      "subject": "Нова заявка на реєстрацію",
+      "heading": "Нова заявка на реєстрацію",
+      "body": "{email} подав(-ла) заявку на доступ. Схваліть або відхиліть її в налаштуваннях робочого простору.",
+      "cta": "Переглянути заявки"
     },
     "registrationApproved": {
       "subject": "{ws} — доступ підтверджено",
