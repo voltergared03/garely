@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
 import { requireMeetingAccess } from '@/lib/api-auth';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id/admit — list pending guest join requests (any participant)
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const guard = await requireMeetingAccess(id);
   if (guard instanceof Response) return guard;
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // POST /api/meetings/:id/admit — approve/deny a guest (any participant)
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const guard = await requireMeetingAccess(id);
   if (guard instanceof Response) return guard;
@@ -39,3 +40,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   return NextResponse.json({ success: true, status: action });
 }
+
+export const GET = withRoute('meetings.admit.list', getHandler);
+export const POST = withRoute('meetings.admit.decide', postHandler);

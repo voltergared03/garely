@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
-export async function GET(
+async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -72,7 +73,7 @@ export async function GET(
 }
 
 // PATCH /api/meetings/:id — update meeting
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -181,7 +182,7 @@ export async function PATCH(
 }
 
 // DELETE /api/meetings/:id — delete meeting
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -214,3 +215,7 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+
+export const GET = withRoute('meetings.get', getHandler);
+export const PATCH = withRoute('meetings.update', patchHandler);
+export const DELETE = withRoute('meetings.delete', deleteHandler);

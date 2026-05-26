@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 const FIELDS = [
   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE',
@@ -8,7 +9,7 @@ const FIELDS = [
 ];
 
 // GET /api/settings/email — current SMTP config (password never returned)
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -30,7 +31,7 @@ export async function GET() {
 }
 
 // PATCH /api/settings/email — save SMTP config (password only updated if provided)
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -58,3 +59,6 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ success: true, updated: Object.keys(updates) });
 }
+
+export const GET = withRoute('settings.email.get', getHandler);
+export const PATCH = withRoute('settings.email.update', patchHandler);

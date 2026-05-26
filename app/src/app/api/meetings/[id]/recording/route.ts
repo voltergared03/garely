@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { promises as fs } from 'fs';
 import { userCanAccessMeeting } from '@/lib/access';
+import { withRoute } from '@/lib/with-route';
 
 const RETENTION_DAYS = 7;
 
@@ -22,7 +23,7 @@ function serialize(rec: any) {
 }
 
 // GET — latest ready recording for the meeting (or null)
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 // PATCH — { permanent: boolean } → keep forever (no expiry) or reset 7-day expiry
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
@@ -60,7 +61,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 // DELETE — remove the recording file + row (admin or any authenticated user)
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
@@ -76,3 +77,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await prisma.recording.delete({ where: { id: rec.id } });
   return NextResponse.json({ success: true });
 }
+
+export const GET = withRoute('meetings.recording.get', getHandler);
+export const PATCH = withRoute('meetings.recording.update', patchHandler);
+export const DELETE = withRoute('meetings.recording.delete', deleteHandler);

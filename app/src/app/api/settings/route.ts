@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/settings — get current user settings
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -55,7 +56,7 @@ export async function GET() {
 }
 
 // PATCH /api/settings — update user settings
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -88,3 +89,6 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json(user);
 }
+
+export const GET = withRoute('settings.get', getHandler);
+export const PATCH = withRoute('settings.update', patchHandler);

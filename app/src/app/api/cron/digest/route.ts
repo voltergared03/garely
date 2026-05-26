@@ -4,9 +4,10 @@ import { sendEmail } from '@/lib/email';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { publicBaseUrl } from '@/lib/config';
 import { esc } from '@/lib/email/html';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/cron/digest?secret=XXX — weekly digest for users who enabled it.
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret');
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -64,3 +65,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ users: users.length, sent });
 }
+
+export const GET = withRoute('cron.digest', getHandler);

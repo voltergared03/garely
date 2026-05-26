@@ -3,13 +3,14 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, verifyPassword, passwordPolicyError } from '@/lib/password';
+import { withRoute } from '@/lib/with-route';
 
 export const dynamic = 'force-dynamic';
 
 // POST /api/account/password { currentPassword?, newPassword } — change own password.
 // Forced first-change (mustChangePassword, just logged in with a temp password)
 // skips the current-password check; a voluntary change requires it.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -44,3 +45,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withRoute('account.password', postHandler);

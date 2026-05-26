@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/join/:token — get meeting info by join token (for guest join page)
-export async function GET(
+async function getHandler(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
@@ -41,3 +42,5 @@ export async function GET(
 
   return NextResponse.json(meeting);
 }
+
+export const GET = withRoute('meetings.join', getHandler);

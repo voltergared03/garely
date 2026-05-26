@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sendEmail } from '@/lib/email';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/settings/email/test — send a test email using the saved SMTP config
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -34,3 +35,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ success: true, messageId: result.messageId });
 }
+
+export const POST = withRoute('settings.email.test', postHandler);

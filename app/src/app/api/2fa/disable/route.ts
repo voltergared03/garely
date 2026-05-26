@@ -5,10 +5,11 @@ import { verifyTotp } from '@/lib/totp';
 import { decryptSecret, matchBackupCode, TWOFA_COOKIE } from '@/lib/twofactor';
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit';
 import { getTranslations } from 'next-intl/server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/2fa/disable { code } — verify a current TOTP or backup code, then
 // turn 2FA off and wipe the secret + backup codes.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = session.user.id as string;
@@ -44,3 +45,5 @@ export async function POST(req: NextRequest) {
   res.cookies.set(TWOFA_COOKIE, '', { path: '/', maxAge: 0 });
   return res;
 }
+
+export const POST = withRoute('2fa.disable', postHandler);

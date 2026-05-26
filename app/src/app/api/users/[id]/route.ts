@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // PATCH /api/users/[id] — update user (role, etc.)
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -93,7 +94,7 @@ export async function PATCH(
 // reassigned to the requesting admin so reports survive; optional relations
 // (participants, task assignees, transcript speakers) auto-null; accounts/
 // sessions/notifications cascade.
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -137,3 +138,6 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+
+export const PATCH = withRoute('users.update', patchHandler);
+export const DELETE = withRoute('users.delete', deleteHandler);

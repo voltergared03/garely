@@ -5,10 +5,11 @@ import { notify } from '@/lib/notify';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { publicBaseUrl } from '@/lib/config';
 import { esc } from '@/lib/email/html';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/cron/reminders?secret=XXX — called by system cron (every few minutes).
 // Sends "meeting starting soon" in-app notifications + emails ~15 min before start.
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret');
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -88,3 +89,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ processed: meetings.length, notified, emailed });
 }
+
+export const GET = withRoute('cron.reminders', getHandler);

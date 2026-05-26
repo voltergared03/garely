@@ -6,11 +6,12 @@ import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 import { generateSecret, otpauthURL } from '@/lib/totp';
 import { encryptSecret } from '@/lib/twofactor';
 import { getTranslations } from 'next-intl/server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/2fa/setup — generate a fresh TOTP secret + QR (not yet enabled).
 // The secret is stored encrypted with totpEnabled still false; it only takes
 // effect once /api/2fa/enable verifies a code.
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = session.user.id as string;
@@ -40,3 +41,5 @@ export async function POST() {
 
   return NextResponse.json({ secret, otpauthUrl: url, qr });
 }
+
+export const POST = withRoute('2fa.setup', postHandler);

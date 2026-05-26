@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig, writeConfig, CONFIG_DEFAULTS, getAuthConfig } from '@/lib/config';
+import { withRoute } from '@/lib/with-route';
 
 const BOOL_KEYS = ['WS_GUEST_ACCESS', 'WS_AI_SUMMARY', 'WS_LIVE_TRANSCRIPTION', 'WS_RECORD_ALL', 'WS_REQUIRE_2FA'];
 const STR_KEYS = ['WS_NAME', 'WS_DOMAIN', 'WS_TIMEZONE', 'WS_LANGUAGE'];
@@ -10,7 +11,7 @@ const NUM_KEYS = ['WS_MAX_PARTICIPANTS', 'WS_MAX_DURATION_MIN', 'WS_RETENTION_DA
 const ALL_KEYS = [...BOOL_KEYS, ...STR_KEYS, ...NUM_KEYS];
 
 // GET /api/settings/workspace — workspace + pricing config (merged with defaults)
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -33,7 +34,7 @@ export async function GET() {
 }
 
 // PATCH /api/settings/workspace — save workspace + pricing config
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -121,3 +122,6 @@ export async function PATCH(req: NextRequest) {
   await writeConfig(updates);
   return NextResponse.json({ success: true, updated: Object.keys(updates) });
 }
+
+export const GET = withRoute('settings.workspace.get', getHandler);
+export const PATCH = withRoute('settings.workspace.update', patchHandler);

@@ -3,13 +3,14 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isInternalAuthed } from '@/lib/internal-auth';
+import { withRoute } from '@/lib/with-route';
 
 const ALLOWED_KEYS = ['DEEPSEEK_API_KEY', 'DEEPSEEK_BASE_URL', 'DEEPSEEK_MODEL', 'DEEPGRAM_API_KEY', 'DEEPGRAM_MODEL', 'DEEPGRAM_LANGUAGE'];
 const SECRET_KEYS = ['DEEPSEEK_API_KEY', 'DEEPGRAM_API_KEY'];
 
 // GET /api/settings/keys — masked for admins (write-only secrets); full values for
 // internal callers (the Python agent, authenticated by the shared secret header).
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const internal = isInternalAuthed(req);
   if (!internal) {
     const session = await auth();
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
 }
 
 // PATCH /api/settings/keys — update API keys
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -87,3 +88,6 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ success: true, updated: updates.map(u => u.key) });
 }
+
+export const GET = withRoute('settings.keys.get', getHandler);
+export const PATCH = withRoute('settings.keys.update', patchHandler);

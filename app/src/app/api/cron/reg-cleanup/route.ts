@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/cron/reg-cleanup?secret=XXX — called by system cron (e.g. hourly).
 // Expires self-registration requests past their TTL so the admin queue stays clean.
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret');
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -16,3 +17,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ expired: res.count });
 }
+
+export const GET = withRoute('cron.reg-cleanup', getHandler);

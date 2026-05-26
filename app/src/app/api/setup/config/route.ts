@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifySetupToken } from '@/lib/setup';
 import { writeConfig } from '@/lib/config';
 import { rateLimit } from '@/lib/rate-limit';
+import { withRoute } from '@/lib/with-route';
 
 // Only these config namespaces may be written through the setup flow.
 const ALLOW_PREFIX = ['WS_', 'AUTH_', 'GOOGLE_', 'DEEPSEEK_', 'DEEPGRAM_', 'SMTP_', 'S3_'];
@@ -11,7 +12,7 @@ function ipOf(req: NextRequest): string {
 }
 
 // POST /api/setup/config { token, values: { KEY: value } } — token-gated config write.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const rl = rateLimit(`setup-config:${ipOf(req)}`, 60, 60_000);
   if (!rl.ok) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
@@ -41,3 +42,5 @@ export async function POST(req: NextRequest) {
   await writeConfig(updates);
   return NextResponse.json({ ok: true, saved: Object.keys(updates) });
 }
+
+export const POST = withRoute('setup.config', postHandler);

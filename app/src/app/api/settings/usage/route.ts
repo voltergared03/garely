@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig, num } from '@/lib/config';
+import { withRoute } from '@/lib/with-route';
 
-export async function GET() {
+async function getHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -108,3 +109,5 @@ export async function GET() {
     },
   });
 }
+
+export const GET = withRoute('settings.usage', getHandler);

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from '@/lib/config';
 import { getTranslator } from '@/lib/i18n-server';
+import { withRoute } from '@/lib/with-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ async function admin() {
 }
 
 // GET /api/users/requests — pending (non-expired) self-registration requests.
-export async function GET() {
+async function getHandler() {
   if (!(await admin())) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const requests = await prisma.registrationRequest.findMany({
     where: { status: 'pending', expiresAt: { gt: new Date() } },
@@ -26,7 +27,7 @@ export async function GET() {
 }
 
 // POST /api/users/requests { id, action: 'approve' | 'deny' }
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await admin();
   if (!session) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
@@ -94,3 +95,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ error: t('unknownAction') }, { status: 400 });
 }
+
+export const GET = withRoute('users.requests.list', getHandler);
+export const POST = withRoute('users.requests.decide', postHandler);

@@ -11,10 +11,11 @@ import {
 } from '@/lib/twofactor';
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit';
 import { getTranslations } from 'next-intl/server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/2fa/enable { code } — verify a code against the pending secret,
 // turn 2FA on, and return one-time backup codes (shown once).
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = session.user.id as string;
@@ -52,3 +53,5 @@ export async function POST(req: NextRequest) {
   res.cookies.set(TWOFA_COOKIE, makeTwoFactorCookie(userId), TWOFA_COOKIE_OPTS);
   return res;
 }
+
+export const POST = withRoute('2fa.enable', postHandler);

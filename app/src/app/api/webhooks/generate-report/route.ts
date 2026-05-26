@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isInternalAuthed } from '@/lib/internal-auth';
 import { generateMeetingReport } from '@/lib/regenerate';
+import { withRoute } from '@/lib/with-route';
 
 export const maxDuration = 300;
 
@@ -8,7 +9,7 @@ export const maxDuration = 300;
 // room end). Generates the full report (summary + extended topic report) server-
 // side and returns immediately; generation continues in the background so the
 // agent is never blocked by the model latency / its own shutdown window.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   if (!isInternalAuthed(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -30,3 +31,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, queued: true }, { status: 202 });
 }
+
+export const POST = withRoute('webhooks.generate-report', postHandler);

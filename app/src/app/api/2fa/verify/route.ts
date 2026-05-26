@@ -11,10 +11,11 @@ import {
 } from '@/lib/twofactor';
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit';
 import { getTranslations } from 'next-intl/server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/2fa/verify { code } — verify a TOTP or backup code for the current
 // session and set the short-lived "2FA passed" cookie. Backup codes are single-use.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const userId = session.user.id as string;
@@ -62,3 +63,5 @@ export async function POST(req: NextRequest) {
   res.cookies.set(TWOFA_COOKIE, makeTwoFactorCookie(userId), TWOFA_COOKIE_OPTS);
   return res;
 }
+
+export const POST = withRoute('2fa.verify', postHandler);

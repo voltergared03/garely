@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { getS3Config, testS3 } from '@/lib/s3';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/settings/s3/test — verify saved S3 config (put + delete a tiny object)
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -20,3 +21,5 @@ export async function POST() {
   }
   return NextResponse.json({ success: true });
 }
+
+export const POST = withRoute('settings.s3.test', postHandler);

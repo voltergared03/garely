@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { sendPushToUsers } from '@/lib/push';
+import { withRoute } from '@/lib/with-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // Validates the full pipeline (VAPID → push service → SW). Returns how many
 // subscriptions it reached so the UI can distinguish "no subscription" from
 // "delivered but the OS didn't display it".
-export async function POST() {
+async function postHandler() {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -27,3 +28,5 @@ export async function POST() {
 
   return NextResponse.json({ sent, pruned });
 }
+
+export const POST = withRoute('push.test', postHandler);

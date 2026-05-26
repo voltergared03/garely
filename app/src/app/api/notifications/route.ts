@@ -3,9 +3,10 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { isInternalAuthed } from '@/lib/internal-auth';
 import { notify } from '@/lib/notify';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/notifications — list notifications for current user
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 // PATCH /api/notifications — mark notifications as read
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -64,7 +65,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // POST /api/notifications — create notification (internal/webhook use, or admin)
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   if (!isInternalAuthed(req)) {
     const session = await auth();
     if (!session?.user || session.user.role !== 'admin') {
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
 // DELETE /api/notifications — delete the current user's notifications.
 // Body: { ids: string[] } to remove specific ones, or { all: true } to clear all.
 // Always scoped to the authenticated user, so one user can't delete another's.
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -121,3 +122,8 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({ error: 'ids or all required' }, { status: 400 });
 }
+
+export const GET = withRoute('notifications.list', getHandler);
+export const PATCH = withRoute('notifications.mark-read', patchHandler);
+export const POST = withRoute('notifications.create', postHandler);
+export const DELETE = withRoute('notifications.delete', deleteHandler);

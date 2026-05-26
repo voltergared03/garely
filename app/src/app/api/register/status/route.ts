@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword } from '@/lib/password';
 import { rateLimit } from '@/lib/rate-limit';
+import { withRoute } from '@/lib/with-route';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ function ipOf(req: NextRequest): string {
 //
 // Password-gated: the status is only revealed to someone who knows the password
 // set at registration, so it can't be used to enumerate pending sign-ups.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   if (!rateLimit(`regstatus:${ipOf(req)}`, 10, 10 * 60_000).ok) {
     return NextResponse.json({ status: 'none' });
   }
@@ -47,3 +48,5 @@ export async function POST(req: NextRequest) {
   // approved (a User exists → real bad-credentials) or anything else → generic.
   return NextResponse.json({ status: 'none' });
 }
+
+export const POST = withRoute('register.status', postHandler);

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { promises as fs } from 'fs';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/cron/recordings?secret=XXX — called by system cron (daily).
 // Deletes recordings whose retention window expired (file + DB row), skipping
 // permanent ones.
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get('secret');
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -25,3 +26,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ deleted });
 }
+
+export const GET = withRoute('cron.recordings', getHandler);

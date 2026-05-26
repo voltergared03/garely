@@ -6,9 +6,10 @@ import { userCanAccessMeeting } from '@/lib/access';
 import { publicBaseUrl } from '@/lib/config';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { esc } from '@/lib/email/html';
+import { withRoute } from '@/lib/with-route';
 
 // POST — email the meeting report (summary, decisions, action items, follow-ups) to participants
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function postHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
@@ -88,3 +89,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!result.ok) return NextResponse.json({ error: result.error || t('emails.common.sendFailed') }, { status: 502 });
   return NextResponse.json({ success: true, recipients: recipients.length });
 }
+
+export const POST = withRoute('meetings.send-report', postHandler);

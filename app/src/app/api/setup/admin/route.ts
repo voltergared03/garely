@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { verifySetupToken, markSetupComplete } from '@/lib/setup';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/setup/admin { token, email, name, password }
 // Password-auth setup path: create the first admin from email+password and
 // finalize setup. (Google-auth setup uses /api/setup/complete instead.)
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const { token, email, name, password } = await req.json().catch(() => ({}));
   const t = await getTranslations('errors');
 
@@ -48,3 +49,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withRoute('setup.admin', postHandler);

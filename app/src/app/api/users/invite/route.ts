@@ -5,10 +5,11 @@ import { sendEmail } from '@/lib/email';
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl, getAuthConfig } from '@/lib/config';
 import crypto from 'node:crypto';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
+import { withRoute } from '@/lib/with-route';
 
 // POST /api/users/invite — invite a user by email (admin only).
 // Pre-creates the user with the chosen role and emails a login link.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -89,3 +90,5 @@ export async function POST(req: NextRequest) {
     user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role, lastLogin: user.lastLogin },
   });
 }
+
+export const POST = withRoute('users.invite', postHandler);

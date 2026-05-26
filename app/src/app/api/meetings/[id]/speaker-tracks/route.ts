@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id/speaker-tracks — list per-speaker audio tracks captured
 // for this meeting (used by the report UI to offer "fix language & regenerate").
-export async function GET(
+async function getHandler(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -29,3 +30,5 @@ export async function GET(
 
   return NextResponse.json(tracks);
 }
+
+export const GET = withRoute('meetings.speaker-tracks', getHandler);
