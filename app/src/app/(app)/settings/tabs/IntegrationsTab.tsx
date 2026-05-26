@@ -1,0 +1,426 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
+import {
+  Globe, Mic, Sparkles, Video, Mail, Archive, Download,
+  Key, Eye, EyeOff, Loader2, Save, Check,
+} from 'lucide-react';
+import { Toggle, FieldWrapper } from '../components/shared';
+
+export function IntegrationsTab() {
+  const t = useTranslations();
+  const locale = useLocale();
+  const INTEGRATION_ICONS: Record<string, React.ReactNode> = {
+    LiveKit: <Video size={18} />,
+    Deepgram: <Mic size={18} />,
+    DeepSeek: <Sparkles size={18} />,
+    'SMTP Email': <Mail size={18} />,
+    'Google OAuth': <Globe size={18} />,
+    PostgreSQL: <Archive size={18} />,
+    'S3 Storage': <Download size={18} />,
+  };
+  const [integrations, setIntegrations] = useState<{ name: string; desc: string; status: string; metric?: string }[]>([]);
+
+  // API Keys management
+  const [keys, setKeys] = useState<Record<string, { value: string; masked: string; updatedAt: string }>>({});
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [keysLoading, setKeysLoading] = useState(true);
+
+  // SMTP / email config
+  const [smtp, setSmtp] = useState({ host: '', port: '587', secure: false, user: '', from: '', fromName: '', passSet: false });
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpSaved, setSmtpSaved] = useState(false);
+  const [smtpLoading, setSmtpLoading] = useState(true);
+  const [testEmail, setTestEmail] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // S3 / object storage config
+  const [s3, setS3] = useState({ endpoint: '', region: '', bucket: '', accessKeyId: '', forcePathStyle: false, secretSet: false });
+  const [s3Secret, setS3Secret] = useState('');
+  const [s3Saving, setS3Saving] = useState(false);
+  const [s3Saved, setS3Saved] = useState(false);
+  const [s3Testing, setS3Testing] = useState(false);
+  const [s3Test, setS3Test] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings/keys')
+      .then(r => r.json())
+      .then(data => { if (!data.error) setKeys(data); })
+      .catch(console.error)
+      .finally(() => setKeysLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/settings/email')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.error) setSmtp({
+          host: d.host || '', port: String(d.port || '587'), secure: !!d.secure,
+          user: d.user || '', from: d.from || '', fromName: d.fromName || '', passSet: !!d.passSet,
+        });
+      })
+      .catch(() => {})
+      .finally(() => setSmtpLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/settings/integrations')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.integrations)) setIntegrations(d.integrations); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/settings/s3')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.error) setS3({
+          endpoint: d.endpoint || '', region: d.region || '', bucket: d.bucket || '',
+          accessKeyId: d.accessKeyId || '', forcePathStyle: !!d.forcePathStyle, secretSet: !!d.secretSet,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveS3 = async () => {
+    setS3Saving(true); setS3Saved(false);
+    try {
+      const payload: any = { endpoint: s3.endpoint, region: s3.region, bucket: s3.bucket, accessKeyId: s3.accessKeyId, forcePathStyle: s3.forcePathStyle };
+      if (s3Secret) payload.secretAccessKey = s3Secret;
+      const res = await fetch('/api/settings/s3', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        setS3Saved(true);
+        if (s3Secret) { setS3((s) => ({ ...s, secretSet: true })); setS3Secret(''); }
+        setTimeout(() => setS3Saved(false), 2500);
+      }
+    } catch (e) { console.error(e); }
+    finally { setS3Saving(false); }
+  };
+
+  const testS3Conn = async () => {
+    setS3Testing(true); setS3Test(null);
+    try {
+      const res = await fetch('/api/settings/s3/test', { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      setS3Test(res.ok ? { ok: true, msg: t('settings.connectionSuccess') } : { ok: false, msg: d.error || t('settings.error') });
+    } catch { setS3Test({ ok: false, msg: t('settings.networkError') }); }
+    finally { setS3Testing(false); }
+  };
+
+  const saveKey = async (keyName: string) => {
+    if (!editValue.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/settings/keys', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [keyName]: editValue.trim() }),
+      });
+      if (res.ok) {
+        const data = await fetch('/api/settings/keys').then(r => r.json());
+        if (!data.error) setKeys(data);
+        setEditingKey(null);
+        setEditValue('');
+      }
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const saveSmtp = async () => {
+    setSmtpSaving(true); setSmtpSaved(false);
+    try {
+      const payload: any = { host: smtp.host, port: smtp.port, secure: smtp.secure, user: smtp.user, from: smtp.from, fromName: smtp.fromName };
+      if (smtpPass) payload.pass = smtpPass;
+      const res = await fetch('/api/settings/email', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setSmtpSaved(true);
+        if (smtpPass) { setSmtp(s => ({ ...s, passSet: true })); setSmtpPass(''); }
+        setTimeout(() => setSmtpSaved(false), 2500);
+      }
+    } catch (e) { console.error(e); }
+    finally { setSmtpSaving(false); }
+  };
+
+  const sendTest = async () => {
+    setTesting(true); setTestResult(null);
+    try {
+      const res = await fetch('/api/settings/email/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: testEmail.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      setTestResult(res.ok ? { ok: true, msg: t('settings.testEmailSent') } : { ok: false, msg: d.error || t('settings.sendFailed') });
+    } catch { setTestResult({ ok: false, msg: t('settings.networkError') }); }
+    finally { setTesting(false); }
+  };
+
+  const API_KEYS_CONFIG = [
+    { key: 'DEEPGRAM_API_KEY', label: 'Deepgram API Key', service: 'Deepgram' },
+    { key: 'DEEPGRAM_MODEL', label: 'Deepgram Model', service: 'Deepgram' },
+    { key: 'DEEPGRAM_LANGUAGE', label: 'Deepgram Language', service: 'Deepgram' },
+    { key: 'DEEPSEEK_API_KEY', label: 'DeepSeek API Key', service: 'DeepSeek' },
+    { key: 'DEEPSEEK_BASE_URL', label: 'DeepSeek Base URL', service: 'DeepSeek' },
+    { key: 'DEEPSEEK_MODEL', label: 'DeepSeek Model', service: 'DeepSeek' },
+  ];
+
+  return (
+    <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Services list */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {integrations.length === 0 && (
+          <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('settings.checkingIntegrations')}</div>
+        )}
+        {integrations.map((it) => {
+          const connected = it.status === 'connected';
+          const isError = it.status === 'error';
+          return (
+            <div key={it.name} className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                background: connected ? 'color-mix(in oklab, var(--accent) 16%, var(--surface-2))' : 'var(--surface-2)',
+                color: connected ? 'var(--accent-2)' : 'var(--muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{INTEGRATION_ICONS[it.name]}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{it.name}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{it.desc}</div>
+              </div>
+              {it.metric && <div className="mono" style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>{it.metric}</div>}
+              {connected ? (
+                <span className="chip" style={{ background: 'color-mix(in oklab, var(--green) 14%, transparent)', color: '#a7f3d0', borderColor: 'color-mix(in oklab, var(--green) 30%, transparent)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} /> OK
+                </span>
+              ) : isError ? (
+                <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 14%, transparent)', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 30%, transparent)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} /> {t('settings.statusError')}
+                </span>
+              ) : (
+                <span className="chip" style={{ color: 'var(--muted)' }}>{t('settings.notConfigured')}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* API Keys */}
+      <div className="card" style={{ padding: '18px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <Key size={16} style={{ color: 'var(--accent-2)' }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.apiKeys')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.apiKeysDesc')}</div>
+          </div>
+        </div>
+
+        {keysLoading ? (
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {API_KEYS_CONFIG.map(({ key: keyName, label }) => {
+              const keyData = keys[keyName];
+              const isEditing = editingKey === keyName;
+              const isVisible = showKey[keyName];
+
+              return (
+                <div key={keyName} style={{
+                  padding: '12px 14px', background: 'var(--surface)', borderRadius: 10,
+                  border: '1px solid var(--border)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEditing ? 10 : 0 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
+                      {!isEditing && (
+                        <div className="mono" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                          {isVisible ? keyData?.value : keyData?.masked || t('settings.notConfigured')}
+                        </div>
+                      )}
+                    </div>
+                    {!isEditing && (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {keyData?.value && (
+                          <button className="btn btn-ghost btn-icon" style={{ width: 30, height: 30 }}
+                            onClick={() => setShowKey(p => ({ ...p, [keyName]: !p[keyName] }))}>
+                            {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        )}
+                        <button className="btn btn-sm" onClick={() => { setEditingKey(keyName); setEditValue(''); }}>
+                          {t('common.edit')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {isEditing && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input className="field" value={editValue} onChange={e => setEditValue(e.target.value)}
+                        placeholder={
+                          keyName === 'DEEPSEEK_BASE_URL' ? 'https://api.deepseek.com'
+                          : keyName === 'DEEPSEEK_MODEL' ? 'deepseek-chat'
+                          : keyName === 'DEEPGRAM_MODEL' ? 'nova-3'
+                          : keyName === 'DEEPGRAM_LANGUAGE' ? 'multi'
+                          : t('settings.pasteNewKey')
+                        }
+                        style={{ flex: 1, fontSize: 13, fontFamily: 'var(--font-mono)' }}
+                        autoFocus
+                        onKeyDown={e => { if (e.key === 'Enter') saveKey(keyName); if (e.key === 'Escape') setEditingKey(null); }}
+                      />
+                      <button className="btn btn-primary btn-sm" onClick={() => saveKey(keyName)} disabled={saving || !editValue.trim()}>
+                        <Save size={13} />
+                      </button>
+                      <button className="btn btn-sm" onClick={() => setEditingKey(null)}>{t('common.cancel')}</button>
+                    </div>
+                  )}
+                  {keyData?.updatedAt && !isEditing && (
+                    <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
+                      {t('settings.updated')} {new Date(keyData.updatedAt).toLocaleDateString(locale)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Email / SMTP */}
+      <div className="card" style={{ padding: '18px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <Mail size={16} style={{ color: 'var(--accent-2)' }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Email / SMTP</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.smtpDesc')}</div>
+          </div>
+        </div>
+
+        {smtpLoading ? (
+          <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+              <FieldWrapper label={t('settings.smtpServer')}>
+                <input className="field" value={smtp.host} placeholder="smtp.gmail.com"
+                  onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} />
+              </FieldWrapper>
+              <FieldWrapper label={t('settings.port')}>
+                <input className="field" value={smtp.port} placeholder="587" inputMode="numeric"
+                  onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} />
+              </FieldWrapper>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FieldWrapper label={t('settings.smtpUser')}>
+                <input className="field" value={smtp.user} placeholder="admin@example.com"
+                  onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} />
+              </FieldWrapper>
+              <FieldWrapper label={smtp.passSet ? t('settings.smtpPasswordSet') : t('settings.smtpPassword')}>
+                <input className="field" type="password" value={smtpPass}
+                  placeholder={smtp.passSet ? '••••••••••••' : 'App Password'}
+                  onChange={e => setSmtpPass(e.target.value)} />
+              </FieldWrapper>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FieldWrapper label={t('settings.smtpFrom')}>
+                <input className="field" value={smtp.from} placeholder="admin@example.com"
+                  onChange={e => setSmtp(s => ({ ...s, from: e.target.value }))} />
+              </FieldWrapper>
+              <FieldWrapper label={t('settings.smtpFromName')}>
+                <input className="field" value={smtp.fromName} placeholder="EZmeet"
+                  onChange={e => setSmtp(s => ({ ...s, fromName: e.target.value }))} />
+              </FieldWrapper>
+            </div>
+
+            <Toggle
+              label={t('settings.smtpSsl')}
+              value={smtp.secure}
+              onChange={v => setSmtp(s => ({ ...s, secure: v }))}
+            />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <button className="btn btn-primary btn-sm" onClick={saveSmtp} disabled={smtpSaving}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {smtpSaving
+                  ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                  : <Save size={13} />} {t('common.save')}
+              </button>
+              {smtpSaved && (
+                <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Check size={13} /> {t('common.saved')}
+                </span>
+              )}
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.testEmail')}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input className="field" value={testEmail}
+                  placeholder={t('settings.testEmailPlaceholder')}
+                  onChange={e => setTestEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+                <button className="btn btn-sm" onClick={sendTest} disabled={testing}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {testing
+                    ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                    : <Mail size={13} />} {t('settings.sendTest')}
+                </button>
+              </div>
+              {testResult && (
+                <div style={{ fontSize: 12.5, color: testResult.ok ? 'var(--green)' : 'var(--red)' }}>
+                  {testResult.msg}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* S3 / Object storage */}
+      <div className="card" style={{ padding: '18px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <Download size={16} style={{ color: 'var(--accent-2)' }} />
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.s3Title')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.s3Desc')}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FieldWrapper label="Bucket">
+              <input className="field" value={s3.bucket} placeholder="eam-recordings" onChange={e => setS3(s => ({ ...s, bucket: e.target.value }))} />
+            </FieldWrapper>
+            <FieldWrapper label="Region">
+              <input className="field" value={s3.region} placeholder="us-east-1" onChange={e => setS3(s => ({ ...s, region: e.target.value }))} />
+            </FieldWrapper>
+          </div>
+          <FieldWrapper label={t('settings.s3Endpoint')}>
+            <input className="field" value={s3.endpoint} placeholder="https://s3.eu-central-1.wasabisys.com" onChange={e => setS3(s => ({ ...s, endpoint: e.target.value }))} />
+          </FieldWrapper>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FieldWrapper label="Access Key ID">
+              <input className="field" value={s3.accessKeyId} placeholder="AKIA..." onChange={e => setS3(s => ({ ...s, accessKeyId: e.target.value }))} />
+            </FieldWrapper>
+            <FieldWrapper label={s3.secretSet ? t('settings.s3SecretSet') : 'Secret Access Key'}>
+              <input className="field" type="password" value={s3Secret} placeholder={s3.secretSet ? '••••••••••••' : 'Secret'} onChange={e => setS3Secret(e.target.value)} />
+            </FieldWrapper>
+          </div>
+          <Toggle label={t('settings.s3ForcePathStyle')} value={s3.forcePathStyle} onChange={v => setS3(s => ({ ...s, forcePathStyle: v }))} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary btn-sm" onClick={saveS3} disabled={s3Saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {s3Saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+            </button>
+            <button className="btn btn-sm" onClick={testS3Conn} disabled={s3Testing} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {s3Testing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+            </button>
+            {s3Saved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
+            {s3Test && <span style={{ fontSize: 12.5, color: s3Test.ok ? 'var(--green)' : '#f87171' }}>{s3Test.msg}</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
