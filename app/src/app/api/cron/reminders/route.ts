@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { notify } from '@/lib/notify';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
+import { publicBaseUrl } from '@/lib/config';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
   // Reminder emails are a single batched send to mixed recipients (members +
   // guests), so they go out in the workspace's default language.
   const locale = await workspaceLocale();

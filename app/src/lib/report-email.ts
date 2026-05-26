@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { sendEmail } from './email';
 import { getTranslator, workspaceLocale } from './i18n-server';
+import { publicBaseUrl } from './config';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
@@ -50,7 +51,7 @@ export async function sendReportEmail(
   const decisions = (Array.isArray(report.decisions) ? report.decisions : []) as any[];
   const followUps = (Array.isArray(report.followUps) ? report.followUps : []) as any[];
   const tasks = report.tasks || [];
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
   const reportUrl = `${appUrl}/meetings/${meetingId}/report`;
 
   const section = (title: string, inner: string) =>

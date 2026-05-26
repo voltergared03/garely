@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, passwordPolicyError } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
-import { readConfig, CONFIG_DEFAULTS } from "@/lib/config";
+import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from "@/lib/config";
 import { getTranslator, workspaceLocale } from "@/lib/i18n-server";
 import { getTranslations } from "next-intl/server";
 
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
   // Best-effort credentials email (no-ops if SMTP isn't configured).
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "").replace(/\/+$/, "");
+  const appUrl = await publicBaseUrl();
   const loginUrl = appUrl ? `${appUrl}/login` : "/login";
   // Welcome the new user in their own language (workspace default at creation).
   const t = getTranslator(await workspaceLocale());

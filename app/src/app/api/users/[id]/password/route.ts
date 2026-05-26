@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
-import { readConfig, CONFIG_DEFAULTS } from "@/lib/config";
+import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from "@/lib/config";
 import { getTranslator, resolveUserLocale, workspaceLocale } from "@/lib/i18n-server";
 
 // POST /api/users/[id]/password — admin resets a user's password.
@@ -44,7 +44,7 @@ export async function POST(
   // Best-effort credentials email (no-ops if SMTP isn't configured).
   const cfg = await readConfig(["WS_NAME"]);
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || "").replace(/\/+$/, "");
+  const appUrl = await publicBaseUrl();
   const loginUrl = appUrl ? `${appUrl}/login` : "/login";
   let emailed = false;
   if (target.email) try {

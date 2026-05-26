@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
+import { publicBaseUrl } from '@/lib/config';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const weekStart = new Date(now.getTime() - 7 * 86400000);
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
 
   const users = await prisma.user.findMany({
     where: {

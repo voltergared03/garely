@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { userCanAccessMeeting } from '@/lib/access';
+import { publicBaseUrl } from '@/lib/config';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const decisions = (Array.isArray(report.decisions) ? report.decisions : []) as any[];
   const followUps = (Array.isArray(report.followUps) ? report.followUps : []) as any[];
   const tasks = report.tasks || [];
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
   const reportUrl = `${appUrl}/meetings/${id}/report`;
 
   const section = (title: string, inner: string) =>

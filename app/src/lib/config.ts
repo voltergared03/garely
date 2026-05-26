@@ -38,6 +38,30 @@ export async function getGoogleConfig(): Promise<{ clientId: string; clientSecre
   };
 }
 
+/**
+ * Public-facing base URL for links in user-facing emails (invites, password
+ * setup, reports, reminders, digests). It is CRITICAL not to use APP_URL on its
+ * own: that is the INTERNAL Docker address (e.g. http://eam-meet:3000) the app
+ * and agent use to call each other, and it is unreachable for email recipients.
+ * Priority: configured workspace domain → public env URLs → (last resort) APP_URL.
+ * Returns '' when nothing is configured (callers then omit the link).
+ */
+export async function publicBaseUrl(): Promise<string> {
+  const m = await readConfig(['WS_DOMAIN']);
+  const dom = (m.WS_DOMAIN || '').trim();
+  if (dom) {
+    const url = /^https?:\/\//i.test(dom) ? dom : `https://${dom}`;
+    return url.replace(/\/+$/, '');
+  }
+  const env =
+    process.env.PUBLIC_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.AUTH_URL ||
+    process.env.APP_URL ||
+    '';
+  return env.replace(/\/+$/, '');
+}
+
 export interface AuthConfig {
   googleEnabled: boolean;
   passwordEnabled: boolean;

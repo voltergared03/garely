@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
-import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from '@/lib/config';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 // POST /api/users/invite — invite a user by email (admin only).
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     created = true;
   }
 
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
   const inviterName = session.user.name || t('emails.common.adminFallback');
   const roleLabel = role === 'admin' ? t('emails.invite.roles.admin') : role === 'viewer' ? t('emails.invite.roles.viewer') : t('emails.invite.roles.member');
 

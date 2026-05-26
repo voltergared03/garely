@@ -3,7 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
-import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from '@/lib/config';
 import { getTranslator } from '@/lib/i18n-server';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const decidedById = (session.user as any).id as string;
   const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE', 'WS_NAME']);
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+  const appUrl = await publicBaseUrl();
   const loginUrl = appUrl ? `${appUrl}/login` : '/login';
   // The applicant is brand-new → their email goes out in the workspace language.
   const et = getTranslator(cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE);
