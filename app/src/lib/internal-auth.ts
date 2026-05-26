@@ -1,16 +1,11 @@
 import { NextRequest } from 'next/server';
+import { internalSecret } from './secret';
 
 /**
  * Shared-secret check for internal/machine callers (the Python agent, internal
- * webhooks). Callers must send `x-internal-key: <secret>`. The secret is
- * INTERNAL_API_SECRET if set, otherwise NEXTAUTH_SECRET / AUTH_SECRET — both the
- * app and the agent container receive these via env_file, so no extra config.
+ * webhooks). Callers must send `x-internal-key: <secret>`.
  */
-const SECRET =
-  process.env.INTERNAL_API_SECRET ||
-  process.env.NEXTAUTH_SECRET ||
-  process.env.AUTH_SECRET ||
-  '';
+const SECRET = internalSecret();
 
 export function isInternalAuthed(req: NextRequest): boolean {
   if (!SECRET) return false;

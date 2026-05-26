@@ -9,6 +9,7 @@
 import fs from 'node:fs/promises';
 import { prisma } from './prisma';
 import { readConfig, getDeepSeekConfig } from './config';
+import { sseJsonChunks, chunkDelta } from './sse';
 import { workspaceLocale } from './i18n-server';
 import { notify } from './notify';
 import { sendReportEmail } from './report-email';
@@ -258,29 +259,9 @@ ${numbered}`;
   // Accumulate the streamed completion (OpenAI-compatible SSE).
   let content = '';
   let usage: any = {};
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
-    for (const line of lines) {
-      const s = line.trim();
-      if (!s.startsWith('data:')) continue;
-      const payload = s.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
-      try {
-        const j = JSON.parse(payload);
-        const delta = j.choices?.[0]?.delta?.content;
-        if (typeof delta === 'string') content += delta;
-        if (j.usage) usage = j.usage;
-      } catch {
-        /* ignore keep-alive / partial chunks */
-      }
-    }
+  for await (const chunk of sseJsonChunks(res.body.getReader())) {
+    content += chunkDelta(chunk);
+    if (chunk.usage) usage = chunk.usage;
   }
 
   const rep = parseJsonLoose(content);

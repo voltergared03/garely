@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { verifyTwoFactorCookieEdge } from '@/lib/twofactor-edge';
+import { authSecret } from '@/lib/secret';
 
-const SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+const SECRET = authSecret() || undefined;
 
 /**
  * Enforces 2FA across the surfaces the (app)/layout gate can't reach:

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDeepSeekConfig } from '@/lib/config';
+import { sseJsonChunks, chunkDelta } from '@/lib/sse';
 import { workspaceLocale } from '@/lib/i18n-server';
 
 export const maxDuration = 120;
@@ -143,32 +144,14 @@ ${numbered}`;
 
   // Re-stream the OpenAI-compatible SSE as plain text deltas to the client.
   const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
   const reader = upstream.body.getReader();
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let buf = '';
       try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split('\n');
-          buf = lines.pop() || '';
-          for (const line of lines) {
-            const s = line.trim();
-            if (!s.startsWith('data:')) continue;
-            const payload = s.slice(5).trim();
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const j = JSON.parse(payload);
-              const delta = j.choices?.[0]?.delta?.content;
-              if (typeof delta === 'string' && delta) controller.enqueue(encoder.encode(delta));
-            } catch {
-              /* ignore keep-alive / partial chunks */
-            }
-          }
+        for await (const chunk of sseJsonChunks(reader)) {
+          const delta = chunkDelta(chunk);
+          if (delta) controller.enqueue(encoder.encode(delta));
         }
       } catch {
         /* upstream aborted — just close */

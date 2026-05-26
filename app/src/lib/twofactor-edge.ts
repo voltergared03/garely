@@ -5,9 +5,9 @@
  *   sig  = base64url( HMAC-SHA256(key, `${userId}.${exp}`) )
  *   cookie value = `${exp}.${sig}`
  */
+import { authSecretOrDev } from './secret';
 
-const SECRET =
-  process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'dev-insecure-secret-change-me';
+const SECRET = authSecretOrDev();
 const enc = new TextEncoder();
 
 function bytesToBase64Url(bytes: Uint8Array): string {

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { authSecretOrDev } from './secret';
 
 /**
  * Two-factor helpers: encrypt the TOTP secret at rest (AES-256-GCM),
@@ -6,8 +7,7 @@ import crypto from 'node:crypto';
  * short-lived "2FA passed" cookie. All keys derive from AUTH_SECRET.
  */
 
-const SECRET =
-  process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'dev-insecure-secret-change-me';
+const SECRET = authSecretOrDev();
 
 export const TWOFA_COOKIE = 'eam_2fa';
 const SESSION_TTL_SEC = 12 * 60 * 60; // re-prompt after 12h / on a new device
