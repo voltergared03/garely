@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
 import { createReadStream, promises as fs } from 'fs';
 import { Readable } from 'stream';
@@ -7,8 +7,8 @@ import { userCanAccessMeeting } from '@/lib/access';
 
 // GET — stream the recording file (auth required)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await requireAuth();
+  if (session instanceof Response) return session;
 
   const { id } = await params;
   const rec = await prisma.recording.findUnique({ where: { id } });

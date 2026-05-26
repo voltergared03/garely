@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTranslations } from "next-intl/server";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, meetingIdOfTask } from "@/lib/access";
 
 // GET /api/tasks — list tasks with filters
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof Response) return session;
 
   const userId = session.user.id;
   const userRole = session.user.role;
@@ -63,10 +61,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/tasks — create task manually
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof Response) return session;
 
   const body = await req.json();
   const { title, description, meetingId, assigneeId, priority, dueDate } = body;
@@ -111,10 +107,8 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/tasks — update task
 export async function PATCH(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof Response) return session;
 
   const t = await getTranslations("errors");
   const { taskId, ...data } = await req.json();
@@ -169,10 +163,8 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/tasks — delete task
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof Response) return session;
 
   const t = await getTranslations("errors");
   const { taskId } = await req.json();

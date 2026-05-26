@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { userCanAccessMeeting } from '@/lib/access';
+import { requireMeetingAccess } from '@/lib/api-auth';
 
 // GET /api/meetings/:id/admit — list pending guest join requests (any participant)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const guard = await requireMeetingAccess(id);
+  if (guard instanceof Response) return guard;
   const pending = await prisma.joinRequest.findMany({
     where: { meetingId: id, status: 'pending' },
     orderBy: { createdAt: 'asc' },
@@ -22,12 +18,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // POST /api/meetings/:id/admit — approve/deny a guest (any participant)
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const guard = await requireMeetingAccess(id);
+  if (guard instanceof Response) return guard;
   const t = await getTranslations('errors');
   const body = await req.json().catch(() => ({} as any));
   const requestId = String(body.requestId || '');
