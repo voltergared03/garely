@@ -6,13 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
 import { rateLimit } from '@/lib/rate-limit';
+import { withRoute } from '@/lib/with-route';
 
 function ipOf(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
 }
 
 // GET /api/auth/set-password?token=… — validate an invite token.
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token') || '';
   if (!token) return NextResponse.json({ ok: false }, { status: 400 });
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/auth/set-password { token, password } — set the password for an
 // invited (pre-created) user, activate them, and burn the token.
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   if (!rateLimit(`set-password:${ipOf(req)}`, 20, 10 * 60_000).ok) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
   }
@@ -63,3 +64,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, email: vt.identifier });
 }
+
+export const GET = withRoute('auth.set-password.get', getHandler);
+export const POST = withRoute('auth.set-password.post', postHandler);

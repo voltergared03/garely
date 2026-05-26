@@ -12,14 +12,15 @@ export function authSecret(): string {
 
 /**
  * Session secret with a fixed dev fallback so local runs work without
- * AUTH_SECRET set.
- *
- * TODO(Phase 4 — security hardening): in production an unset secret must fail
- * closed rather than fall back to this public constant (a misconfigured prod
- * would otherwise derive predictable 2FA keys).
+ * AUTH_SECRET set. In production we NEVER fall back to the public constant —
+ * an unset secret resolves to '' so a misconfig can't silently derive
+ * predictable 2FA keys (NextAuth already requires AUTH_SECRET in prod, so this
+ * only returns '' on an already-broken deployment).
  */
 export function authSecretOrDev(): string {
-  return authSecret() || 'dev-insecure-secret-change-me';
+  const s = authSecret();
+  if (s) return s;
+  return process.env.NODE_ENV === 'production' ? '' : 'dev-insecure-secret-change-me';
 }
 
 /** Shared secret for internal/machine callers (Python agent, internal webhooks). */
