@@ -4,6 +4,28 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.7.0-beta.1] — 2026-05-29
+
+Closes the items deferred from 1.6.0 — recurring meetings now actually recur,
+and the timezone/accessibility gaps are filled.
+
+### Added
+- **Recurring meetings now materialize.** A recurring meeting (daily / weekly /
+  biweekly / monthly) automatically spawns its next occurrence once its time
+  passes — keeping the series exactly one step ahead. Occurrences carry a
+  `seriesId`; missed slots are skipped (no burst) and each spawns its successor
+  exactly once (idempotent). New `/api/cron/recurrence` job (hourly) +
+  `Meeting.recurrenceMaterialized` flag.
+
+### Fixed
+- **Timezone (display).** The report and archive pages now render meeting
+  dates/times — and group the archive by day — in the **workspace** timezone
+  instead of the viewer's browser zone (new `/api/workspace/tz` + `useWorkspaceTz`
+  hook). Completes the timezone work started in 1.6.0 (which fixed the edit form).
+- **Accessibility.** Added `aria-label`s to icon-only buttons (search-clear,
+  modal close, meeting options/remove, report back) so screen readers announce
+  them.
+
 ## [1.6.0-beta.1] — 2026-05-29
 
 A **security & reliability** release driven by a full code audit (security,
@@ -136,6 +158,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.7.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.7.0-beta.1
 [1.6.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.6.0-beta.1
 [1.5.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.5.0-beta.1
 [1.4.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.4.0-beta.1
