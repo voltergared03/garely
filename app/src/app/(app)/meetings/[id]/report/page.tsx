@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, fmtDateLong, getInitials, getAvatarColor } from '@/lib/utils';
+import { useWorkspaceTz } from '@/hooks/use-workspace-tz';
 import type {
   Participant,
   SpeakerTrackItem,
@@ -35,6 +36,7 @@ import { HighlightText } from './components/HighlightText';
 export default function MeetingReportPage() {
   const tr = useTranslations();
   const locale = useLocale();
+  const tz = useWorkspaceTz();
   const params = useParams();
   const router = useRouter();
   const meetingId = params.id as string;
@@ -508,10 +510,10 @@ export default function MeetingReportPage() {
     const participants = meeting.participants.map(p => p.user?.name || p.guestName || 'Guest');
 
     const dateStr = meeting.scheduledAt
-      ? new Date(meeting.scheduledAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
+      ? new Date(meeting.scheduledAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })
       : '';
     const timeStr = meeting.scheduledAt
-      ? new Date(meeting.scheduledAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+      ? new Date(meeting.scheduledAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: tz })
       : '';
 
     const initials = (name: string) => {
@@ -953,7 +955,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <button className="btn btn-ghost btn-icon" onClick={() => router.back()}>
+              <button className="btn btn-ghost btn-icon" aria-label={tr('common.back')} onClick={() => router.back()}>
                 <ChevronLeft size={16} />
               </button>
               <span
@@ -967,7 +969,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 <Sparkles size={11} /> {tr('report.aiReportChip')}
               </span>
               <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>
-                {fmtRelative(scheduledDate, locale)} &bull; {fmtDateLong(scheduledDate, locale)} &bull; {fmtTime(scheduledDate)}
+                {fmtRelative(scheduledDate, locale, tz)} &bull; {fmtDateLong(scheduledDate, locale, tz)} &bull; {fmtTime(scheduledDate, tz)}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1373,7 +1375,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                         {recording.permanent ? (
                           <><Bookmark size={11} /> {tr('report.storedForever')}</>
                         ) : (
-                          <><Clock size={11} /> {recording.expiresAt ? tr('report.willDeleteOn', { date: new Date(recording.expiresAt).toLocaleDateString(locale) }) : tr('report.temporary7Days')}</>
+                          <><Clock size={11} /> {recording.expiresAt ? tr('report.willDeleteOn', { date: new Date(recording.expiresAt).toLocaleDateString(locale, { timeZone: tz }) }) : tr('report.temporary7Days')}</>
                         )}
                       </div>
                     </div>

@@ -116,7 +116,8 @@ model Meeting {
   scheduledAt  DateTime?
   durationMin  Int       @default(60)
   status       String    @default("scheduled") // scheduled | live | ended | cancelled
-  recurrence   Json?
+  recurrence   Json?     // { type: daily|weekly|biweekly|monthly, seriesId } when recurring
+  recurrenceMaterialized Boolean @default(false) // true once this occurrence has spawned its successor
   livekitRoom  String?   @unique
   joinToken    String?   @unique
   createdAt    DateTime  @default(now())

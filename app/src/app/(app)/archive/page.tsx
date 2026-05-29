@@ -6,7 +6,8 @@ import { Search, X, Sparkles, ChevronRight, RefreshCw, Users, Trash2 } from 'luc
 import { useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
 import { AvatarStack } from '@/components/ui/avatar';
-import { fmtTime, fmtRelative } from '@/lib/utils';
+import { fmtTime, fmtRelative, zonedFormFields } from '@/lib/utils';
+import { useWorkspaceTz } from '@/hooks/use-workspace-tz';
 import { useIsMobile } from '@/lib/use-is-mobile';
 
 interface Participant {
@@ -40,15 +41,16 @@ const FILTER_TABS: { key: FilterTab; labelKey: string }[] = [
   { key: 'recurring', labelKey: 'archive.filterRecurring' },
 ];
 
-function groupByDay(meetings: Meeting[], locale: string): { label: string; date: Date; meetings: Meeting[] }[] {
+function groupByDay(meetings: Meeting[], locale: string, tz: string): { label: string; date: Date; meetings: Meeting[] }[] {
   const groups = new Map<string, { label: string; date: Date; meetings: Meeting[] }>();
 
   for (const m of meetings) {
     if (!m.scheduledAt) continue;
     const d = new Date(m.scheduledAt);
-    const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    // Group by the calendar day in the workspace zone (not the browser's).
+    const dayKey = zonedFormFields(d, tz).date;
     if (!groups.has(dayKey)) {
-      groups.set(dayKey, { label: fmtRelative(d, locale), date: d, meetings: [] });
+      groups.set(dayKey, { label: fmtRelative(d, locale, tz), date: d, meetings: [] });
     }
     groups.get(dayKey)!.meetings.push(m);
   }
@@ -99,6 +101,7 @@ export default function ArchivePage() {
   const isMobile = useIsMobile();
   const t = useTranslations();
   const locale = useLocale();
+  const tz = useWorkspaceTz();
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -146,7 +149,7 @@ export default function ArchivePage() {
     return list;
   }, [meetings, search, filter]);
 
-  const groups = useMemo(() => groupByDay(filtered, locale), [filtered, locale]);
+  const groups = useMemo(() => groupByDay(filtered, locale, tz), [filtered, locale, tz]);
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -200,6 +203,7 @@ export default function ArchivePage() {
             {search && (
               <button
                 onClick={() => setSearch('')}
+                aria-label={t('common.clear')}
                 className="btn-icon"
                 style={{
                   background: 'none',
@@ -355,7 +359,7 @@ export default function ArchivePage() {
               {/* Meeting rows */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {group.meetings.map((m) => (
-                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => setConfirmDelete(m)} mobile={isMobile} />
+                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => setConfirmDelete(m)} mobile={isMobile} tz={tz} />
                 ))}
               </div>
             </div>
@@ -365,7 +369,7 @@ export default function ArchivePage() {
   );
 }
 
-function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeting: Meeting; searchQuery: string; isAdmin: boolean; onDelete: () => void; mobile?: boolean }) {
+function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { meeting: Meeting; searchQuery: string; isAdmin: boolean; onDelete: () => void; mobile?: boolean; tz: string }) {
   const t = useTranslations();
   const [hovered, setHovered] = useState(false);
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
@@ -403,7 +407,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
         <>
           <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
             <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
-              {start ? fmtTime(start) : '--:--'}
+              {start ? fmtTime(start, tz) : '--:--'}
             </div>
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
               {t('common.minutes', { count: meeting.durationMin })}
@@ -453,7 +457,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile }: { meeti
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, minWidth: 0, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
           {mobile && (
             <>
-              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start) : '--:--'} · {t('common.minutes', { count: meeting.durationMin })}</span>
+              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start, tz) : '--:--'} · {t('common.minutes', { count: meeting.durationMin })}</span>
               <span style={{ flexShrink: 0 }}>&middot;</span>
             </>
           )}

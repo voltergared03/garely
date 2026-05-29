@@ -122,7 +122,10 @@ export async function POST(req: NextRequest) {
         createdById: session.user.id,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         durationMin: dur,
-        recurrence: recurrence || null,
+        recurrence:
+          recurrence && typeof recurrence === 'object' && recurrence.type
+            ? { type: String(recurrence.type), seriesId: recurrence.seriesId || generateMeetingSlug() }
+            : undefined,
         livekitRoom: `meet-${roomSlug}`,
         joinToken,
         transcriptionEnabled: effTranscription,

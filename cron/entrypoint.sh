@@ -36,6 +36,7 @@ cat > /var/spool/cron/crontabs/root <<'EOF'
 0 3 * * *   /usr/local/bin/run-cron-job recordings  >/proc/1/fd/1 2>&1
 0 * * * *   /usr/local/bin/run-cron-job reg-cleanup >/proc/1/fd/1 2>&1
 */30 * * * * /usr/local/bin/run-cron-job cleanup    >/proc/1/fd/1 2>&1
+15 * * * *  /usr/local/bin/run-cron-job recurrence  >/proc/1/fd/1 2>&1
 EOF
 
 echo "[cron] scheduler started — jobs target ${APP_URL}"

@@ -305,6 +305,7 @@ runs them against the app's internal API — there's no host crontab to edit:
 | Recording retention | daily 03:00 | `/api/cron/recordings` |
 | Registration cleanup | hourly | `/api/cron/reg-cleanup` |
 | State cleanup (stale meetings / stuck recordings) | every 30 min | `/api/cron/cleanup` |
+| Recurring meetings (materialize next occurrence) | hourly | `/api/cron/recurrence` |
 
 Each request is authenticated with `CRON_SECRET` from `.env`; follow runs with
 `docker compose logs -f cron`. Schedules use the container clock (UTC unless you

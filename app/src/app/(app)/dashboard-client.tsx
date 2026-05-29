@@ -599,7 +599,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
         onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{t('dashboard.editMeeting')}</div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
+          <button className="btn btn-ghost btn-icon" aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -699,6 +699,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
                 <Avatar name={u.name || 'U'} image={u.image} size="sm" />
                 <div style={{ flex: 1, fontSize: 13 }}>{u.name}</div>
                 <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24 }}
+                  aria-label={t('common.delete')}
                   onClick={() => setSelectedUsers(p => p.filter(x => x.id !== u.id))}>
                   <X size={11} />
                 </button>
@@ -781,6 +782,7 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button className="btn btn-ghost btn-icon" style={{ width: 30, height: 30 }}
+        aria-label={t('common.options')}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(isOpen ? null : meetingId); }}>
         <MoreHorizontal size={15} />
       </button>
