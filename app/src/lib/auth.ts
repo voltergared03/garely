@@ -23,6 +23,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         clientSecret: google.clientSecret,
         // Link Google login to a pre-created (invited) user with the same email
         allowDangerousEmailAccountLinking: true,
+        // Pin the account id to Google's stable `sub` (mirrors next-auth's
+        // default mapping). Added 2026-05-29 after a transient
+        // OAuthAccountNotLinked incident, to keep the OIDC account lookup
+        // deterministic.
+        profile(p: any) {
+          return { id: p.sub, name: p.name, email: p.email, image: p.picture };
+        },
       }),
     );
   }
