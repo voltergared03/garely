@@ -129,6 +129,13 @@ export async function POST(
 
     const wsUrl = process.env.LIVEKIT_URL || process.env.LIVEKIT_WS_URL || 'ws://localhost:7880';
 
+    // Initial recording state for joiners — the in-room toggle keeps everyone in
+    // sync afterwards via the 'recording' data channel.
+    const activeRec = await prisma.recording.findFirst({
+      where: { meetingId: meeting.id, status: 'processing' },
+      select: { id: true },
+    });
+
     return NextResponse.json({
       token,
       wsUrl,
@@ -138,6 +145,7 @@ export async function POST(
       isHost,
       isAdmin,
       canKick: isHost || isAdmin,
+      recordingActive: !!activeRec,
     });
   } catch (error: any) {
     console.error('Join token error:', error);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { Select } from '@/components/ui/select';
@@ -26,7 +26,7 @@ import {
   Phone, MessageSquare, FileText, X, Languages,
   Send, MoreVertical, Users, UserPlus, Link2, Check,
   LogOut, Shield, Crown, Settings, Volume2, ChevronDown,
-  Smile, StickyNote, Sparkles, Zap, Save,
+  Smile, StickyNote, Sparkles, Zap, Save, Disc, Square,
 } from 'lucide-react';
 import {
   TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, REACTIONS,
@@ -39,8 +39,8 @@ import { ControlBtn } from './components/ControlBtn';
 /* ══════════════════════════════════════════════════════════
    ROOM CONTENT — rendered inside <LiveKitRoom>
    ══════════════════════════════════════════════════════════ */
-function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }: {
-  meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean;
+function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, recordingActive }: {
+  meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean; recordingActive?: boolean;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -175,6 +175,67 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
   useEffect(() => {
     if (transcriptScrollRef.current) transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
   }, [transcripts]);
+
+  // Group consecutive same-speaker / same-language finals into one block so a
+  // continuous turn reads as a paragraph (mirrors the server-side merge).
+  const groupedTranscripts = useMemo(() => {
+    const out: { id: string; speaker: string; language: string; text: string }[] = [];
+    for (const e of transcripts) {
+      const last = out[out.length - 1];
+      if (last && last.speaker === e.speaker && last.language === e.language) {
+        last.text += ' ' + e.text;
+      } else {
+        out.push({ id: e.id, speaker: e.speaker, language: e.language, text: e.text });
+      }
+    }
+    return out;
+  }, [transcripts]);
+
+  /* ── recording (host-toggled, on-demand) ── */
+  const [recording, setRecording] = useState(!!recordingActive);
+  const recordingBusyRef = useRef(false);
+
+  const onRecordingState = useCallback((raw: { payload: Uint8Array }) => {
+    try {
+      const msg = JSON.parse(new TextDecoder().decode(raw.payload));
+      if (msg.type !== 'recording') return;
+      setRecording(!!msg.active);
+    } catch { /* skip */ }
+  }, []);
+
+  useDataChannel('recording', onRecordingState);
+
+  const toggleRecording = useCallback(async () => {
+    if (recordingBusyRef.current) return;
+    recordingBusyRef.current = true;
+    const next = !recording;
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: next ? 'start' : 'stop' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || tr('room.recordingFailed'));
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const active = typeof data.active === 'boolean' ? data.active : next;
+      setRecording(active);
+      // Tell everyone so the REC indicator stays truthful across the room.
+      try {
+        await room.localParticipant.publishData(
+          new TextEncoder().encode(JSON.stringify({ type: 'recording', active })),
+          { topic: 'recording' },
+        );
+      } catch { /* skip */ }
+    } catch {
+      alert(tr('room.connectionError'));
+    } finally {
+      recordingBusyRef.current = false;
+    }
+  }, [recording, meetingId, room, tr]);
 
   /* ── reactions ─────────────────────── */
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
@@ -502,18 +563,20 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
         background: '#1a1d23', borderBottom: '1px solid rgba(255,255,255,.06)',
       }}>
         <Logo />
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500,
-          background: 'rgba(239,68,68,.15)', color: '#fca5a5',
-          border: '1px solid rgba(239,68,68,.3)',
-        }}>
+        {recording && (
           <span style={{
-            width: 7, height: 7, borderRadius: '50%', background: '#ef4444',
-            animation: 'pulseDot 1.6s ease-in-out infinite', display: 'inline-block',
-          }} />
-          REC
-        </span>
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500,
+            background: 'rgba(239,68,68,.15)', color: '#fca5a5',
+            border: '1px solid rgba(239,68,68,.3)',
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', background: '#ef4444',
+              animation: 'pulseDot 1.6s ease-in-out infinite', display: 'inline-block',
+            }} />
+            REC
+          </span>
+        )}
         <span className="room-timer" style={{ fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: 'monospace' }}>
           {fmtTime(elapsed)}
         </span>
@@ -587,6 +650,12 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
               icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={camOn ? tr('room.camera') : tr('room.turnOn')} />
             <ControlBtn active={screenOn} onClick={toggleScreen}
               icon={screenOn ? <MonitorOff size={20} /> : <Monitor size={20} />} label={tr('room.screen')} className="room-screen-btn" />
+
+            {canKick && (
+              <ControlBtn active={recording} onClick={toggleRecording} danger={recording}
+                icon={recording ? <Square size={20} /> : <Disc size={20} />}
+                label={recording ? tr('room.stopRecording') : tr('room.record')} />
+            )}
 
             <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
 
@@ -885,7 +954,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript }:
                     <div>{tr('room.transcriptEmptyLine2')}</div>
                   </div>
                 )}
-                {transcripts.map(e => (
+                {groupedTranscripts.map(e => (
                   <div key={e.id}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0' }}>{e.speaker}</span>
@@ -1085,6 +1154,7 @@ export default function MeetingRoomPage() {
   const [joinToken, setJoinToken] = useState('');
   const [meetingIdReal, setMeetingIdReal] = useState('');
   const [canKick, setCanKick] = useState(false);
+  const [recordingActive, setRecordingActive] = useState(false);
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(false);
 
@@ -1122,6 +1192,7 @@ export default function MeetingRoomPage() {
         if (data.joinToken) setJoinToken(data.joinToken);
         if (data.meetingId) setMeetingIdReal(data.meetingId);
         if (data.canKick) setCanKick(true);
+        if (typeof data.recordingActive === 'boolean') setRecordingActive(data.recordingActive);
       } catch (e: any) {
         console.error('Join token error:', e);
         if (!cancelled) setError(e.message);
@@ -1198,7 +1269,7 @@ export default function MeetingRoomPage() {
         }}
         style={{ height: '100%' }}
       >
-        <RoomContent meetingId={meetingIdReal || id as string} joinToken={joinToken} isGuest={!!guestName} canKick={canKick} openTranscript={startWithTranscript} />
+        <RoomContent meetingId={meetingIdReal || id as string} joinToken={joinToken} isGuest={!!guestName} canKick={canKick} openTranscript={startWithTranscript} recordingActive={recordingActive} />
       </LiveKitRoom>
     </div>
   );

@@ -4,6 +4,34 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.8.0-beta.1] — 2026-05-29
+
+A **recording rebuild** — cleaner transcripts and on-demand video capture.
+
+### Added
+- **On-demand recording.** Recording now starts and stops from a **Record button
+  inside the meeting** (host/admin) instead of being an all-or-nothing workspace
+  setting — so you capture only what matters and the heavy recording (egress)
+  container stays idle the rest of the time. New
+  `POST /api/meetings/[id]/recording` (`{ action: 'start' | 'stop' }`),
+  admin/creator-only.
+- The **REC indicator now reflects the real recording state** for everyone in the
+  room (it previously always showed). State is synced over a data channel and
+  seeded from the join token for anyone joining mid-recording.
+
+### Changed
+- **Transcript segments are coalesced.** Deepgram emits a new line after every
+  ~0.5s pause, so one continuous turn used to shatter into many fragments.
+  Contiguous same-speaker / same-language finals are now merged into
+  paragraph-sized rows (server-side at write time, and grouped live in the
+  panel), which also makes the report and archive read cleanly. A uk↔ru
+  code-switch still starts a new line; existing meetings and reports are
+  untouched.
+
+### Notes
+- The optional `WS_RECORD_ALL` workspace setting still works as an auto-start
+  default (off by default).
+
 ## [1.7.0-beta.1] — 2026-05-29
 
 Closes the items deferred from 1.6.0 — recurring meetings now actually recur,
@@ -158,6 +186,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.8.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.8.0-beta.1
 [1.7.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.7.0-beta.1
 [1.6.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.6.0-beta.1
 [1.5.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.5.0-beta.1

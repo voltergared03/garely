@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { promises as fs } from 'fs';
 import { userCanAccessMeeting } from '@/lib/access';
 import { withRoute } from '@/lib/with-route';
+import { startRoomRecording, stopRecording } from '@/lib/egress';
 
 const RETENTION_DAYS = 7;
 
@@ -95,6 +96,60 @@ async function deleteHandler(req: NextRequest, { params }: { params: Promise<{ i
   return NextResponse.json({ success: true });
 }
 
+// POST — { action: 'start' | 'stop' } → on-demand recording, toggled from inside
+// the meeting (admin or creator only). Each start spawns a fresh egress → its own
+// Recording row/file; stop ends the current one. Idempotent on both ends.
+async function postHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
+  const forbidden = await requireMeetingOwner(id, session.user.id, session.user.role);
+  if (forbidden) return forbidden;
+
+  const t = await getTranslations('errors');
+  const body = await req.json().catch(() => ({} as any));
+  const action = body.action;
+
+  const meeting = await prisma.meeting.findUnique({
+    where: { id },
+    select: { livekitRoom: true },
+  });
+  if (!meeting?.livekitRoom) {
+    return NextResponse.json({ error: t('meetingNotFound') }, { status: 404 });
+  }
+
+  // "Active" = an egress currently in progress for this meeting.
+  const active = await prisma.recording.findFirst({
+    where: { meetingId: id, status: 'processing' },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (action === 'start') {
+    if (active) return NextResponse.json({ ok: true, active: true }); // already recording
+    const rec = await startRoomRecording(meeting.livekitRoom);
+    if (!rec) return NextResponse.json({ error: t('recordingStartFailed') }, { status: 502 });
+    await prisma.recording.create({
+      data: {
+        meetingId: id,
+        egressId: rec.egressId,
+        fileName: rec.fileName,
+        filePath: rec.filePath,
+        status: 'processing',
+      },
+    });
+    return NextResponse.json({ ok: true, active: true });
+  }
+
+  if (action === 'stop') {
+    if (!active) return NextResponse.json({ ok: true, active: false }); // nothing to stop
+    if (active.egressId) await stopRecording(active.egressId);
+    return NextResponse.json({ ok: true, active: false });
+  }
+
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+}
+
 export const GET = withRoute('meetings.recording.get', getHandler);
+export const POST = withRoute('meetings.recording.control', postHandler);
 export const PATCH = withRoute('meetings.recording.update', patchHandler);
 export const DELETE = withRoute('meetings.recording.delete', deleteHandler);
