@@ -31,7 +31,7 @@ export async function POST(
           createdById: session.user.id,
           livekitRoom: roomName,
           joinToken: joinSlug,
-          status: 'active',
+          status: 'live',
           scheduledAt: new Date(),
           durationMin: 60,
         },
@@ -50,7 +50,7 @@ export async function POST(
     if (meeting.status === 'scheduled') {
       await prisma.meeting.update({
         where: { id: meeting.id },
-        data: { status: 'active' },
+        data: { status: 'live' },
       }).catch(() => {});
     }
 
@@ -58,7 +58,7 @@ export async function POST(
       const roomName = `meet-${meeting.id.slice(0, 8)}-${Date.now()}`;
       meeting = await prisma.meeting.update({
         where: { id: meeting.id },
-        data: { livekitRoom: roomName, status: 'active' },
+        data: { livekitRoom: roomName, status: 'live' },
       });
     }
 

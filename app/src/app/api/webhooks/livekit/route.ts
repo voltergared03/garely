@@ -93,40 +93,42 @@ export async function POST(req: NextRequest) {
           where: { livekitRoom: roomName },
         });
         if (meeting) {
-          // Set meeting to live when first human participant joins
+          // Mark live on first human join (join-token may already have done so).
           if (meeting.status !== 'live') {
             await prisma.meeting.update({
               where: { id: meeting.id },
               data: { status: 'live' },
             });
             console.log(`Meeting set to live: ${meeting.id}`);
+          }
 
-            // Auto-start recording if the workspace enables it (once per meeting)
-            try {
-              const cfg = await readConfig(['WS_RECORD_ALL']);
-              if (cfg.WS_RECORD_ALL === 'true') {
-                const existing = await prisma.recording.findFirst({
-                  where: { meetingId: meeting.id, status: { in: ['processing', 'ready'] } },
-                });
-                if (!existing) {
-                  const rec = await startRoomRecording(roomName);
-                  if (rec) {
-                    await prisma.recording.create({
-                      data: {
-                        meetingId: meeting.id,
-                        egressId: rec.egressId,
-                        fileName: rec.fileName,
-                        filePath: rec.filePath,
-                        status: 'processing',
-                      },
-                    });
-                    console.log(`Recording started for ${meeting.id}: ${rec.egressId}`);
-                  }
+          // Auto-start recording if enabled — once per meeting, guaranteed by the
+          // existing-recording check (not by the status transition), so it still
+          // fires when the meeting was already marked live at join-token time.
+          try {
+            const cfg = await readConfig(['WS_RECORD_ALL']);
+            if (cfg.WS_RECORD_ALL === 'true') {
+              const existing = await prisma.recording.findFirst({
+                where: { meetingId: meeting.id, status: { in: ['processing', 'ready'] } },
+              });
+              if (!existing) {
+                const rec = await startRoomRecording(roomName);
+                if (rec) {
+                  await prisma.recording.create({
+                    data: {
+                      meetingId: meeting.id,
+                      egressId: rec.egressId,
+                      fileName: rec.fileName,
+                      filePath: rec.filePath,
+                      status: 'processing',
+                    },
+                  });
+                  console.log(`Recording started for ${meeting.id}: ${rec.egressId}`);
                 }
               }
-            } catch (e) {
-              console.error('Auto-record start failed:', e);
             }
+          } catch (e) {
+            console.error('Auto-record start failed:', e);
           }
           // Update join time if participant exists
           await prisma.meetingParticipant.updateMany({

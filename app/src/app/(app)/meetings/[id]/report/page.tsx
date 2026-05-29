@@ -753,10 +753,10 @@ ${topicsHtml ? `<div class="sec"><div class="sec-title">${tr('report.tabDetailed
 ${decisionsHtml ? `<div class="sec"><div class="sec-title">${tr('report.decisions')}</div><div class="card">${decisionsHtml}</div></div>` : ''}
 
 <!-- ═══ ACTION ITEMS ═══ -->
-${itemsRows ? `<div class="sec"><div class="sec-title">Action Items <span style="font-family:'DM Sans';font-size:8pt;color:#94a3b8;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">(${actionItems.length})</span></div><div class="tbl-wrap"><table><thead><tr><th style="width:42%">${tr('report.colTask')}</th><th>${tr('report.colAssignee')}</th><th>${tr('report.colPriority')}</th><th>${tr('report.colStatus')}</th></tr></thead><tbody>${itemsRows}</tbody></table></div></div>` : ''}
+${itemsRows ? `<div class="sec"><div class="sec-title">${tr('report.actionItemsTitle')} <span style="font-family:'DM Sans';font-size:8pt;color:#94a3b8;font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px">(${actionItems.length})</span></div><div class="tbl-wrap"><table><thead><tr><th style="width:42%">${tr('report.colTask')}</th><th>${tr('report.colAssignee')}</th><th>${tr('report.colPriority')}</th><th>${tr('report.colStatus')}</th></tr></thead><tbody>${itemsRows}</tbody></table></div></div>` : ''}
 
 <!-- ═══ FOLLOW-UPS ═══ -->
-${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div class="card"><ul class="flu">${followUps}</ul></div></div>` : ''}
+${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTitle')}</div><div class="card"><ul class="flu">${followUps}</ul></div></div>` : ''}
 
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
@@ -964,7 +964,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
                   color: '#bfdbfe',
                 }}
               >
-                <Sparkles size={11} /> AI Report
+                <Sparkles size={11} /> {tr('report.aiReportChip')}
               </span>
               <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>
                 {fmtRelative(scheduledDate, locale)} &bull; {fmtDateLong(scheduledDate, locale)} &bull; {fmtTime(scheduledDate)}
@@ -1044,7 +1044,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
               {/* Action Items */}
               <ReportCard
                 icon={ListChecks}
-                title="Action Items"
+                title={tr('report.actionItemsTitle')}
                 accentColor="var(--amber)"
                 badge={
                   <span
@@ -1311,7 +1311,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
               </ReportCard>
 
               {/* Follow-ups */}
-              <ReportCard icon={ChevronRight} title="Follow-ups" accentColor="var(--pink)">
+              <ReportCard icon={ChevronRight} title={tr('report.followUpsTitle')} accentColor="var(--pink)">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                   {report.followUps.map((item, i) => (
                     <div

@@ -48,22 +48,24 @@ async function postHandler(req: NextRequest) {
 
   if (action === 'approve') {
     // The applicant already chose their password — provision an active member.
+    // If an account with this email already exists, don't silently "approve"
+    // (that discarded the password and created nothing) — surface it to the admin.
     const exists = await prisma.user.findUnique({ where: { email: reqRow.email }, select: { id: true } });
-    let user: any = null;
-    if (!exists) {
-      user = await prisma.user.create({
-        data: {
-          email: reqRow.email,
-          name: reqRow.name || reqRow.email.split('@')[0],
-          role: 'member',
-          status: 'active',
-          passwordHash: reqRow.passwordHash,
-          timezone: cfg.WS_TIMEZONE || CONFIG_DEFAULTS.WS_TIMEZONE,
-          preferences: { language: cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE },
-        } as any,
-        select: { id: true, name: true, email: true, image: true, role: true, lastLogin: true, createdAt: true },
-      });
+    if (exists) {
+      return NextResponse.json({ error: t('emailExists') }, { status: 409 });
     }
+    const user = await prisma.user.create({
+      data: {
+        email: reqRow.email,
+        name: reqRow.name || reqRow.email.split('@')[0],
+        role: 'member',
+        status: 'active',
+        passwordHash: reqRow.passwordHash,
+        timezone: cfg.WS_TIMEZONE || CONFIG_DEFAULTS.WS_TIMEZONE,
+        preferences: { language: cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE },
+      } as any,
+      select: { id: true, name: true, email: true, image: true, role: true, lastLogin: true, createdAt: true },
+    });
     await prisma.registrationRequest.update({
       where: { id: reqRow.id },
       data: { status: 'approved', decidedAt: new Date(), decidedById },

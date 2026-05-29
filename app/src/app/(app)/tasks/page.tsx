@@ -849,6 +849,7 @@ export default function TasksPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [scope, setScope] = useState("mine");
   const [filterMeeting, setFilterMeeting] = useState("all");
@@ -862,19 +863,26 @@ export default function TasksPage() {
   const isMobile = useIsMobile();
 
   const fetchTasks = useCallback(async () => {
+    setError(false);
     try {
       const res = await fetch("/api/tasks?scope=all");
       if (res.ok) setTasks(await res.json());
-    } catch {}
+      else setError(true);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
+    // fetchTasks owns `loading` (it sets it false in its finally) — don't clear
+    // it synchronously here, or the spinner never reflects the real fetch.
     fetchTasks();
     fetch("/api/users").then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
     fetch("/api/meetings").then(r => r.json()).then((data: any[]) => {
       setMeetings(data.map(m => ({ id: m.id, title: m.title, scheduledAt: m.scheduledAt })));
     }).catch(() => {});
-    setLoading(false);
   }, []);
 
   const filtered = useMemo(() => tasks.filter(t => {
@@ -975,7 +983,13 @@ export default function TasksPage() {
 
       {/* Body */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        {filtered.length === 0 ? (
+        {error ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
+            <AlertCircle size={28} style={{ color: "var(--danger, #e5484d)" }} />
+            <div style={{ color: "var(--muted)", fontSize: 14 }}>{tr("tasks.loadError")}</div>
+            <button className="btn btn-sm" onClick={() => { setLoading(true); fetchTasks(); }}>{tr("tasks.retry")}</button>
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
           <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} />

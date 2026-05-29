@@ -141,6 +141,8 @@ model Meeting {
   recordings      Recording[]
   speakerTracks   SpeakerTrack[]
   joinRequests    JoinRequest[]
+
+  @@index([status, scheduledAt])
 }
 
 model JoinRequest {
@@ -202,7 +204,7 @@ model MeetingParticipant {
   meetingId  String
   meeting    Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   userId     String?
-  user       User?     @relation(fields: [userId], references: [id])
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   guestName  String?
   guestEmail String?
   rsvpStatus String    @default("pending") // pending | accepted | declined | tentative
@@ -249,6 +251,8 @@ model MeetingReport {
   generatedAt  DateTime @default(now())
 
   tasks MeetingTask[]
+
+  @@index([meetingId])
 }
 
 model MeetingTask {
@@ -260,7 +264,7 @@ model MeetingTask {
   title        String
   description  String?
   assigneeId   String?
-  assignee     User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee     User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   assigneeName String?
   priority     String    @default("medium") // high | medium | low
   status       String    @default("open") // open | in_progress | done

@@ -86,6 +86,8 @@
   "tasks": {
     "pageTitle": "Tasks",
     "pageSubtitle": "Action items from meetings and your team's tasks.",
+    "loadError": "Couldn't load tasks. Check your connection and try again.",
+    "retry": "Try again",
     "viewList": "List",
     "viewKanban": "Kanban",
     "newTask": "New task",
@@ -368,6 +370,9 @@
     "nothingFound": "Nothing found",
     "tryAnotherSearch": "Try a different search query",
     "loading": "Loading report...",
+    "aiReportChip": "AI Report",
+    "actionItemsTitle": "Action Items",
+    "followUpsTitle": "Follow-ups",
     "notFoundTitle": "Report not found",
     "notFoundDesc": "An AI report for this meeting hasn't been generated yet",
     "generatingTitle": "Generating report…",
