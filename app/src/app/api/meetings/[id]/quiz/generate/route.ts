@@ -34,6 +34,7 @@ async function postHandler(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     questions = await generateQuizQuestions(id, count);
   } catch (e: any) {
+    console.error('[quiz.generate] failed:', e?.message || e);
     const reason = e?.message === 'no_report' ? 'report_not_ready' : 'generation_failed';
     return NextResponse.json({ error: reason }, { status: reason === 'report_not_ready' ? 400 : 502 });
   }

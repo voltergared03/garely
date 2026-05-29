@@ -31,6 +31,7 @@
     "home": "Home",
     "calendar": "Calendar",
     "tasks": "Tasks",
+    "quizzes": "Quizzes",
     "archive": "Archive",
     "settings": "Settings",
     "newMeeting": "New meeting"
@@ -478,7 +479,16 @@
     "pendingCount": "{count} pending",
     "completedLabel": "Completed",
     "questionsCount": "{count} questions",
-    "take": "Take"
+    "take": "Take",
+    "navTitle": "Quizzes",
+    "tabManaged": "Assigned by me",
+    "noMine": "No quizzes assigned to you yet",
+    "progress": "{done}/{total} completed",
+    "viewAnswers": "Answers",
+    "notTaken": "Not taken",
+    "openReport": "Open report",
+    "reviewOf": "Answers: {name}",
+    "userPicked": "their answer"
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

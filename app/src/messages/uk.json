@@ -31,6 +31,7 @@
     "home": "Головна",
     "calendar": "Календар",
     "tasks": "Таски",
+    "quizzes": "Тестування",
     "archive": "Архів",
     "settings": "Налаштування",
     "newMeeting": "Новий мітинг"
@@ -478,7 +479,16 @@
     "pendingCount": "{count} очікують",
     "completedLabel": "Пройдено",
     "questionsCount": "Питань: {count}",
-    "take": "Пройти"
+    "take": "Пройти",
+    "navTitle": "Тестування",
+    "tabManaged": "Призначені мною",
+    "noMine": "Вам ще не призначали тестів",
+    "progress": "{done}/{total} пройшли",
+    "viewAnswers": "Відповіді",
+    "notTaken": "Не пройдено",
+    "openReport": "Відкрити звіт",
+    "reviewOf": "Відповіді: {name}",
+    "userPicked": "його відповідь"
   },
   "room": {
     "guestWantsToJoin": "Гість хоче приєднатися",

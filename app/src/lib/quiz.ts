@@ -119,10 +119,17 @@ ${grounding}`;
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3,
-      max_tokens: 4000,
+      // The configured model may be a reasoning model that spends tokens on
+      // hidden reasoning before emitting `content`; keep a generous budget so
+      // the JSON answer isn't truncated (the report generator uses 64000).
+      max_tokens: 16000,
     }),
   });
-  if (!res.ok) throw new Error(`ai_http_${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[quiz] deepseek http', res.status, body.slice(0, 300));
+    throw new Error(`ai_http_${res.status}`);
+  }
   const data = await res.json();
   const content: string = data?.choices?.[0]?.message?.content ?? '';
   const parsed = parseJsonLoose(content);
@@ -133,7 +140,15 @@ ${grounding}`;
     .filter((q: Omit<QuizQuestion, 'id'> | null): q is Omit<QuizQuestion, 'id'> => !!q)
     .map((q: Omit<QuizQuestion, 'id'>, i: number) => ({ id: `q${i + 1}`, ...q }));
 
-  if (questions.length === 0) throw new Error('ai_no_questions');
+  if (questions.length === 0) {
+    console.error(
+      '[quiz] no questions parsed — finish_reason=',
+      data?.choices?.[0]?.finish_reason,
+      'contentLen=',
+      content.length,
+    );
+    throw new Error('ai_no_questions');
+  }
   return questions;
 }
 
