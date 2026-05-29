@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { SetupChecklist } from './setup-checklist';
 import { InstallAppCard } from '@/components/install-app-card';
+import { MyQuizzesCard } from './my-quizzes-card';
 import {
   Video, Sparkles, FileText, Users, Clock, RefreshCw, MoreHorizontal,
   Pencil, Trash2, X, Search, Send, Calendar as CalendarIcon, Save,
@@ -361,6 +362,8 @@ export function DashboardClient({
             </div>
           )}
         </Section>
+
+        <MyQuizzesCard />
 
         {/* Today */}
         {today.length > 0 && (

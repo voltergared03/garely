@@ -30,6 +30,7 @@ import { ReportAssigneeDropdown } from './components/ReportAssigneeDropdown';
 import { PriorityChip } from './components/PriorityChip';
 import { ReportCard } from './components/ReportCard';
 import { HighlightText } from './components/HighlightText';
+import { QuizManager } from './components/QuizManager';
 
 /* ─── Main page component ───────────────────────────────────────── */
 
@@ -983,6 +984,12 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
               <button className="btn btn-sm btn-primary" onClick={sendReport} disabled={sending}>
                 {sending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />} {tr('report.sendToTeam')}
               </button>
+              <QuizManager
+                meetingId={meetingId}
+                participants={meeting.participants}
+                reportReady={reportStatus === 'ready' || !!report}
+                canManage={canRetryReport}
+              />
               {sendMsg && (
                 <span style={{ fontSize: 12, color: sendMsg.ok ? 'var(--green)' : '#f87171', display: 'inline-flex', alignItems: 'center' }}>
                   {sendMsg.text}

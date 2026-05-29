@@ -72,6 +72,8 @@ model User {
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
   speakerTracks       SpeakerTrack[]
+  createdQuizzes      Quiz[]               @relation("QuizCreator")
+  quizAssignments     QuizAssignment[]     @relation("QuizAssignee")
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -142,6 +144,7 @@ model Meeting {
   recordings      Recording[]
   speakerTracks   SpeakerTrack[]
   joinRequests    JoinRequest[]
+  quiz            Quiz?
 
   @@index([status, scheduledAt])
 }
@@ -326,4 +329,42 @@ model SystemConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Post-meeting comprehension quiz: an admin/creator generates AI questions from
+// the report, edits them, then assigns to participants who must complete a
+// comprehension check. One quiz per meeting.
+model Quiz {
+  id          String    @id @default(cuid())
+  meetingId   String    @unique
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User      @relation("QuizCreator", fields: [createdById], references: [id])
+  status      String    @default("draft") // draft | assigned
+  openBook    Boolean   @default(false)   // may the taker view the report/transcript while taking it
+  language    String?   // uk | en — workspace language at generation time
+  questions   Json      // [{ id, prompt, type: single|multi|boolean, options:[{id,text}], correctOptionIds:[], cites:[] }]
+  createdAt   DateTime  @default(now())
+  assignedAt  DateTime?
+
+  assignments QuizAssignment[]
+}
+
+model QuizAssignment {
+  id           String    @id @default(cuid())
+  quizId       String
+  quiz         Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation("QuizAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assignedById String
+  status       String    @default("pending") // pending | completed
+  score        Int?      // number of correct answers
+  maxScore     Int?      // total questions
+  answers      Json?     // { [questionId]: [selectedOptionIds] }
+  dueAt        DateTime?
+  assignedAt   DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@unique([quizId, userId])
+  @@index([userId, status])
 }
