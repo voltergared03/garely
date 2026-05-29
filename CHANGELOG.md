@@ -4,6 +4,66 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.6.0-beta.1] — 2026-05-29
+
+A **security & reliability** release driven by a full code audit (security,
+correctness, and self-hosted ops), plus the deferred polish.
+
+### Security
+- **Tasks API authorization**: standalone (meeting-less) tasks could be edited or
+  deleted by any authenticated user; now restricted to the assignee or an admin.
+  Replaced request-body spreads with strict field whitelists on `/api/tasks` and
+  `/api/meetings/[id]/tasks` (no more mass-assignment of `meetingId`/`source`/etc).
+- **Recordings**: making a recording permanent or deleting it is now limited to
+  an admin or the meeting creator (was any participant).
+- **Per-speaker tracks**: added the missing meeting-access check (was readable by
+  any signed-in user).
+- **Self-registration**: approving a request whose email already exists now
+  returns a clear error instead of silently marking it approved.
+- **Dependencies**: upgraded `nodemailer` 6 → 8 (clears a high-severity
+  SMTP-injection advisory).
+- **HTTP headers**: added `X-Frame-Options` / CSP `frame-ancestors` (clickjacking),
+  `X-Content-Type-Options: nosniff`, and `Referrer-Policy`.
+
+### Added
+- **Report generation status**: reports now track `generating | ready | failed`;
+  the report page shows a generating spinner (auto-refresh) or a failure state
+  with a **Retry** button instead of a generic "not found". The meeting is always
+  marked ended even if the AI step fails.
+- **Automated database backups**: a `db-backup` service writes a rotated daily
+  `pg_dump` (keeps 14) to a dedicated volume.
+- **State-cleanup job** (`/api/cron/cleanup`, every 30 min): ends meetings stuck
+  `live` long past their expected end, and marks recordings stuck `processing` as
+  failed.
+
+### Changed
+- **Ops hardening**: JSON log rotation on every container; an app healthcheck
+  (`/api/setup/status`) with dependents waiting on it; memory limits on every
+  service plus a hard cap on the recording (egress) container so it can't OOM the
+  host; pinned dependency conditions.
+- **Meeting status**: removed the undocumented `active` state — meetings go
+  `scheduled → live → ended` and no longer get stuck invisibly between lists.
+- **Timezone**: editing a scheduled meeting now renders and saves its time in the
+  workspace timezone (no more silent shifts when the browser is in another zone).
+- **Performance**: added DB indexes (`Meeting(status, scheduledAt)`,
+  `MeetingReport(meetingId)`); `GET /api/meetings` is now bounded (newest 200 by
+  default, `?limit=` up to 500).
+
+### Fixed
+- Tasks page: the loading state never reflected the fetch and errors were
+  swallowed, so an API failure looked like "no tasks" — added real loading and
+  error states.
+- Localized hardcoded strings (report section titles / AI-Report chip / PDF
+  labels, and mention-notification fallbacks).
+- Build: `npm ci` could fail on the nodemailer peer-dependency conflict; pinned
+  `legacy-peer-deps`. The `vitest` config no longer breaks `tsc` / `next build`.
+
+### Known limitations (roadmap)
+- Recurring meetings are recorded but occurrences are still created manually
+  (auto-materialization needs series linkage — planned).
+- Report/Archive **display** times use the browser zone (the edit form is fixed);
+  a broader accessibility (aria-label) pass is also pending.
+
 ## [1.5.0-beta.1] — 2026-05-26
 
 A foundational **quality & hardening** release driven by a code audit — no new
@@ -76,6 +136,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.6.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.6.0-beta.1
 [1.5.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.5.0-beta.1
 [1.4.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.4.0-beta.1
 [1.3.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.3.0-beta.1
