@@ -122,6 +122,9 @@ model Meeting {
   createdAt    DateTime  @default(now())
   endedAt      DateTime?
   reminderSent Boolean   @default(false)
+  // Post-meeting AI report lifecycle (null = none yet)
+  reportStatus String?   // generating | ready | failed
+  reportError  String?   @db.Text
   // AI options
   transcriptionEnabled Boolean @default(true)
   aiReportEnabled      Boolean @default(true)

@@ -130,7 +130,7 @@ function parseJsonLoose(s: string): any | null {
  * agent), it also marks the meeting ended, notifies participants and emails the
  * report.
  */
-export async function generateMeetingReport(
+async function generateReportInner(
   meetingId: string,
   opts: { notify?: boolean } = {}
 ): Promise<{ topics: number }> {
@@ -358,14 +358,6 @@ ${numbered}`;
 
   if (opts.notify) {
     try {
-      await prisma.meeting.update({
-        where: { id: meetingId },
-        data: { status: 'ended', endedAt: new Date() },
-      });
-    } catch {
-      /* ignore */
-    }
-    try {
       for (const r of resolvedTasks) {
         if (r.assigneeId && r.notifyAssignee) {
           await notify({
@@ -409,6 +401,47 @@ ${numbered}`;
   }
 
   return { topics: topics.length };
+}
+
+/**
+ * Public entry point. Manages the meeting's reportStatus around generation so
+ * the UI can show generating / failed / retry, and — on the first generation
+ * (notify) — the meeting is ALWAYS marked ended, even when the model fails, so
+ * it never hangs in `live` and always lands in the archive.
+ */
+export async function generateMeetingReport(
+  meetingId: string,
+  opts: { notify?: boolean } = {}
+): Promise<{ topics: number }> {
+  await prisma.meeting
+    .update({ where: { id: meetingId }, data: { reportStatus: 'generating', reportError: null } })
+    .catch(() => {});
+  try {
+    const result = await generateReportInner(meetingId, opts);
+    await prisma.meeting
+      .update({
+        where: { id: meetingId },
+        data: {
+          reportStatus: result.topics > 0 ? 'ready' : null,
+          ...(opts.notify ? { status: 'ended', endedAt: new Date() } : {}),
+        },
+      })
+      .catch(() => {});
+    return result;
+  } catch (e) {
+    const message = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+    await prisma.meeting
+      .update({
+        where: { id: meetingId },
+        data: {
+          reportStatus: 'failed',
+          reportError: message,
+          ...(opts.notify ? { status: 'ended', endedAt: new Date() } : {}),
+        },
+      })
+      .catch(() => {});
+    throw e;
+  }
 }
 
 /**

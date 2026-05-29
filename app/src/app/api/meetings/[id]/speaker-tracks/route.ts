@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { userCanAccessMeeting } from '@/lib/access';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id/speaker-tracks — list per-speaker audio tracks captured
@@ -13,6 +14,9 @@ async function getHandler(
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!(await userCanAccessMeeting(meetingId, session.user.id, session.user.role))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const tracks = await prisma.speakerTrack.findMany({

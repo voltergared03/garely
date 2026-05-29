@@ -55,6 +55,7 @@ export default function MeetingReportPage() {
   const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [tracks, setTracks] = useState<SpeakerTrackItem[]>([]);
   const [meetingCreatorId, setMeetingCreatorId] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [fixingId, setFixingId] = useState<string | null>(null);
   const [fixMsg, setFixMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [trackLangSel, setTrackLangSel] = useState<Record<string, string>>({});
@@ -79,6 +80,7 @@ export default function MeetingReportPage() {
             const transformed = transformApiData(data);
             setMeeting(transformed);
             setMeetingCreatorId(data.createdById ?? data.createdBy?.id ?? null);
+            setReportStatus(data.reportStatus ?? null);
             if (transformed.reports?.[0]?.actionItems) {
               setActionItems(transformed.reports[0].actionItems);
             }
@@ -119,6 +121,7 @@ export default function MeetingReportPage() {
         const transformed = transformApiData(data);
         setMeeting(transformed);
         setMeetingCreatorId(data.createdById ?? data.createdBy?.id ?? null);
+        setReportStatus(data.reportStatus ?? null);
         if (transformed.reports?.[0]?.actionItems) {
           setActionItems(transformed.reports[0].actionItems);
         }
@@ -333,6 +336,24 @@ export default function MeetingReportPage() {
   }, []);
 
   const report = meeting?.reports?.[0] ?? null;
+
+  // While the report is still being generated, poll until it's ready or failed.
+  useEffect(() => {
+    if (report || reportStatus !== 'generating') return;
+    const iv = setInterval(() => { reloadMeeting(); }, 5000);
+    return () => clearInterval(iv);
+  }, [report, reportStatus, reloadMeeting]);
+
+  const canRetryReport = isAdmin || (!!session?.user?.id && session.user.id === meetingCreatorId);
+
+  // Retry a failed generation: flip to "generating" (which shows the spinner and
+  // starts the poll above) and kick the regenerate endpoint.
+  const retryReport = useCallback(async () => {
+    setReportStatus('generating');
+    try {
+      await fetch(`/api/meetings/${meetingId}/regenerate`, { method: 'POST' });
+    } catch { /* the poll will reflect the outcome */ }
+  }, [meetingId]);
   const isHost = !!meetingCreatorId && session?.user?.id === meetingCreatorId;
   const canFixLanguage = isAdmin || isHost;
   // The reassignment dropdown lists the registered users who were on THIS meeting.
@@ -785,14 +806,43 @@ ${followUps ? `<div class="sec"><div class="sec-title">Follow-ups</div><div clas
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 420 }}>
-          <FileText size={40} style={{ color: 'var(--muted)', marginBottom: 14, opacity: 0.5 }} />
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.notFoundTitle')}</div>
-          <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>
-            {tr('report.notFoundDesc')}
-          </div>
-          <button className="btn" onClick={() => router.push('/')}>
-            <ChevronLeft size={14} /> {tr('report.toDashboard')}
-          </button>
+          {reportStatus === 'generating' ? (
+            <>
+              <Loader2 size={40} style={{ color: 'var(--accent)', marginBottom: 14, animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.generatingTitle')}</div>
+              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>{tr('report.generatingDesc')}</div>
+              <button className="btn" onClick={() => router.push('/')}>
+                <ChevronLeft size={14} /> {tr('report.toDashboard')}
+              </button>
+            </>
+          ) : reportStatus === 'failed' ? (
+            <>
+              <FileText size={40} style={{ color: 'var(--danger, #e5484d)', marginBottom: 14, opacity: 0.8 }} />
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.failedTitle')}</div>
+              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>{tr('report.failedDesc')}</div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {canRetryReport && (
+                  <button className="btn btn-primary" onClick={retryReport}>
+                    <Sparkles size={14} /> {tr('report.retry')}
+                  </button>
+                )}
+                <button className="btn" onClick={() => router.push('/')}>
+                  <ChevronLeft size={14} /> {tr('report.toDashboard')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <FileText size={40} style={{ color: 'var(--muted)', marginBottom: 14, opacity: 0.5 }} />
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.notFoundTitle')}</div>
+              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>
+                {tr('report.notFoundDesc')}
+              </div>
+              <button className="btn" onClick={() => router.push('/')}>
+                <ChevronLeft size={14} /> {tr('report.toDashboard')}
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

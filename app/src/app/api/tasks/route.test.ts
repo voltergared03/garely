@@ -76,36 +76,79 @@ describe('PATCH /api/tasks — authorization', () => {
 
   it("403 when the user cannot access the task's meeting", async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    mockMeetingOfTask.mockResolvedValue('m1');
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: 'm1', assigneeId: null } as any);
     mockAccess.mockResolvedValue(false);
     expect((await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }))).status).toBe(403);
   });
 
   it('updates when meeting access is granted', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    mockMeetingOfTask.mockResolvedValue('m1');
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: 'm1', assigneeId: null } as any);
     mockAccess.mockResolvedValue(true);
     prismaMock.meetingTask.update.mockResolvedValue({ id: 't1' } as any);
     const r = await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }));
     expect(r.status).toBe(200);
     expect(prismaMock.meetingTask.update).toHaveBeenCalled();
   });
+
+  it('403 on a standalone task when the caller is not its assignee', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'someone-else' } as any);
+    const r = await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }));
+    expect(r.status).toBe(403);
+    expect(prismaMock.meetingTask.update).not.toHaveBeenCalled();
+  });
+
+  it('updates a standalone task when the caller is its assignee', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'u1' } as any);
+    prismaMock.meetingTask.update.mockResolvedValue({ id: 't1' } as any);
+    expect((await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }))).status).toBe(200);
+  });
+
+  it('ignores non-whitelisted fields (no mass-assignment)', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: 'm1', assigneeId: null } as any);
+    mockAccess.mockResolvedValue(true);
+    prismaMock.meetingTask.update.mockResolvedValue({ id: 't1' } as any);
+    await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done', meetingId: 'evil', source: 'ai', reportId: 'r9' }));
+    const data = (prismaMock.meetingTask.update.mock.calls[0][0] as any).data;
+    expect(data.meetingId).toBeUndefined();
+    expect(data.source).toBeUndefined();
+    expect(data.reportId).toBeUndefined();
+    expect(data.status).toBe('done');
+  });
 });
 
 describe('DELETE /api/tasks — authorization', () => {
   it("403 when the user cannot access the task's meeting", async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    mockMeetingOfTask.mockResolvedValue('m1');
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: 'm1', assigneeId: null } as any);
     mockAccess.mockResolvedValue(false);
     expect((await DELETE(jsonReq('DELETE', { taskId: 't1' }))).status).toBe(403);
   });
 
-  it('deletes a standalone task (no meeting) for a signed-in user', async () => {
+  it('403 deleting a standalone task the caller does not own', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    mockMeetingOfTask.mockResolvedValue(null);
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'someone-else' } as any);
+    const r = await DELETE(jsonReq('DELETE', { taskId: 't1' }));
+    expect(r.status).toBe(403);
+    expect(prismaMock.meetingTask.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes a standalone task owned by the caller (assignee)', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'u1' } as any);
     prismaMock.meetingTask.delete.mockResolvedValue({ id: 't1' } as any);
     const r = await DELETE(jsonReq('DELETE', { taskId: 't1' }));
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ ok: true });
+  });
+
+  it('lets an admin delete any standalone task', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'a1', role: 'admin' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'someone-else' } as any);
+    prismaMock.meetingTask.delete.mockResolvedValue({ id: 't1' } as any);
+    expect((await DELETE(jsonReq('DELETE', { taskId: 't1' }))).status).toBe(200);
   });
 });

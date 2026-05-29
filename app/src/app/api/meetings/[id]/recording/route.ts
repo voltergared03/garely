@@ -22,6 +22,25 @@ function serialize(rec: any) {
   };
 }
 
+// PATCH/DELETE are destructive (keep-forever defeats retention; delete removes
+// the file for everyone), so they require an admin or the meeting creator — not
+// every participant. GET/stream stays at participant level.
+async function requireMeetingOwner(
+  meetingId: string,
+  userId: string,
+  role: string | null | undefined,
+): Promise<Response | null> {
+  if (role === 'admin') return null;
+  const m = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { createdById: true },
+  });
+  if (!m || m.createdById !== userId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  return null;
+}
+
 // GET — latest ready recording for the meeting (or null)
 async function getHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -42,9 +61,8 @@ async function patchHandler(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const forbidden = await requireMeetingOwner(id, session.user.id, session.user.role);
+  if (forbidden) return forbidden;
   const body = await req.json().catch(() => ({} as any));
   const permanent = !!body.permanent;
 
@@ -60,14 +78,13 @@ async function patchHandler(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ recording: serialize(updated) });
 }
 
-// DELETE — remove the recording file + row (admin or any authenticated user)
+// DELETE — remove the recording file + row (admin or meeting creator only)
 async function deleteHandler(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
-  if (!(await userCanAccessMeeting(id, session.user.id, session.user.role))) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const forbidden = await requireMeetingOwner(id, session.user.id, session.user.role);
+  if (forbidden) return forbidden;
 
   const t = await getTranslations('errors');
   const rec = await prisma.recording.findFirst({ where: { meetingId: id }, orderBy: { createdAt: 'desc' } });

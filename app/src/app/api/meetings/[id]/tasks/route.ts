@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
+import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting, meetingIdOfTask } from '@/lib/access';
@@ -47,7 +48,7 @@ export async function PATCH(
 
   const t = await getTranslations('errors');
   const body = await req.json();
-  const { taskId, status, ...rest } = body;
+  const { taskId } = body;
 
   if (!taskId) {
     return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
@@ -58,10 +59,31 @@ export async function PATCH(
     return NextResponse.json({ error: t('taskNotInMeeting') }, { status: 404 });
   }
 
+  // Whitelist updatable fields — never spread the raw body.
+  const data: Prisma.MeetingTaskUncheckedUpdateInput = {};
+  if (typeof body.status === 'string') {
+    data.status = body.status;
+    data.completedAt = body.status === 'done' ? new Date() : null;
+  }
+  if (typeof body.title === 'string' && body.title.trim()) data.title = body.title.trim();
+  if (body.description !== undefined) data.description = body.description ?? null;
+  if (typeof body.priority === 'string') data.priority = body.priority;
+  if (body.dueDate !== undefined) data.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+  if (typeof body.sortOrder === 'number') data.sortOrder = body.sortOrder;
+  if (body.assigneeId !== undefined) {
+    data.assigneeId = body.assigneeId || null;
+    if (body.assigneeId) {
+      const u = await prisma.user.findUnique({ where: { id: body.assigneeId }, select: { name: true } });
+      data.assigneeName = u?.name ?? null;
+    } else {
+      data.assigneeName = null;
+    }
+  }
+
   try {
     const task = await prisma.meetingTask.update({
       where: { id: taskId },
-      data: { status, ...rest },
+      data,
       include: {
         assignee: { select: { id: true, name: true, image: true } },
       },
