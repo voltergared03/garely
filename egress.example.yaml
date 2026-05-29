@@ -7,3 +7,12 @@ api_key: EAM_MEET_KEY
 api_secret: your-livekit-api-secret-hex   # must match livekit.yaml + .env
 ws_url: ws://livekit:7880
 log_level: info
+
+# room_composite (grid video) needs ~4 CPU by default; lower the cost so it is
+# admitted within egress's modest CPU allotment (2 CPU on small hosts) —
+# otherwise recording fails with "no response from servers".
+cpu_cost:
+  room_composite_cpu_cost: 1.0
+  web_cpu_cost: 1.0
+  track_composite_cpu_cost: 0.7
+  track_cpu_cost: 0.3
