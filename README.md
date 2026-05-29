@@ -321,13 +321,23 @@ All persistent state lives in named Docker volumes:
 | `eam-meet-recordings` | meeting recordings (MP4) |
 | `eam-meet-speaker-audio` | per-speaker audio (re-transcription) |
 | `eam-meet-redis-data` | Redis coordination state (transient) |
+| `eam-meet-backups` | automatic daily database dumps (last 14) |
 
 > [!WARNING]
 > `docker compose down -v` **deletes these volumes — including the entire
 > database.** To stop the stack use plain `docker compose down` (or `stop`);
 > the `-v` flag is destructive and unrecoverable.
 
-Back up the database regularly:
+**Automatic backups.** The `db-backup` service writes a rotated `pg_dump` to the
+`eam-meet-backups` volume once a day (keeping the last 14) — follow it with
+`docker compose logs -f db-backup`. These live on the **same host**, so for real
+disaster recovery copy them off-box, e.g.:
+
+```bash
+docker compose cp db-backup:/backups ./ezmeet-backups   # pull all dumps
+```
+
+To take an immediate manual dump:
 
 ```bash
 docker compose exec -T eam-meet-db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
@@ -342,6 +352,12 @@ docker compose build && docker compose up -d
 # If the Prisma schema changed:
 docker compose exec eam-meet npx prisma db push
 ```
+
+> [!IMPORTANT]
+> `prisma db push` reconciles the database to match the schema and **can drop
+> columns/tables** when a field is renamed or removed. **Always take a backup
+> first** (see [Data & backups](#data--backups)) — the `db-backup` sidecar keeps
+> daily dumps, but run a manual one right before a schema change to be safe.
 
 > **Upgrading an instance created before the `/setup` wizard?** It's auto-detected
 > as already configured (an admin exists + Google credentials are present), so the

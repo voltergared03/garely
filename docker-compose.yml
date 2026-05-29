@@ -1,3 +1,11 @@
+# Default JSON log rotation for every service — without this the json-file
+# driver grows unbounded and eventually fills the host disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   # --- LiveKit Server (WebRTC SFU) ---
   livekit:
@@ -14,6 +22,8 @@ services:
     depends_on:
       eam-meet-redis:
         condition: service_healthy
+    mem_limit: 768m
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -34,6 +44,12 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
+    # Each recording launches a headless Chrome (~1.5-2 GB). Cap it so a runaway
+    # (or a 2nd concurrent recording) can't OOM the rest of the host — the
+    # recording fails instead of taking down the box.
+    mem_limit: 3g
+    cpus: 2.0
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -55,6 +71,14 @@ services:
         condition: service_healthy
       eam-meet-redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/setup/status >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    mem_limit: 1g
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -73,6 +97,10 @@ services:
         condition: service_started
       eam-meet-db:
         condition: service_healthy
+      eam-meet-redis:
+        condition: service_healthy
+    mem_limit: 768m
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -85,7 +113,9 @@ services:
     env_file: .env
     depends_on:
       eam-meet:
-        condition: service_started
+        condition: service_healthy
+    mem_limit: 64m
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -106,6 +136,38 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 1g
+    logging: *default-logging
+    networks:
+      - eam-meet
+
+  # --- Automated database backups (rotated daily pg_dump → volume) ---
+  # On-host snapshots only; copy /backups (or the volume) off-box for real DR.
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - eam-meet-backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "[backup] sidecar started — daily pg_dump, keeping 14"
+        while true; do
+          ts=$$(date +%F-%H%M)
+          if PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h eam-meet-db -U "$$POSTGRES_USER" "$$POSTGRES_DB" | gzip > "/backups/ezmeet-$$ts.sql.gz"; then
+            echo "[backup] wrote ezmeet-$$ts.sql.gz"
+          else
+            echo "[backup] FAILED at $$ts"; rm -f "/backups/ezmeet-$$ts.sql.gz"
+          fi
+          ls -1t /backups/ezmeet-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm -f
+          sleep 86400
+        done
+    depends_on:
+      eam-meet-db:
+        condition: service_healthy
+    mem_limit: 256m
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -121,6 +183,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    mem_limit: 384m
+    logging: *default-logging
     networks:
       - eam-meet
 
@@ -129,6 +193,7 @@ volumes:
   eam-meet-redis-data:
   eam-meet-recordings:
   eam-meet-speaker-audio:
+  eam-meet-backups:
 
 networks:
   eam-meet:
