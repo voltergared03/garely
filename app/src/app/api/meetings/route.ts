@@ -35,6 +35,10 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status');
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  // Bound the result set so a long-lived workspace can't fetch thousands of
+  // meetings (with participants) in one call. Newest first, so the cap keeps the
+  // most recent. Callers can raise it with ?limit= up to 500.
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '200', 10) || 200, 1), 500);
 
   const where: any = {};
   if (status) where.status = status;
@@ -64,7 +68,8 @@ export async function GET(req: NextRequest) {
       reports: { select: { id: true }, take: 1 },
       _count: { select: { transcripts: true, tasks: true } },
     },
-    orderBy: { scheduledAt: 'asc' },
+    orderBy: { scheduledAt: 'desc' },
+    take: limit,
   });
 
   return NextResponse.json(meetings);

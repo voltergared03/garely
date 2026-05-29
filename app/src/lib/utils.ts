@@ -44,6 +44,38 @@ export function zonedHour(d: Date, tz: string): number {
   }
 }
 
+/**
+ * An instant rendered as `<input type=date>` + `<input type=time>` wall-clock
+ * values in the given zone — so a date/time form shows the workspace-local time
+ * regardless of the browser's zone.
+ */
+export function zonedFormFields(d: Date, tz: string): { date: string; time: string } {
+  try {
+    const { year, month, day, hour, minute } = zonedParts(d, tz);
+    return { date: `${year}-${pad(month)}-${pad(day)}`, time: `${pad(hour)}:${pad(minute)}` };
+  } catch {
+    return { date: d.toISOString().slice(0, 10), time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
+  }
+}
+
+/**
+ * Inverse of zonedFormFields: interpret a `YYYY-MM-DD` + `HH:MM` wall-clock
+ * entered in `tz` and return the corresponding UTC ISO string. Guess-and-correct
+ * by the zone offset at that instant (accurate except at DST transitions).
+ */
+export function zonedWallTimeToUtcISO(dateStr: string, timeStr: string, tz: string): string {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = timeStr.split(':').map(Number);
+  const asUTC = Date.UTC(y, (mo || 1) - 1, d || 1, h || 0, mi || 0);
+  try {
+    const { year, month, day, hour, minute } = zonedParts(new Date(asUTC), tz);
+    const shown = Date.UTC(year, month - 1, day, hour, minute);
+    return new Date(asUTC - (shown - asUTC)).toISOString();
+  } catch {
+    return new Date(asUTC).toISOString();
+  }
+}
+
 export function fmtTime(d: Date, tz?: string): string {
   if (tz) {
     try {

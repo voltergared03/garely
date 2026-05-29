@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
-import { fmtTime, fmtRelative, isToday, dayDiff, zonedHour } from '@/lib/utils';
+import { fmtTime, fmtRelative, isToday, dayDiff, zonedHour, zonedFormFields, zonedWallTimeToUtcISO } from '@/lib/utils';
 
 type Tr = ReturnType<typeof useTranslations>;
 
@@ -449,7 +449,7 @@ export function DashboardClient({
 
       {/* Edit Modal */}
       {editMeeting && (
-        <EditMeetingModal meeting={editMeeting} onClose={() => setEditMeeting(null)} onSave={handleEditSave} />
+        <EditMeetingModal meeting={editMeeting} tz={tz} onClose={() => setEditMeeting(null)} onSave={handleEditSave} />
       )}
 
       {/* Delete Confirm */}
@@ -480,17 +480,21 @@ export function DashboardClient({
 
 /* ── Edit Meeting Modal ─────────────────────── */
 
-function EditMeetingModal({ meeting, onClose, onSave }: {
+function EditMeetingModal({ meeting, tz, onClose, onSave }: {
   meeting: Meeting;
+  tz: string;
   onClose: () => void;
   onSave: (m: Meeting) => void;
 }) {
   const t = useTranslations();
   const schedAt = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
+  // Render the date/time inputs as workspace-local wall-clock (not the browser's
+  // zone), so editing doesn't silently shift the meeting time across zones.
+  const initFields = schedAt ? zonedFormFields(schedAt, tz) : null;
   const [title, setTitle] = useState(meeting.title);
   const [description, setDescription] = useState(meeting.description || '');
-  const [date, setDate] = useState(schedAt ? schedAt.toISOString().slice(0, 10) : '');
-  const [time, setTime] = useState(schedAt ? schedAt.toTimeString().slice(0, 5) : '14:00');
+  const [date, setDate] = useState(initFields?.date ?? '');
+  const [time, setTime] = useState(initFields?.time ?? '14:00');
   const [duration, setDuration] = useState(meeting.durationMin);
   const [saving, setSaving] = useState(false);
   const [agenda, setAgenda] = useState<string[]>(Array.isArray(meeting.agenda) ? meeting.agenda : []);
@@ -564,7 +568,7 @@ function EditMeetingModal({ meeting, onClose, onSave }: {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      const scheduledAt = date && time ? new Date(`${date}T${time}:00`).toISOString() : null;
+      const scheduledAt = date && time ? zonedWallTimeToUtcISO(date, time, tz) : null;
       const res = await fetch(`/api/meetings/${meeting.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

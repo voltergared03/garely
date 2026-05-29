@@ -126,6 +126,7 @@
     "aiGenerateDescription": "Generate description with AI",
     "aiRegenerateDescription": "Regenerate description with AI",
     "meeting": "Meeting",
+    "someone": "Someone",
     "selectMeeting": "Select a meeting",
     "noMeeting": "No meeting",
     "searchMeeting": "Search meetings…",

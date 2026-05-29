@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting } from '@/lib/access';
 import { notify } from '@/lib/notify';
+import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 
 // GET /api/meetings/:id/notes — get meeting notes
 export async function GET(
@@ -83,12 +84,13 @@ export async function PATCH(
       }
       if (matched.size > 0) {
         const meeting = await prisma.meeting.findUnique({ where: { id }, select: { title: true } });
+        const ct = getTranslator(await workspaceLocale(), 'common');
         await notify({
           userIds: [...matched],
           type: 'mention',
           titleKey: 'mentionTitle',
           bodyKey: 'mentionBody',
-          values: { name: session.user?.name || 'Хтось', title: meeting?.title || 'мітингу' },
+          values: { name: session.user?.name || ct('someone'), title: meeting?.title || ct('meeting') },
           link: `/meetings/${id}/report`,
           meetingId: id,
         });
