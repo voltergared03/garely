@@ -2,7 +2,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+COPY package.json package-lock.json* .npmrc* yarn.lock* pnpm-lock.yaml* ./
 COPY prisma ./prisma
 
 RUN corepack enable 2>/dev/null || true
