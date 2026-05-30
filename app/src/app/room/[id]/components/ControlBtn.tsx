@@ -37,3 +37,27 @@ export function ControlBtn({ active, onClick, icon, label, danger, badge, classN
     </button>
   );
 }
+
+/* ══════════════════════════════════════════════════════════
+   MORE-MENU ITEM (row inside the ⋮ overflow popover)
+   ══════════════════════════════════════════════════════════ */
+export function MoreItem({ icon, label, onClick, active, danger }: {
+  icon: React.ReactNode; label: string; onClick: () => void; active?: boolean; danger?: boolean;
+}) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+      padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+      background: danger ? 'rgba(239,68,68,.14)' : active ? 'rgba(255,255,255,.08)' : 'transparent',
+      color: danger ? '#fca5a5' : active ? '#fff' : 'rgba(255,255,255,.78)',
+      border: '1px solid ' + (danger ? 'rgba(239,68,68,.3)' : 'transparent'),
+      fontSize: 13, fontWeight: 500, transition: 'background .12s',
+    }}
+      onMouseEnter={(e) => { if (!active && !danger) e.currentTarget.style.background = 'rgba(255,255,255,.06)'; }}
+      onMouseLeave={(e) => { if (!active && !danger) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <span style={{ display: 'flex', flexShrink: 0 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+    </button>
+  );
+}

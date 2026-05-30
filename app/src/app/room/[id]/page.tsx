@@ -25,8 +25,8 @@ import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff,
   Phone, MessageSquare, FileText, X, Languages,
   Send, MoreVertical, Users, UserPlus, Link2, Check,
-  LogOut, Shield, Crown, Settings, Volume2, ChevronDown,
-  Smile, StickyNote, Sparkles, Zap, Save, Disc, Square,
+  LogOut, Shield, Crown, Volume2, ChevronDown,
+  Smile, StickyNote, Sparkles, Zap, Save, Disc, Square, Sidebar,
 } from 'lucide-react';
 import {
   TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, REACTIONS,
@@ -34,7 +34,8 @@ import {
 import { AdmissionPanel } from './components/AdmissionPanel';
 import { ParticipantTile } from './components/ParticipantTile';
 import { RoomDeviceSelect } from './components/RoomDeviceSelect';
-import { ControlBtn } from './components/ControlBtn';
+import { ControlBtn, MoreItem } from './components/ControlBtn';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 /* ══════════════════════════════════════════════════════════
    ROOM CONTENT — rendered inside <LiveKitRoom>
@@ -51,7 +52,8 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
   /* ── sidebar state ─────────────────── */
   const [sidePanel, setSidePanel] = useState<'chat' | 'transcript' | 'participants' | 'notes' | 'ai-notes' | null>(openTranscript ? 'transcript' : null);
-  const [showDevicePicker, setShowDevicePicker] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const isMobile = useIsMobile();
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState('');
   const [selectedCam, setSelectedCam] = useState('');
@@ -96,18 +98,24 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
     try {
       const devs = await navigator.mediaDevices.enumerateDevices();
       setDevices(devs);
-      const curMic = localParticipant.getTrackPublication(Track.Source.Microphone);
-      const curCam = localParticipant.getTrackPublication(Track.Source.Camera);
-      if (curMic?.track) {
-        const settings = curMic.track.mediaStreamTrack?.getSettings();
-        if (settings?.deviceId && !selectedMic) setSelectedMic(settings.deviceId);
-      }
-      if (curCam?.track) {
-        const settings = curCam.track.mediaStreamTrack?.getSettings();
-        if (settings?.deviceId && !selectedCam) setSelectedCam(settings.deviceId);
-      }
+
+      // Resolve the device actually in use for each kind; fall back to the
+      // browser "default" entry (or the first available) so each select shows
+      // a real device name instead of the "not found" placeholder.
+      const resolve = (kind: MediaDeviceKind, fromTrack?: string) => {
+        if (fromTrack && devs.some(d => d.kind === kind && d.deviceId === fromTrack)) return fromTrack;
+        const list = devs.filter(d => d.kind === kind && d.deviceId);
+        return (list.find(d => d.deviceId === 'default') || list[0])?.deviceId || '';
+      };
+
+      const micId = localParticipant.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack?.getSettings()?.deviceId;
+      const camId = localParticipant.getTrackPublication(Track.Source.Camera)?.track?.mediaStreamTrack?.getSettings()?.deviceId;
+
+      setSelectedMic(prev => prev || resolve('audioinput', micId));
+      setSelectedCam(prev => prev || resolve('videoinput', camId));
+      setSelectedSpeaker(prev => prev || resolve('audiooutput'));
     } catch (e) { console.error('Device enum error:', e); }
-  }, [localParticipant, selectedMic, selectedCam]);
+  }, [localParticipant]);
 
   const switchMic = useCallback(async (deviceId: string) => {
     setSelectedMic(deviceId);
@@ -648,41 +656,12 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
               icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={micOn ? tr('room.microphone') : tr('room.turnOn')} />
             <ControlBtn active={camOn} onClick={toggleCam} danger={!camOn}
               icon={camOn ? <Video size={20} /> : <VideoOff size={20} />} label={camOn ? tr('room.camera') : tr('room.turnOn')} />
-            <ControlBtn active={screenOn} onClick={toggleScreen}
-              icon={screenOn ? <MonitorOff size={20} /> : <Monitor size={20} />} label={tr('room.screen')} className="room-screen-btn" />
 
-            {canKick && (
-              <ControlBtn active={recording} onClick={toggleRecording} danger={recording}
-                icon={recording ? <Square size={20} /> : <Disc size={20} />}
-                label={recording ? tr('room.stopRecording') : tr('room.record')} />
+            {/* Screen: inline on desktop; folded into the ⋮ More menu on mobile */}
+            {!isMobile && (
+              <ControlBtn active={screenOn} onClick={toggleScreen}
+                icon={screenOn ? <MonitorOff size={20} /> : <Monitor size={20} />} label={tr('room.screen')} />
             )}
-
-            <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
-
-            {!isGuest && (
-              <ControlBtn active={showSharePopup} onClick={() => setShowSharePopup(!showSharePopup)}
-                icon={<UserPlus size={20} />} label={tr('room.invite')} />
-            )}
-
-            {/* Participants panel */}
-            <ControlBtn active={sidePanel === 'participants'}
-              onClick={() => setSidePanel(sidePanel === 'participants' ? null : 'participants')}
-              icon={<Users size={20} />} label={tr('room.participants')}
-              badge={humanCount > 1 ? humanCount : undefined} />
-
-            <ControlBtn active={sidePanel === 'chat'} onClick={() => setSidePanel(sidePanel === 'chat' ? null : 'chat')}
-              icon={<MessageSquare size={20} />} label={tr('room.chat')}
-              badge={chatMessages.length > 0 ? chatMessages.length : undefined} />
-            <ControlBtn active={sidePanel === 'transcript'} onClick={() => setSidePanel(sidePanel === 'transcript' ? null : 'transcript')}
-              icon={<FileText size={20} />} label={tr('room.text')} />
-
-            {/* Notes panel */}
-            <ControlBtn active={sidePanel === 'notes'} onClick={() => setSidePanel(sidePanel === 'notes' ? null : 'notes')}
-              icon={<StickyNote size={20} />} label={tr('room.notes')} />
-
-            {/* AI Notes panel */}
-            <ControlBtn active={sidePanel === 'ai-notes'} onClick={() => setSidePanel(sidePanel === 'ai-notes' ? null : 'ai-notes')}
-              icon={<Sparkles size={20} />} label={tr('room.ai')} />
 
             {/* Reactions */}
             <div style={{ position: 'relative' }}>
@@ -716,21 +695,36 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
               )}
             </div>
 
-            {/* Device picker */}
+            {/* ⋮ More — secondary actions (record / invite / devices; +screen, CC on mobile) */}
             <div style={{ position: 'relative' }}>
-              <ControlBtn active={showDevicePicker}
-                onClick={() => { enumerateDevices(); setShowDevicePicker(!showDevicePicker); }}
-                icon={<Settings size={20} />} label={tr('room.devices')} />
-              {showDevicePicker && (
+              <ControlBtn active={showMore} onClick={() => { if (!showMore) enumerateDevices(); setShowMore(!showMore); }}
+                icon={<MoreVertical size={20} />} label={tr('room.more')} />
+              {showMore && (
                 <>
-                  <div onClick={() => setShowDevicePicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                  <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
                   <div style={{
                     position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-                    width: 300, maxWidth: 'calc(100vw - 24px)', padding: '14px 16px', zIndex: 100,
+                    width: 264, maxWidth: 'calc(100vw - 24px)', maxHeight: '68vh', overflowY: 'auto',
+                    padding: 8, zIndex: 100,
                     background: '#1e2028', border: '1px solid rgba(255,255,255,.12)',
                     borderRadius: 14, boxShadow: '0 20px 50px rgba(0,0,0,.6)',
+                    display: 'flex', flexDirection: 'column', gap: 2,
                   }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 12 }}>{tr('room.devices')}</div>
+                    {isMobile && (
+                      <MoreItem icon={screenOn ? <MonitorOff size={17} /> : <Monitor size={17} />} active={screenOn}
+                        label={tr('room.screen')} onClick={() => { toggleScreen(); setShowMore(false); }} />
+                    )}
+                    {canKick && (
+                      <MoreItem icon={recording ? <Square size={17} /> : <Disc size={17} />} active={recording} danger={recording}
+                        label={recording ? tr('room.stopRecording') : tr('room.record')}
+                        onClick={() => { toggleRecording(); setShowMore(false); }} />
+                    )}
+                    {!isGuest && (
+                      <MoreItem icon={<UserPlus size={17} />}
+                        label={tr('room.invite')} onClick={() => { setShowSharePopup(true); setShowMore(false); }} />
+                    )}
+                    <div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '6px 4px' }} />
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,.4)', padding: '2px 8px 6px' }}>{tr('room.devices')}</div>
                     <RoomDeviceSelect label={tr('room.microphone')} icon={<Mic size={13} />}
                       devices={devices.filter(d => d.kind === 'audioinput')}
                       value={selectedMic} onChange={switchMic} />
@@ -747,7 +741,15 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
             <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
 
-            <button className="room-leave-btn" onClick={leaveMeeting} style={{
+            {/* Panel — participants / chat / transcript / notes / AI in one tabbed surface */}
+            <ControlBtn active={!!sidePanel}
+              onClick={() => setSidePanel(sidePanel ? null : 'participants')}
+              icon={<Sidebar size={20} />} label={tr('room.panel')}
+              badge={humanCount > 1 ? humanCount : undefined} />
+
+            <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
+
+            <button className="room-leave-btn" onClick={leaveMeeting} title={tr('room.leave')} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '10px 20px', borderRadius: 24, cursor: 'pointer',
               background: '#ef4444', color: '#fff', border: 'none',
@@ -766,15 +768,44 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             background: '#1a1d23', borderLeft: '1px solid rgba(255,255,255,.08)',
           }}>
             <div style={{
-              padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              display: 'flex', alignItems: 'stretch',
               borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
             }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>
-                {sidePanel === 'chat' ? tr('room.chat') : sidePanel === 'transcript' ? tr('room.transcription') : sidePanel === 'participants' ? tr('room.participants') : sidePanel === 'notes' ? tr('room.notes') : tr('room.aiNotes')}
-              </span>
-              <button onClick={() => setSidePanel(null)} style={{
-                background: 'none', border: 'none', color: 'rgba(255,255,255,.4)',
-                cursor: 'pointer', padding: 4, display: 'flex', borderRadius: 6,
+              <div style={{ display: 'flex', flex: 1, minWidth: 0, overflowX: 'auto' }}>
+                {([
+                  { id: 'participants', label: tr('room.participants'), icon: <Users size={16} />, badge: humanCount > 1 ? humanCount : 0 },
+                  { id: 'chat', label: tr('room.chat'), icon: <MessageSquare size={16} />, badge: chatMessages.length },
+                  { id: 'transcript', label: tr('room.text'), icon: <FileText size={16} />, badge: 0 },
+                  { id: 'notes', label: tr('room.notes'), icon: <StickyNote size={16} />, badge: 0 },
+                  { id: 'ai-notes', label: tr('room.ai'), icon: <Sparkles size={16} />, badge: 0 },
+                ] as const).map((tab) => {
+                  const on = sidePanel === tab.id;
+                  return (
+                    <button key={tab.id} onClick={() => setSidePanel(tab.id)} title={tab.label} style={{
+                      position: 'relative', flex: '1 0 auto',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                      padding: '10px 12px', cursor: 'pointer', background: 'none', border: 'none',
+                      borderBottom: on ? '2px solid #3b82f6' : '2px solid transparent',
+                      color: on ? '#fff' : 'rgba(255,255,255,.5)', transition: 'color .15s',
+                    }}>
+                      {tab.icon}
+                      <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap' }}>{tab.label}</span>
+                      {tab.badge > 0 && (
+                        <span style={{
+                          position: 'absolute', top: 4, right: 6,
+                          minWidth: 15, height: 15, padding: '0 3px', borderRadius: 8,
+                          background: '#3b82f6', color: '#fff', fontSize: 9, fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>{tab.badge > 9 ? '9+' : tab.badge}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => setSidePanel(null)} aria-label="Close" style={{
+                flexShrink: 0, background: 'none', border: 'none', color: 'rgba(255,255,255,.4)',
+                cursor: 'pointer', padding: '0 14px', display: 'flex', alignItems: 'center',
+                borderLeft: '1px solid rgba(255,255,255,.06)',
               }}><X size={16} /></button>
             </div>
 
