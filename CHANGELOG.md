@@ -4,6 +4,23 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.10.0-beta.1] — 2026-05-30
+
+Streamlines the **in-meeting control bar** into a Google-Meet-style layout.
+
+### Changed
+- **Simplified meeting controls.** The bottom bar went from ~14 flat buttons to
+  a focused core — mic, camera, screen share, reactions — plus a **⋮ More** menu
+  for secondary actions (record, invite, device pickers) and a single **Panel**
+  button. The five separate side-panel buttons (participants, chat, transcript,
+  notes, AI) are now **tabs inside one panel**. On phones the bar stays compact:
+  screen share and the device pickers fold into the ⋮ menu.
+
+### Fixed
+- The in-call **device pickers now show the device actually in use** (and the
+  default speaker) instead of "Not found" — previously the speaker was never
+  pre-selected and the mic/camera could fall back to an empty value.
+
 ## [1.9.0-beta.1] — 2026-05-30
 
 Adds **post-meeting comprehension quizzes** — verify that attendees actually
@@ -210,6 +227,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.10.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.10.0-beta.1
 [1.9.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.9.0-beta.1
 [1.8.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.8.0-beta.1
 [1.7.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.7.0-beta.1
