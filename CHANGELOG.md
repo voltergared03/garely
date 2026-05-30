@@ -6,15 +6,24 @@ ships `beta` tags ahead of a 1.0 public release.
 
 ## [1.10.0-beta.1] — 2026-05-30
 
-Streamlines the **in-meeting control bar** into a Google-Meet-style layout.
+A **mobile & in-meeting UX** pass: simpler meeting controls, quick meetings from
+your phone, and a tidier navigation.
+
+### Added
+- **Start a quick meeting from mobile.** The mobile compose (+) button is now a
+  **speed-dial** offering *Quick meeting* (start now) or *Schedule*, and the
+  dashboard exposes both as cards — previously phones could only schedule.
 
 ### Changed
-- **Simplified meeting controls.** The bottom bar went from ~14 flat buttons to
-  a focused core — mic, camera, screen share, reactions — plus a **⋮ More** menu
-  for secondary actions (record, invite, device pickers) and a single **Panel**
-  button. The five separate side-panel buttons (participants, chat, transcript,
-  notes, AI) are now **tabs inside one panel**. On phones the bar stays compact:
-  screen share and the device pickers fold into the ⋮ menu.
+- **Simplified in-meeting controls.** The bottom bar went from ~14 flat buttons
+  to a focused core — mic, camera, screen share, reactions — plus a **⋮ More**
+  menu (record, invite, device pickers) and a single **Panel** button. The five
+  separate side-panel buttons (participants, chat, transcript, notes, AI) are now
+  **tabs inside one panel**. On phones the bar stays compact: screen share and the
+  device pickers fold into the ⋮ menu.
+- **Quizzes moved into the Tasks page** as a `Tasks | Quizzes` tab (web + mobile),
+  with the pending-quiz reminder badge now on Tasks. This frees a slot in the
+  mobile bottom bar; `/quizzes` redirects to the new tab.
 
 ### Fixed
 - The in-call **device pickers now show the device actually in use** (and the

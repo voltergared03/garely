@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { useQuizPending } from "@/hooks/use-quiz-pending";
+import { QuizzesPanel } from "../quizzes/quizzes-panel";
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
@@ -842,6 +844,23 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
+function TabBtn({ active, onClick, label, badge }: { active: boolean; onClick: () => void; label: string; badge?: number }) {
+  return (
+    <button onClick={onClick} style={{
+      position: "relative", padding: "8px 2px", marginRight: 12, background: "none", border: "none", cursor: "pointer",
+      fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1,
+      color: active ? "var(--text)" : "var(--muted)",
+      borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+      transition: "color .15s",
+    }}>
+      {label}
+      {badge && badge > 0 ? (
+        <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 8, background: "var(--accent)", color: "#fff", verticalAlign: "middle" }}>{badge > 9 ? "9+" : badge}</span>
+      ) : null}
+    </button>
+  );
+}
+
 export default function TasksPage() {
   const tr = useTranslations();
   const { data: session } = useSession();
@@ -857,10 +876,12 @@ export default function TasksPage() {
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Task | null | "new">(null);
+  const [tab, setTab] = useState<"tasks" | "quizzes">("tasks");
 
   const isAdmin = session?.user?.role === "admin";
   const userId = session?.user?.id;
   const isMobile = useIsMobile();
+  const pendingQuiz = useQuizPending();
 
   const fetchTasks = useCallback(async () => {
     setError(false);
@@ -876,6 +897,7 @@ export default function TasksPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "quizzes") setTab("quizzes");
     // fetchTasks owns `loading` (it sets it false in its finally) — don't clear
     // it synchronously here, or the spinner never reflects the real fetch.
     fetchTasks();
@@ -920,6 +942,11 @@ export default function TasksPage() {
     fetchTasks();
   };
 
+  const switchTab = (t: "tasks" | "quizzes") => {
+    setTab(t);
+    if (typeof window !== "undefined") window.history.replaceState(null, "", t === "quizzes" ? "/tasks?tab=quizzes" : "/tasks");
+  };
+
   if (loading) return (
     <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Loader2 size={24} className="spin" style={{ color: "var(--muted)" }} />
@@ -928,13 +955,20 @@ export default function TasksPage() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Page tabs: Tasks | Quizzes */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "12px clamp(14px, 4vw, 28px) 0", flexShrink: 0 }}>
+        <TabBtn active={tab === "tasks"} onClick={() => switchTab("tasks")} label={tr("tasks.pageTitle")} />
+        <TabBtn active={tab === "quizzes"} onClick={() => switchTab("quizzes")} label={tr("quiz.navTitle")} badge={pendingQuiz} />
+      </div>
+
+      {tab === "quizzes" ? (
+        <QuizzesPanel />
+      ) : (
+      <>
       {/* Header */}
-      <div style={{ padding: "18px clamp(14px, 4vw, 28px) 16px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em" }}>{tr("tasks.pageTitle")}</h1>
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.pageSubtitle")}</div>
-          </div>
+      <div style={{ padding: "12px clamp(14px, 4vw, 28px) 16px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 0 }} />
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
               <button onClick={() => setView("list")} className="btn btn-sm" style={{
@@ -1000,6 +1034,8 @@ export default function TasksPage() {
 
       <TaskModal open={!!editing} task={editing === "new" ? null : editing as Task}
         meetings={meetings} users={users} onClose={() => setEditing(null)} onSaved={handleSaved} />
+      </>
+      )}
     </div>
   );
 }

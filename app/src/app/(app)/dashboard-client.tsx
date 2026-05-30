@@ -215,19 +215,19 @@ export function DashboardClient({
             </div>
           )}
 
-          {/* Quick actions */}
+          {/* Quick actions — start now or schedule */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
-            <Link href="/schedule" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Link href="/lobby/quick" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Plus size={18} style={{ color: 'var(--accent)' }} />
+                <Video size={18} style={{ color: 'var(--accent)' }} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('sidebar.newMeeting')}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('sidebar.quickMeeting')}</span>
             </Link>
-            <Link href="/calendar" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Link href="/schedule" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--green) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CalendarIcon size={18} style={{ color: 'var(--green)' }} />
+                <Plus size={18} style={{ color: 'var(--green)' }} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('nav.calendar')}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('dashboard.scheduleMeeting')}</span>
             </Link>
           </div>
         </div>

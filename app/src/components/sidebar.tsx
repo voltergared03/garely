@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import {
   Home, Calendar, ListChecks, Archive, Settings,
-  Plus, Video, LogOut, ClipboardList,
+  Plus, Video, LogOut,
 } from 'lucide-react';
 import { Logo } from './ui/logo';
 import { Avatar } from './ui/avatar';
@@ -17,7 +17,6 @@ const NAV_ITEMS = [
   { id: '/', labelKey: 'sidebar.dashboard', icon: Home, adminOnly: false },
   { id: '/calendar', labelKey: 'nav.calendar', icon: Calendar, adminOnly: false },
   { id: '/tasks', labelKey: 'nav.tasks', icon: ListChecks, adminOnly: false },
-  { id: '/quizzes', labelKey: 'nav.quizzes', icon: ClipboardList, adminOnly: false },
   { id: '/archive', labelKey: 'nav.archive', icon: Archive, adminOnly: false },
   { id: '/settings', labelKey: 'nav.settings', icon: Settings, adminOnly: false },
 ] as const;
@@ -86,7 +85,7 @@ export function Sidebar({ workspaceName }: { workspaceName?: string }) {
           >
             <Icon size={17} />
             <span style={{ flex: 1 }}>{t(it.labelKey)}</span>
-            {it.id === '/quizzes' && pendingQuiz > 0 && (
+            {it.id === '/tasks' && pendingQuiz > 0 && (
               <span style={{
                 minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9,
                 background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700,
