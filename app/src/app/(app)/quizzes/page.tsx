@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ClipboardList, Check, X, ChevronDown, ChevronRight, Loader2, Users } from 'lucide-react';
+import { ClipboardList, Check, X, ChevronDown, ChevronRight, Loader2, Users, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 
 interface MyItem {
@@ -69,6 +69,16 @@ export default function QuizzesPage() {
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+
+  const deleteManaged = async (q: MgQuiz) => {
+    if (!confirm(tr('quiz.deleteConfirm'))) return;
+    try {
+      const res = await fetch(`/api/meetings/${q.meetingId}/quiz`, { method: 'DELETE' });
+      if (res.ok) setManaged((m) => m.filter((x) => x.quizId !== q.quizId));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const openReview = useCallback(async (assignmentId: string) => {
     setReviewOpen(true);
@@ -152,18 +162,24 @@ export default function QuizzesPage() {
                 const doneCount = q.assignments.filter((a) => a.status === 'completed').length;
                 return (
                   <div key={q.quizId} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <button
-                      onClick={() => toggle(q.quizId)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
-                    >
-                      {open ? <ChevronDown size={16} style={{ color: 'var(--muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--muted)' }} />}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.meetingTitle}</div>
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{tr('quiz.progress', { done: doneCount, total: q.assignments.length })}</div>
-                      </div>
-                      <Users size={14} style={{ color: 'var(--muted)' }} />
-                      <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--mono, monospace)' }}>{q.assignments.length}</span>
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <button
+                        onClick={() => toggle(q.quizId)}
+                        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+                      >
+                        {open ? <ChevronDown size={16} style={{ color: 'var(--muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--muted)' }} />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.meetingTitle}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{tr('quiz.progress', { done: doneCount, total: q.assignments.length })}</div>
+                        </div>
+                        <Users size={14} style={{ color: 'var(--muted)' }} />
+                        <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--mono, monospace)' }}>{q.assignments.length}</span>
+                      </button>
+                      <button onClick={() => deleteManaged(q)} title={tr('quiz.delete')} aria-label={tr('quiz.delete')}
+                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: '0 12px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                     {open && (
                       <div style={{ borderTop: '1px solid var(--border)' }}>
                         {q.assignments.map((a) => {

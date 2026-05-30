@@ -184,6 +184,26 @@ export function QuizManager({
     }
   }, [meetingId, questions, openBook, selected, tr, showMsg]);
 
+  const deleteQuiz = useCallback(async () => {
+    if (!confirm(tr('quiz.deleteConfirm'))) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/quiz`, { method: 'DELETE' });
+      if (!res.ok) {
+        showMsg(false, tr('quiz.deleteFailed'));
+        return;
+      }
+      setQuiz(null);
+      setQuestions([]);
+      setSelected(new Set());
+      setOpen(false);
+    } catch {
+      showMsg(false, tr('quiz.deleteFailed'));
+    } finally {
+      setAssigning(false);
+    }
+  }, [meetingId, tr, showMsg]);
+
   if (!canManage) return null;
 
   const inputStyle: React.CSSProperties = {
@@ -394,13 +414,21 @@ export function QuizManager({
 
             {/* Footer */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-              <span style={{ fontSize: 12.5, color: msg ? (msg.ok ? 'var(--green)' : '#f87171') : 'var(--muted)' }}>
-                {msg ? msg.text : tr('quiz.selectedCount', { count: selected.size })}
-              </span>
-              <button className="btn btn-primary" onClick={saveAndAssign} disabled={assigning || questions.length === 0 || selected.size === 0}>
-                {assigning ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ClipboardList size={14} />}
-                {tr('quiz.assignButton')}
-              </button>
+              {quiz || questions.length > 0 ? (
+                <button onClick={deleteQuiz} disabled={assigning}
+                  style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0 }}>
+                  <Trash2 size={13} /> {tr('quiz.delete')}
+                </button>
+              ) : <span />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 12.5, color: msg ? (msg.ok ? 'var(--green)' : '#f87171') : 'var(--muted)' }}>
+                  {msg ? msg.text : tr('quiz.selectedCount', { count: selected.size })}
+                </span>
+                <button className="btn btn-primary" onClick={saveAndAssign} disabled={assigning || questions.length === 0 || selected.size === 0}>
+                  {assigning ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ClipboardList size={14} />}
+                  {tr('quiz.assignButton')}
+                </button>
+              </div>
             </div>
           </div>
         )}

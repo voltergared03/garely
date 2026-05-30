@@ -488,7 +488,10 @@
     "notTaken": "Not taken",
     "openReport": "Open report",
     "reviewOf": "Answers: {name}",
-    "userPicked": "their answer"
+    "userPicked": "their answer",
+    "delete": "Delete quiz",
+    "deleteConfirm": "Delete this quiz and all its results? This can't be undone.",
+    "deleteFailed": "Couldn't delete the quiz"
   },
   "room": {
     "guestWantsToJoin": "A guest wants to join",

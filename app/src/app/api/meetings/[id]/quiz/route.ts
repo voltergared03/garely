@@ -104,5 +104,20 @@ async function patchHandler(req: NextRequest, { params }: { params: Promise<{ id
   });
 }
 
+// DELETE /api/meetings/[id]/quiz — admin/creator removes the quiz and all of its
+// assignments/results (cascade). Destructive; the UI confirms first.
+async function deleteHandler(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
+  const forbidden = await requireOwner(id, session.user.id, session.user.role);
+  if (forbidden) return forbidden;
+  const quiz = await prisma.quiz.findUnique({ where: { meetingId: id }, select: { id: true } });
+  if (!quiz) return NextResponse.json({ error: 'quiz_not_found' }, { status: 404 });
+  await prisma.quiz.delete({ where: { id: quiz.id } });
+  return NextResponse.json({ ok: true });
+}
+
 export const GET = withRoute('meetings.quiz.get', getHandler);
 export const PATCH = withRoute('meetings.quiz.update', patchHandler);
+export const DELETE = withRoute('meetings.quiz.delete', deleteHandler);
