@@ -1,8 +1,9 @@
 # EZmeet
 
 Self-hosted video-conferencing platform with AI meeting intelligence: live
-transcription, automatic summaries, action items, collaborative notes,
-reactions, and optional meeting recording.
+multilingual transcription, automatic summaries, action items, collaborative
+notes, a report-grounded AI chat, post-meeting comprehension quizzes, and
+on-demand recording.
 
 [![CI](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml/badge.svg)](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -57,11 +58,13 @@ install in place (secrets and config are preserved).
 
 ## Features
 
-- **Video meetings** over WebRTC (LiveKit SFU), guest join links + waiting room
-- **Live transcription** (Deepgram, multilingual) streamed into the room
-- **AI post-meeting reports** (DeepSeek): summary, decisions, action items, follow-ups
-- **Tasks** board, **collaborative notes** with @mentions, **reactions**, screen share
-- **Meeting recording** via LiveKit Egress (optional — see [Recording](#recording-livekit-egress))
+- **Video meetings** over WebRTC (LiveKit SFU): guest join links + waiting room, screen share, reactions, **start now** or schedule
+- **Per-speaker multilingual live transcription** (Deepgram, uk / ru / en) streamed into the room
+- **AI post-meeting reports** (DeepSeek): summary, decisions, action items & follow-ups — plus a topic-structured **"Detailed" report** with clickable transcript citations and PDF export
+- **Report-grounded AI chat** — ask questions about the meeting; answers cite the transcript
+- **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub
+- **Tasks** board (with deadlines on the calendar), **collaborative notes** with @mentions, **recurring meetings**
+- **On-demand recording** via LiveKit Egress — start / stop from an in-meeting button (host/admin); see [Recording](#recording-livekit-egress)
 - **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
 - **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (reminders, weekly digest, report-ready, mentions)
 - **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
@@ -286,8 +289,10 @@ The `egress` service records the room (grid composite) to MP4 files in a shared
 Docker volume (`eam-meet-recordings`, mounted at `/recordings`), served back
 through the app's report card (play / download / keep / delete).
 
-- **Disabled by default.** Enable in **Admin → Workspace** (`WS_RECORD_ALL`) to
-  auto-record meetings when they go live.
+- **On-demand.** A host/admin starts and stops recording from a **Record button
+  inside the meeting**, so the egress container stays idle otherwise. The optional
+  **Admin → Workspace** `WS_RECORD_ALL` setting (off by default) auto-starts
+  recording when a meeting goes live.
 - **Retention**: set `WS_RETENTION_DAYS` (0 = keep indefinitely). A daily cron
   (`/api/cron/recordings`) deletes expired, non-permanent recordings.
 - **Resource cost**: each active recording launches a headless Chrome
