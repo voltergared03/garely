@@ -4,6 +4,30 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.9.0-beta.1] — 2026-05-30
+
+Adds **post-meeting comprehension quizzes** — verify that attendees actually
+absorbed the meeting.
+
+### Added
+- **Comprehension quizzes.** From a finished meeting's report, an admin or the
+  creator can **generate AI multiple-choice questions** (grounded on the report,
+  in the workspace language), edit / add / remove them, choose **open- or
+  closed-book**, and **assign** to the meeting's registered participants.
+  Assignees are notified and take the quiz on a mobile-friendly page; it is
+  **auto-graded** on submit (one attempt) and the creator is notified of each
+  result.
+- **"Quizzes" hub** — a new nav tab with a pending-count reminder badge.
+  Everyone sees the quizzes assigned to them (take / review their answers);
+  admins & creators see the quizzes they assigned with each participant's score
+  and an expandable **answer review** (their answer vs. the correct one).
+- Quizzes can be **deleted** by an admin/creator (removes the quiz and all of
+  its results).
+
+### Notes
+- Stored per meeting (`Quiz` / `QuizAssignment`); generation reuses the DeepSeek
+  client with a generous token budget so reasoning models aren't truncated.
+
 ## [1.8.0-beta.1] — 2026-05-29
 
 A **recording rebuild** — cleaner transcripts and on-demand video capture.
@@ -186,6 +210,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.9.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.9.0-beta.1
 [1.8.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.8.0-beta.1
 [1.7.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.7.0-beta.1
 [1.6.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.6.0-beta.1
