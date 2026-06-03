@@ -21,17 +21,17 @@ export function Logo({ size = 18, withText = true }: { size?: number; withText?:
           viewBox="0 0 24 24"
           fill="none"
           stroke="#fff"
-          strokeWidth="2.4"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <rect x="2" y="6" width="14" height="12" rx="2.5" />
-          <path d="m22 8-6 4 6 4z" />
+          <rect x="4" y="4" width="9" height="9" rx="2.5" />
+          <rect x="11" y="11" width="9" height="9" rx="2.5" />
         </svg>
       </div>
       {withText && (
         <div style={{ fontWeight: 700, letterSpacing: '-0.01em', fontSize: 15 }}>
-          EZ<span style={{ color: 'var(--muted)', fontWeight: 500 }}>meet</span>
+          Gare<span style={{ color: 'var(--muted)', fontWeight: 500 }}>ly</span>
         </div>
       )}
     </div>
