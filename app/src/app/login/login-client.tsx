@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/logo';
 import { Globe, Lock, Loader2 } from 'lucide-react';
+import { BackgroundPaths } from './background-paths';
 
 export function LoginClient({
   wsName,
@@ -81,7 +82,8 @@ export function LoginClient({
         overflowY: 'auto',
       }}
     >
-      <div style={{ maxWidth: 420, width: '100%', padding: '24px 20px' }}>
+      <BackgroundPaths />
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 420, width: '100%', padding: '24px 20px' }}>
         <div className="card fade-in" style={{ padding: '40px 36px', textAlign: 'center' }}>
           <div style={{ marginBottom: 24 }}>
             <Logo size={24} />

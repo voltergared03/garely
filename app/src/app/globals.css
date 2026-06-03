@@ -252,6 +252,13 @@ select.field option:checked {
   to { transform: none; }
 }
 @keyframes bgIn { from { opacity: 0; } to { opacity: 1; } }
+/* Login animated background paths (see app/login/background-paths.tsx) */
+@keyframes bgPathFlow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.login-bg-path {
+  stroke-dasharray: 0.35 0.65;
+  animation: bgPathFlow var(--bp-dur, 24s) linear var(--bp-delay, 0s) infinite;
+}
+@media (prefers-reduced-motion: reduce) { .login-bg-path { animation: none; } }
 
 .fade-in { animation: fadeIn 0.3s ease; }
 .spin { animation: spin 0.8s linear infinite; }

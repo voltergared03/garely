@@ -30,6 +30,9 @@ ships `beta` tags ahead of a 1.0 public release.
 - **Task details open in a side panel** — a right-hand, full-height drawer
   instead of a centred modal, keeping subtasks, comments, files and collaborators
   together; on phones it becomes a full-screen sheet.
+- **Animated sign-in background** — a subtle, accent-tinted "flowing paths"
+  backdrop on the login screen (CSS-only, hair-thin lines, honours
+  `prefers-reduced-motion`).
 
 ## [1.11.0-beta.1] — 2026-06-03
 
