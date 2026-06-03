@@ -4,7 +4,13 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
-## [Unreleased]
+## [1.12.0-beta.1] — 2026-06-03
+
+### Added
+- **Personal calendar subscription (ICS).** Each user gets a private feed URL
+  in *Settings → Calendar sync* to subscribe to **their own meetings and task
+  deadlines** from Google Calendar, Outlook or Apple Calendar. One-way, the
+  secret URL is the credential, and regenerating it revokes old subscriptions.
 
 ### Changed
 - **Manage subtasks inline on the Tasks board.** Each task row has a disclosure

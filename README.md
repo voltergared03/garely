@@ -65,6 +65,7 @@ install in place (secrets and config are preserved).
 - **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub
 - **Task workspace** — a board (list / kanban / by-department) where **subtasks** are managed inline (expand a row to toggle, reassign, delete or quick-add, with a progress meter), plus **comments**, **file attachments** and **collaborators** in a side panel; deadlines land on the calendar
 - **Departments** — group people into teams; meetings & tasks belong to a department, which gates who sees what (members see their own + their department's + collaborated work; admins see all)
+- **Calendar sync** — subscribe to your own meetings & task deadlines (private ICS feed) from Google Calendar, Outlook or Apple Calendar
 - **Collaborative notes** with @mentions, **recurring meetings**
 - **On-demand recording** via LiveKit Egress — start / stop from an in-meeting button (host/admin); see [Recording](#recording-livekit-egress)
 - **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
