@@ -44,43 +44,44 @@ model VerificationToken {
 
 // === App Models ===
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  role          String    @default("member") // admin | member
-  status        String    @default("active") // active | pending | disabled — default keeps existing users active
-  timezone      String    @default("Europe/Kyiv")
-  createdAt     DateTime  @default(now())
-  lastLogin     DateTime?
-  preferences   Json?
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String?   @unique
+  emailVerified      DateTime?
+  image              String?
+  role               String    @default("member") // admin | member
+  status             String    @default("active") // active | pending | disabled — default keeps existing users active
+  timezone           String    @default("Europe/Kyiv")
+  createdAt          DateTime  @default(now())
+  lastLogin          DateTime?
+  preferences        Json?
   // Credentials auth (optional — null for SSO-only users)
-  passwordHash       String?  // scrypt: scrypt$N$r$p$salt$hash (base64url)
-  mustChangePassword Boolean  @default(false)
+  passwordHash       String? // scrypt: scrypt$N$r$p$salt$hash (base64url)
+  mustChangePassword Boolean   @default(false)
   // 2FA (TOTP)
-  totpSecret      String?  // AES-256-GCM encrypted at rest
-  totpEnabled     Boolean  @default(false)
-  totpBackupCodes Json?    // array of HMAC-SHA256 hashed single-use codes
+  totpSecret         String? // AES-256-GCM encrypted at rest
+  totpEnabled        Boolean   @default(false)
+  totpBackupCodes    Json? // array of HMAC-SHA256 hashed single-use codes
   // Personal calendar (ICS) subscription feed — secret token in the URL is the
   // auth; rotating it revokes existing subscriptions.
-  calendarFeedToken String? @unique
+  calendarFeedToken  String?   @unique
 
-  accounts            Account[]
-  sessions            Session[]
-  createdMeetings     Meeting[]            @relation("MeetingCreator")
-  participations      MeetingParticipant[]
-  assignedTasks       MeetingTask[]        @relation("TaskAssignee")
-  transcriptSegments  TranscriptSegment[]
-  notifications       Notification[]
-  pushSubscriptions   PushSubscription[]
-  speakerTracks       SpeakerTrack[]
-  createdQuizzes      Quiz[]               @relation("QuizCreator")
-  quizAssignments     QuizAssignment[]     @relation("QuizAssignee")
+  accounts              Account[]
+  sessions              Session[]
+  createdMeetings       Meeting[]            @relation("MeetingCreator")
+  participations        MeetingParticipant[]
+  assignedTasks         MeetingTask[]        @relation("TaskAssignee")
+  transcriptSegments    TranscriptSegment[]
+  notifications         Notification[]
+  pushSubscriptions     PushSubscription[]
+  speakerTracks         SpeakerTrack[]
+  createdQuizzes        Quiz[]               @relation("QuizCreator")
+  quizAssignments       QuizAssignment[]     @relation("QuizAssignee")
   departmentMemberships DepartmentMember[]
-  taskComments        TaskComment[]
-  taskAttachments     TaskAttachment[]
-  taskCollaborations  TaskCollaborator[]
+  taskComments          TaskComment[]
+  taskAttachments       TaskAttachment[]
+  taskCollaborations    TaskCollaborator[]
+  memberships           Membership[]
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -89,9 +90,9 @@ model PushSubscription {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   endpoint  String   @unique
-  p256dh    String   // client public key (base64url)
-  auth      String   // client auth secret (base64url)
-  ua        String?  // user-agent, for display in settings
+  p256dh    String // client public key (base64url)
+  auth      String // client auth secret (base64url)
+  ua        String? // user-agent, for display in settings
   createdAt DateTime @default(now())
   lastUsed  DateTime @default(now())
 
@@ -102,70 +103,74 @@ model PushSubscription {
 // own password up front (hashed); approval just provisions an active User.
 // Requests expire after AUTH_REQUEST_TTL_DAYS (default 3).
 model RegistrationRequest {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   name         String?
-  passwordHash String   // scrypt — same format as User.passwordHash
-  status       String   @default("pending") // pending | approved | denied | expired
-  createdAt    DateTime @default(now())
+  passwordHash String // scrypt — same format as User.passwordHash
+  status       String        @default("pending") // pending | approved | denied | expired
+  createdAt    DateTime      @default(now())
   expiresAt    DateTime
   decidedAt    DateTime?
   decidedById  String?
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([expiresAt])
 }
 
 model Meeting {
-  id           String    @id @default(cuid())
-  title        String
-  description  String?
-  createdById  String
-  createdBy    User      @relation("MeetingCreator", fields: [createdById], references: [id])
-  scheduledAt  DateTime?
-  durationMin  Int       @default(60)
-  status       String    @default("scheduled") // scheduled | live | ended | cancelled
-  recurrence   Json?     // { type: daily|weekly|biweekly|monthly, seriesId } when recurring
-  recurrenceMaterialized Boolean @default(false) // true once this occurrence has spawned its successor
-  livekitRoom  String?   @unique
-  joinToken    String?   @unique
-  createdAt    DateTime  @default(now())
-  endedAt      DateTime?
-  reminderSent Boolean   @default(false)
+  id                     String        @id @default(cuid())
+  title                  String
+  description            String?
+  createdById            String
+  createdBy              User          @relation("MeetingCreator", fields: [createdById], references: [id])
+  scheduledAt            DateTime?
+  durationMin            Int           @default(60)
+  status                 String        @default("scheduled") // scheduled | live | ended | cancelled
+  recurrence             Json? // { type: daily|weekly|biweekly|monthly, seriesId } when recurring
+  recurrenceMaterialized Boolean       @default(false) // true once this occurrence has spawned its successor
+  livekitRoom            String?       @unique
+  joinToken              String?       @unique
+  createdAt              DateTime      @default(now())
+  endedAt                DateTime?
+  reminderSent           Boolean       @default(false)
   // Post-meeting AI report lifecycle (null = none yet)
-  reportStatus String?   // generating | ready | failed
-  reportError  String?   @db.Text
+  reportStatus           String? // generating | ready | failed
+  reportError            String?       @db.Text
   // AI options
-  transcriptionEnabled Boolean @default(true)
-  aiReportEnabled      Boolean @default(true)
-  allowGuests          Boolean @default(true)
-  agenda               Json?
-  departmentId         String?
+  transcriptionEnabled   Boolean       @default(true)
+  aiReportEnabled        Boolean       @default(true)
+  allowGuests            Boolean       @default(true)
+  agenda                 Json?
+  departmentId           String?
+  orgId                  String?
+  org                    Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  participants    MeetingParticipant[]
-  transcripts     TranscriptSegment[]
-  reports         MeetingReport[]
-  tasks           MeetingTask[]
-  emailLog        EmailLog[]
-  notifications   Notification[]
-  notes           MeetingNote?
-  recordings      Recording[]
-  speakerTracks   SpeakerTrack[]
-  joinRequests    JoinRequest[]
-  quiz            Quiz?
-  department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  participants  MeetingParticipant[]
+  transcripts   TranscriptSegment[]
+  reports       MeetingReport[]
+  tasks         MeetingTask[]
+  emailLog      EmailLog[]
+  notifications Notification[]
+  notes         MeetingNote?
+  recordings    Recording[]
+  speakerTracks SpeakerTrack[]
+  joinRequests  JoinRequest[]
+  quiz          Quiz?
+  department    Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([status, scheduledAt])
   @@index([departmentId])
 }
 
 model JoinRequest {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   meetingId String
-  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   guestName String
-  status    String   @default("pending") // pending | approved | denied
-  createdAt DateTime @default(now())
+  status    String    @default("pending") // pending | approved | denied
+  createdAt DateTime  @default(now())
   decidedAt DateTime?
 
   @@index([meetingId, status])
@@ -194,20 +199,20 @@ model Recording {
 // speaker's voice so we can detect their language and re-transcribe a single
 // speaker without affecting the others.
 model SpeakerTrack {
-  id                  String    @id @default(cuid())
+  id                  String   @id @default(cuid())
   meetingId           String
-  meeting             Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  speakerId           String?   // User.id for registered participants; null for guests
-  speaker             User?     @relation(fields: [speakerId], references: [id], onDelete: SetNull)
-  participantIdentity String    // LiveKit participant identity (userId or guest-xxxx)
+  meeting             Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speakerId           String? // User.id for registered participants; null for guests
+  speaker             User?    @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+  participantIdentity String // LiveKit participant identity (userId or guest-xxxx)
   speakerName         String?
   fileName            String
   filePath            String
   fileSize            BigInt?
   durationSec         Float?
-  detectedLanguage    String?   // post-meeting Deepgram detect_language result (ru | uk | en …)
+  detectedLanguage    String? // post-meeting Deepgram detect_language result (ru | uk | en …)
   detectConfidence    Float?
-  createdAt           DateTime  @default(now())
+  createdAt           DateTime @default(now())
 
   @@index([meetingId])
   @@index([speakerId])
@@ -237,7 +242,7 @@ model TranscriptSegment {
   speakerId   String?
   speaker     User?    @relation(fields: [speakerId], references: [id], onDelete: SetNull)
   content     String
-  language    String?  // ru | uk | en
+  language    String? // ru | uk | en
   startTime   Float
   endTime     Float
   confidence  Float?
@@ -256,7 +261,7 @@ model MeetingReport {
   agenda       Json?
   decisions    Json?
   followUps    Json?
-  topics       Json?    // extended report: per-topic discussion/decisions/tasks/openQuestions with transcript citations
+  topics       Json? // extended report: per-topic discussion/decisions/tasks/openQuestions with transcript citations
   rawPrompt    String?  @db.Text
   rawResponse  String?  @db.Text
   modelUsed    String?
@@ -270,32 +275,34 @@ model MeetingReport {
 }
 
 model MeetingTask {
-  id           String    @id @default(cuid())
-  meetingId    String?
-  meeting      Meeting?  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  reportId     String?
-  report       MeetingReport? @relation(fields: [reportId], references: [id])
-  title        String
-  description  String?
-  assigneeId   String?
-  assignee     User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  assigneeName String?
-  priority     String    @default("medium") // high | medium | low
-  status       String    @default("open") // open | in_progress | done
-  dueDate      DateTime?
-  createdAt    DateTime  @default(now())
-  source       String    @default("ai") // ai | manual
-  completedAt  DateTime?
-  sortOrder    Int       @default(0)
-  externalId   String?
-  externalUrl  String?
-  externalSync String?
-  lastSyncedAt DateTime?
-  departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  id            String             @id @default(cuid())
+  meetingId     String?
+  meeting       Meeting?           @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  reportId      String?
+  report        MeetingReport?     @relation(fields: [reportId], references: [id])
+  title         String
+  description   String?
+  assigneeId    String?
+  assignee      User?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assigneeName  String?
+  priority      String             @default("medium") // high | medium | low
+  status        String             @default("open") // open | in_progress | done
+  dueDate       DateTime?
+  createdAt     DateTime           @default(now())
+  source        String             @default("ai") // ai | manual
+  completedAt   DateTime?
+  sortOrder     Int                @default(0)
+  externalId    String?
+  externalUrl   String?
+  externalSync  String?
+  lastSyncedAt  DateTime?
+  departmentId  String?
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  orgId         String?
+  org           Organization?      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   parentId      String?
-  parent        MeetingTask?  @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks      MeetingTask[] @relation("Subtasks")
+  parent        MeetingTask?       @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks      MeetingTask[]      @relation("Subtasks")
   comments      TaskComment[]
   attachments   TaskAttachment[]
   collaborators TaskCollaborator[]
@@ -308,28 +315,32 @@ model MeetingTask {
 }
 
 model EmailLog {
-  id           String   @id @default(cuid())
+  id           String        @id @default(cuid())
   meetingId    String?
-  meeting      Meeting? @relation(fields: [meetingId], references: [id])
+  meeting      Meeting?      @relation(fields: [meetingId], references: [id])
   recipient    String
   template     String
   mailersendId String?
-  status       String   @default("sent")
-  sentAt       DateTime @default(now())
+  status       String        @default("sent")
+  sentAt       DateTime      @default(now())
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // meeting_starting | task_assigned | report_ready | action_item | mention
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // meeting_starting | task_assigned | report_ready | action_item | mention
   title     String
   body      String?
-  link      String?  // URL to navigate to on click
-  read      Boolean  @default(false)
+  link      String? // URL to navigate to on click
+  orgId     String?
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  read      Boolean       @default(false)
   meetingId String?
-  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  meeting   Meeting?      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
 
   @@index([userId, read])
   @@index([userId, createdAt])
@@ -339,7 +350,7 @@ model MeetingNote {
   id        String   @id @default(cuid())
   meetingId String   @unique
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  content   String   @db.Text @default("")
+  content   String   @default("") @db.Text
   updatedBy String?
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
@@ -355,17 +366,19 @@ model SystemConfig {
 // the report, edits them, then assigns to participants who must complete a
 // comprehension check. One quiz per meeting.
 model Quiz {
-  id          String    @id @default(cuid())
-  meetingId   String    @unique
-  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  meetingId   String        @unique
+  meeting     Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   createdById String
-  createdBy   User      @relation("QuizCreator", fields: [createdById], references: [id])
-  status      String    @default("draft") // draft | assigned
-  openBook    Boolean   @default(false)   // may the taker view the report/transcript while taking it
-  language    String?   // uk | en — workspace language at generation time
-  questions   Json      // [{ id, prompt, type: single|multi|boolean, options:[{id,text}], correctOptionIds:[], cites:[] }]
-  createdAt   DateTime  @default(now())
+  createdBy   User          @relation("QuizCreator", fields: [createdById], references: [id])
+  status      String        @default("draft") // draft | assigned
+  openBook    Boolean       @default(false) // may the taker view the report/transcript while taking it
+  language    String? // uk | en — workspace language at generation time
+  questions   Json // [{ id, prompt, type: single|multi|boolean, options:[{id,text}], correctOptionIds:[], cites:[] }]
+  createdAt   DateTime      @default(now())
   assignedAt  DateTime?
+  orgId       String?
+  org         Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   assignments QuizAssignment[]
 }
@@ -378,9 +391,9 @@ model QuizAssignment {
   user         User      @relation("QuizAssignee", fields: [userId], references: [id], onDelete: Cascade)
   assignedById String
   status       String    @default("pending") // pending | completed
-  score        Int?      // number of correct answers
-  maxScore     Int?      // total questions
-  answers      Json?     // { [questionId]: [selectedOptionIds] }
+  score        Int? // number of correct answers
+  maxScore     Int? // total questions
+  answers      Json? // { [questionId]: [selectedOptionIds] }
   dueAt        DateTime?
   assignedAt   DateTime  @default(now())
   completedAt  DateTime?
@@ -395,11 +408,13 @@ model QuizAssignment {
 // Meetings and tasks belong to at most one department, which drives access
 // gating in Garely and the per-department Teable base routing (option A).
 model Department {
-  id           String   @id @default(cuid())
+  id           String        @id @default(cuid())
   name         String
-  color        String?  // hex accent for UI chips
-  teableBaseId String?  // Teable base this department's tasks sync to
-  createdAt    DateTime @default(now())
+  color        String? // hex accent for UI chips
+  teableBaseId String? // Teable base this department's tasks sync to
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
 
   members  DepartmentMember[]
   meetings Meeting[]
@@ -427,7 +442,7 @@ model TaskComment {
   task       MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   userId     String?
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  authorName String?     // snapshot, survives user deletion
+  authorName String? // snapshot, survives user deletion
   body       String      @db.Text
   createdAt  DateTime    @default(now())
 
@@ -439,7 +454,7 @@ model TaskAttachment {
   taskId       String
   task         MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   fileName     String
-  filePath     String      // relative path within the task-attachments volume
+  filePath     String // relative path within the task-attachments volume
   mimeType     String?
   fileSize     BigInt?
   uploadedById String?
@@ -459,4 +474,49 @@ model TaskCollaborator {
 
   @@unique([taskId, userId])
   @@index([userId])
+}
+
+// === Multi-tenancy (Phase 1, 2026-06-03) ===
+// Single-DB multi-tenancy. Tenant-owned AGGREGATE ROOTS carry orgId; child rows
+// inherit their parent's org (see garely-architecture memory). Self-host = exactly
+// one Organization ("org #1"); hosted = many orgs in one schema. orgId is NULLABLE
+// in this first additive migration → backfilled to org #1 → then made required
+// (roadmap §12). RBAC stays on User.role this phase; Membership.role is seeded but
+// not yet enforced.
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships          Membership[]
+  meetings             Meeting[]
+  tasks                MeetingTask[]
+  departments          Department[]
+  quizzes              Quiz[]
+  notifications        Notification[]
+  registrationRequests RegistrationRequest[]
+  emailLogs            EmailLog[]
+}
+
+model Membership {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      OrgRole      @default(MEMBER)
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([orgId])
 }
