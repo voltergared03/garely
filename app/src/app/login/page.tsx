@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isSetupComplete } from '@/lib/setup';
-import { readConfig, CONFIG_DEFAULTS, getAuthConfig } from '@/lib/config';
+import { getAuthConfig, PRODUCT_NAME } from '@/lib/config';
 import { LoginClient } from './login-client';
 
 export const dynamic = 'force-dynamic';
@@ -11,13 +11,10 @@ export default async function LoginPage() {
     redirect('/setup');
   }
 
-  const [cfg, authCfg] = await Promise.all([
-    readConfig(['WS_NAME']),
-    getAuthConfig(),
-  ]);
+  const authCfg = await getAuthConfig();
   return (
     <LoginClient
-      wsName={cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME}
+      wsName={PRODUCT_NAME}
       googleEnabled={authCfg.googleEnabled}
       passwordEnabled={authCfg.passwordEnabled}
       selfReg={authCfg.selfReg}

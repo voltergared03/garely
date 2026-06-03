@@ -112,6 +112,11 @@ export function emailAllowedForSelfReg(email: string, domains: string[]): boolea
   return domains.includes(email.slice(at + 1).toLowerCase());
 }
 
+/** The product/platform brand name (constant — the hosted SaaS + self-host build).
+ *  Decoupled from WS_NAME, which is the per-workspace/tenant label (e.g. "EAM").
+ *  Use this for product chrome: page title, PWA name, auth screens, email from-name. */
+export const PRODUCT_NAME = 'Garely';
+
 /** Defaults for workspace + pricing config (used when a key is not set). */
 export const CONFIG_DEFAULTS: Record<string, string> = {
   WS_NAME: 'Garely',

@@ -2,22 +2,17 @@ import type { Metadata, Viewport } from 'next';
 import { SessionProvider } from 'next-auth/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { PRODUCT_NAME } from '@/lib/config';
 import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
-  let wsName = CONFIG_DEFAULTS.WS_NAME;
-  try {
-    const cfg = await readConfig(['WS_NAME']);
-    if (cfg.WS_NAME) wsName = cfg.WS_NAME;
-  } catch {
-    /* DB unavailable (e.g. at build) → fall back to default */
-  }
+  // Product brand (constant) drives the browser title / PWA / Apple web-app name.
+  // The per-workspace name (WS_NAME) is a tenant label shown inside the app shell.
   return {
-    title: { default: wsName, template: `%s · ${wsName}` },
+    title: { default: PRODUCT_NAME, template: `%s · ${PRODUCT_NAME}` },
     description: 'Self-hosted video conferencing with AI meeting intelligence',
-    applicationName: wsName,
+    applicationName: PRODUCT_NAME,
     manifest: '/manifest.webmanifest',
     icons: {
       icon: '/favicon.svg',
@@ -25,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     appleWebApp: {
       capable: true,
-      title: wsName,
+      title: PRODUCT_NAME,
       statusBarStyle: 'black-translucent',
     },
     formatDetection: { telephone: false },

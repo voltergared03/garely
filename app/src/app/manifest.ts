@@ -1,27 +1,18 @@
 import type { MetadataRoute } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { PRODUCT_NAME } from '@/lib/config';
 
-// Read the workspace name per request so a configured instance gets its own
-// install name. Tolerates a DB-less build (falls back to the default).
+// The PWA install name is the product brand (constant), not the tenant's
+// workspace name (WS_NAME), so it stays stable across workspaces.
 export const dynamic = 'force-dynamic';
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  let name = CONFIG_DEFAULTS.WS_NAME;
-  try {
-    const cfg = await readConfig(['WS_NAME']);
-    if (cfg.WS_NAME) name = cfg.WS_NAME;
-  } catch {
-    /* DB unavailable at build → default */
-  }
-
   const locale = await getLocale();
   const t = await getTranslations('nav');
-  const short = name.length > 12 ? name.split(/\s+/)[0].slice(0, 12) : name;
 
   return {
-    name,
-    short_name: short,
+    name: PRODUCT_NAME,
+    short_name: PRODUCT_NAME,
     description: 'Self-hosted video conferencing with AI meeting intelligence',
     start_url: '/',
     scope: '/',
