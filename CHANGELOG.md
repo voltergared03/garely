@@ -4,6 +4,17 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [Unreleased]
+
+### Changed
+- **Manage subtasks inline on the Tasks board.** Each task row has a disclosure
+  caret that expands its subtasks in place — toggle status, see the assignee,
+  delete, and quick-add (Enter) without opening the task. The parent row shows a
+  progress meter (done / total).
+- **Task details open in a side panel** — a right-hand, full-height drawer
+  instead of a centred modal, keeping subtasks, comments, files and collaborators
+  together; on phones it becomes a full-screen sheet.
+
 ## [1.11.0-beta.1] — 2026-06-03
 
 **Departments & a real task workspace.** Tasks gain org structure, collaboration,

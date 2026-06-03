@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { useTranslations, useLocale } from "next-intl";
 import { Select } from "@/components/ui/select";
@@ -19,6 +19,10 @@ import { QuizzesPanel } from "../quizzes/quizzes-panel";
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
 interface TaskMeeting { id: string; title: string; scheduledAt: string | null; }
+interface Subtask {
+  id: string; title: string; status: string; priority: string;
+  dueDate: string | null; assigneeName: string | null; assignee: TaskAssignee | null;
+}
 interface Task {
   id: string; title: string; description?: string | null;
   priority: string; status: string; dueDate: string | null;
@@ -29,6 +33,7 @@ interface Task {
   department?: { id: string; name: string; color: string | null } | null;
   parentId?: string | null;
   collaborators?: { userId: string }[];
+  subtasks?: Subtask[];
   _count?: { subtasks: number; comments: number; attachments: number };
 }
 interface UserItem { id: string; name: string; email: string; image: string | null; }
@@ -130,7 +135,6 @@ function DeptChip({ dept }: { dept?: { id: string; name: string; color: string |
 function CountBadges({ c }: { c?: { subtasks: number; comments: number; attachments: number } }) {
   if (!c) return null;
   const items = [
-    c.subtasks > 0 ? { icon: GitBranch, n: c.subtasks } : null,
     c.comments > 0 ? { icon: MessageSquare, n: c.comments } : null,
     c.attachments > 0 ? { icon: Paperclip, n: c.attachments } : null,
   ].filter(Boolean) as { icon: React.ComponentType<{ size?: number }>; n: number }[];
@@ -201,20 +205,33 @@ function SelectChip({ value, onChange, options, icon: IconComp }: {
 /* ═══════════════════════════════════════════════════════════
    TASK ROW (List view)
    ═══════════════════════════════════════════════════════════ */
-function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
+function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggleExpand }: {
   t: Task; onEdit: () => void; onStatusChange: (status: string) => void;
   q: string; last: boolean; mobile?: boolean;
+  expanded?: boolean; onToggleExpand?: () => void;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
   const due = dueInfo(t.dueDate);
   const isOverdue = due?.overdue && t.status !== "done";
+  const subTotal = t.subtasks?.length ?? t._count?.subtasks ?? 0;
+  const subDone = t.subtasks?.filter(s => s.status === "done").length ?? 0;
 
   const cycleStatus = (e: React.MouseEvent) => {
     e.stopPropagation();
     const next = t.status === "open" ? "in_progress" : t.status === "in_progress" ? "done" : "open";
     onStatusChange(next);
   };
+
+  // Disclosure caret — always present (so any task can get a first subtask
+  // inline), brighter when subtasks exist. Rotates ▸→▾ when open.
+  const caret = (
+    <button onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
+      aria-label={expanded ? tr("tasks.hide") : tr("tasks.show")}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: "var(--muted)", flexShrink: 0 }}>
+      <ChevronDown size={15} style={{ transform: expanded ? "none" : "rotate(-90deg)", transition: "transform .15s", opacity: subTotal > 0 ? 0.95 : 0.4 }} />
+    </button>
+  );
 
   // Mobile: a stacked card — title on top, then a wrapping meta row. Far more
   // legible on a phone than the desktop single-line row.
@@ -237,7 +254,10 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
         borderLeft: isOverdue ? "3px solid var(--red)" : "3px solid transparent",
         paddingLeft: isOverdue ? 13 : 16, cursor: "pointer",
       }}>
-        <div style={{ paddingTop: 1 }}><StatusCheckbox status={t.status} onClick={cycleStatus} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, paddingTop: 1, flexShrink: 0 }}>
+          {caret}
+          <StatusCheckbox status={t.status} onClick={cycleStatus} />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
             {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 3 }} />}
@@ -254,6 +274,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
             <PriorityTag p={t.priority} />
             {dueChip}
             <DeptChip dept={t.department} />
+            <SubProgress done={subDone} total={subTotal} />
             <CountBadges c={t._count} />
             {t.assignee ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>
@@ -288,7 +309,10 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
       onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-2)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
-      <StatusCheckbox status={t.status} onClick={cycleStatus} />
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        {caret}
+        <StatusCheckbox status={t.status} onClick={cycleStatus} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
@@ -315,6 +339,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
             </span>
           ) : null}
           <DeptChip dept={t.department} />
+          <SubProgress done={subDone} total={subTotal} />
           <CountBadges c={t._count} />
         </div>
       </div>
@@ -343,15 +368,104 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
   );
 }
 
+/* ─── Subtask progress meter (parent row) ──────────────────── */
+function SubProgress({ done, total }: { done: number; total: number }) {
+  if (total <= 0) return null;
+  const pct = Math.round((done / total) * 100);
+  const complete = done === total;
+  return (
+    <span title={`${done}/${total}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+      <span style={{ position: "relative", width: 34, height: 4, borderRadius: 3, background: "var(--surface-2, #2a2a32)", overflow: "hidden" }}>
+        <span style={{ position: "absolute", inset: 0, width: `${pct}%`, background: complete ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width .25s ease" }} />
+      </span>
+      <span style={{ fontSize: 11, color: complete ? "var(--green)" : "var(--muted)", fontFamily: "var(--font-mono, monospace)" }}>{done}/{total}</span>
+    </span>
+  );
+}
+
+/* ─── Inline subtask list (expanded under a parent row) ─────── */
+function SubtaskList({ parent, mobile, onOpen, onChange }: {
+  parent: Task; mobile?: boolean; onOpen: (id: string) => void; onChange: (next: Subtask[]) => void;
+}) {
+  const tr = useTranslations();
+  const [newTitle, setNewTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+  const subs = parent.subtasks || [];
+
+  const toggle = (s: Subtask, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = s.status === "done" ? "open" : "done";
+    onChange(subs.map(x => x.id === s.id ? { ...x, status: next } : x));
+    fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id, status: next }) }).catch(() => {});
+  };
+  const del = (s: Subtask, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange(subs.filter(x => x.id !== s.id));
+    fetch("/api/tasks", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id }) }).catch(() => {});
+  };
+  const add = async () => {
+    const title = newTitle.trim();
+    if (!title || adding) return;
+    setAdding(true); setNewTitle("");
+    try {
+      const r = await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, parentId: parent.id }) });
+      if (r.ok) {
+        const c = await r.json();
+        onChange([...subs, { id: c.id, title: c.title, status: c.status, priority: c.priority, dueDate: c.dueDate, assigneeName: c.assigneeName ?? null, assignee: c.assignee ?? null }]);
+      }
+    } finally { setAdding(false); }
+  };
+
+  return (
+    <div style={{
+      paddingLeft: mobile ? 34 : 48, paddingRight: mobile ? 14 : 16, paddingTop: 4, paddingBottom: 10,
+      background: "color-mix(in oklab, var(--accent) 4%, var(--surface))",
+      borderBottom: "1px solid var(--border)", animation: "subIn .16s ease",
+    }}>
+      {subs.map(s => {
+        const done = s.status === "done";
+        return (
+          <div key={s.id} onClick={() => onOpen(s.id)} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "6px 6px 6px 12px", cursor: "pointer",
+            borderLeft: "2px solid var(--border)", borderRadius: "0 7px 7px 0",
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = "color-mix(in oklab, var(--accent) 8%, transparent)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+            <StatusCheckbox status={s.status} onClick={(e) => toggle(s, e)} />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: done ? "var(--muted)" : "var(--text-2)", textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+            {s.assignee ? <Avatar name={s.assignee.name || "?"} image={s.assignee.image} size="sm" />
+              : s.assigneeName ? <span style={{ fontSize: 11, color: "var(--muted)" }}>{s.assigneeName.split(" ")[0]}</span> : null}
+            <button onClick={(e) => del(s, e)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex", flexShrink: 0 }}><Trash2 size={13} /></button>
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 12, marginTop: subs.length ? 4 : 0 }}>
+        <Plus size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+        <input value={newTitle} onChange={e => setNewTitle(e.target.value)} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") add(); }}
+          placeholder={tr("tasks.subtaskPlaceholder")}
+          style={{ flex: 1, height: 30, padding: "0 10px", fontSize: 12.5, borderRadius: 7, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+        {adding && <Loader2 size={13} className="spin" style={{ color: "var(--muted)" }} />}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    LIST VIEW
    ═══════════════════════════════════════════════════════════ */
-function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [] }: {
+function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [], onOpenById, onSubtaskChange }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
   groupBy?: "status" | "department"; departments?: { id: string; name: string; color: string | null }[];
+  onOpenById?: (id: string) => void; onSubtaskChange?: (parentId: string, next: Subtask[]) => void;
 }) {
   const tr = useTranslations();
   const [collapsedDone, setCollapsedDone] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpanded(prev => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
 
   const { order, groups, meta } = useMemo(() => {
     if (groupBy === "department") {
@@ -414,8 +528,16 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
               {!collapsed && (
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
                   {items.map((t, i) => (
-                    <TaskRow key={t.id} t={t} onEdit={() => onEdit(t)}
-                      onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile={mobile} />
+                    <Fragment key={t.id}>
+                      <TaskRow t={t} onEdit={() => onEdit(t)}
+                        onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile={mobile}
+                        expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)} />
+                      {expanded.has(t.id) && (
+                        <SubtaskList parent={t} mobile={mobile}
+                          onOpen={(id) => onOpenById?.(id)}
+                          onChange={(next) => onSubtaskChange?.(t.id, next)} />
+                      )}
+                    </Fragment>
                   ))}
                 </div>
               )}
@@ -913,13 +1035,14 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(8,10,14,.55)", backdropFilter: "blur(6px)",
-      zIndex: 950, display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      position: "fixed", inset: 0, background: "rgba(8,10,14,.5)", backdropFilter: "blur(4px)",
+      zIndex: 950, display: "flex", alignItems: "stretch", justifyContent: "flex-end",
+      animation: "bgIn .18s ease",
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 18,
-        width: 600, maxWidth: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column",
-        boxShadow: "0 40px 80px -10px rgba(0,0,0,.7)",
+        background: "var(--card, #181a20)", borderLeft: "1px solid var(--border)", borderRadius: "16px 0 0 16px",
+        width: "min(600px, 100vw)", maxWidth: "100vw", height: "100%", display: "flex", flexDirection: "column",
+        boxShadow: "-28px 0 70px -12px rgba(0,0,0,.65)", animation: "drawerIn .24s cubic-bezier(.32,.72,0,1)",
       }}>
         {/* Header */}
         <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
@@ -1239,15 +1362,29 @@ export default function TasksPage() {
     }).catch(() => {});
   }, []);
 
+  // Open a task's modal by id (fetches full detail) — shared by the deep-link
+  // and by clicking a subtask inline in the list.
+  const openById = useCallback((id: string) => {
+    fetch(`/api/tasks/${id}`).then(r => (r.ok ? r.json() : null)).then(d => {
+      if (d && d.id) setEditing(d as Task);
+    }).catch(() => {});
+  }, []);
+
   // Deep-link: /tasks?task=ID opens that task's modal (notification links use it).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const tid = new URLSearchParams(window.location.search).get("task");
     if (!tid) return;
-    fetch(`/api/tasks/${tid}`).then(r => (r.ok ? r.json() : null)).then(d => {
-      if (d && d.id) setEditing(d as Task);
-      window.history.replaceState(null, "", "/tasks");
-    }).catch(() => {});
+    openById(tid);
+    window.history.replaceState(null, "", "/tasks");
+  }, [openById]);
+
+  // Inline subtask edits patch the parent's nested subtasks in board state
+  // (no full refetch — preserves expansion/scroll). Keeps _count in sync.
+  const patchTaskSubtasks = useCallback((parentId: string, next: Subtask[]) => {
+    setTasks(prev => prev.map(t => t.id === parentId
+      ? { ...t, subtasks: next, _count: { subtasks: next.length, comments: t._count?.comments ?? 0, attachments: t._count?.attachments ?? 0 } }
+      : t));
   }, []);
 
   // Effective department of a task = its explicit department, else the
@@ -1395,9 +1532,9 @@ export default function TasksPage() {
         ) : filtered.length === 0 ? (
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} />
         ) : view === "dept" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} />
         ) : (
           <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} />
         )}

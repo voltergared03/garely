@@ -63,7 +63,9 @@ install in place (secrets and config are preserved).
 - **AI post-meeting reports** (DeepSeek): summary, decisions, action items & follow-ups — plus a topic-structured **"Detailed" report** with clickable transcript citations and PDF export
 - **Report-grounded AI chat** — ask questions about the meeting; answers cite the transcript
 - **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub
-- **Tasks** board (with deadlines on the calendar), **collaborative notes** with @mentions, **recurring meetings**
+- **Task workspace** — a board (list / kanban / by-department) where **subtasks** are managed inline (expand a row to toggle, reassign, delete or quick-add, with a progress meter), plus **comments**, **file attachments** and **collaborators** in a side panel; deadlines land on the calendar
+- **Departments** — group people into teams; meetings & tasks belong to a department, which gates who sees what (members see their own + their department's + collaborated work; admins see all)
+- **Collaborative notes** with @mentions, **recurring meetings**
 - **On-demand recording** via LiveKit Egress — start / stop from an in-meeting button (host/admin); see [Recording](#recording-livekit-egress)
 - **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
 - **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (reminders, weekly digest, report-ready, mentions)
@@ -327,6 +329,7 @@ All persistent state lives in named Docker volumes:
 | `eam-meet-pgdata` | PostgreSQL — **all** users, meetings, reports, tasks |
 | `eam-meet-recordings` | meeting recordings (MP4) |
 | `eam-meet-speaker-audio` | per-speaker audio (re-transcription) |
+| `eam-meet-task-files` | task attachment uploads |
 | `eam-meet-redis-data` | Redis coordination state (transient) |
 | `eam-meet-backups` | automatic daily database dumps (last 14) |
 

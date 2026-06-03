@@ -131,6 +131,15 @@ export async function GET(req: NextRequest) {
       meeting: { select: { id: true, title: true, scheduledAt: true } },
       department: { select: { id: true, name: true, color: true } },
       collaborators: { select: { userId: true } },
+      // Embed subtasks so the board can expand them inline (instant, no refetch)
+      // and show accurate done/total progress without opening each task.
+      subtasks: {
+        select: {
+          id: true, title: true, status: true, priority: true, dueDate: true,
+          assigneeName: true, assignee: { select: { id: true, name: true, image: true } },
+        },
+        orderBy: [{ status: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       _count: { select: { subtasks: true, comments: true, attachments: true } },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
