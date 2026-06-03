@@ -12,13 +12,12 @@ export default async function LoginPage() {
   }
 
   const [cfg, authCfg] = await Promise.all([
-    readConfig(['WS_NAME', 'WS_DOMAIN']),
+    readConfig(['WS_NAME']),
     getAuthConfig(),
   ]);
   return (
     <LoginClient
       wsName={cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME}
-      wsDomain={cfg.WS_DOMAIN || CONFIG_DEFAULTS.WS_DOMAIN}
       googleEnabled={authCfg.googleEnabled}
       passwordEnabled={authCfg.passwordEnabled}
       selfReg={authCfg.selfReg}

@@ -11,13 +11,11 @@ import { BackgroundPaths } from './background-paths';
 
 export function LoginClient({
   wsName,
-  wsDomain,
   googleEnabled,
   passwordEnabled,
   selfReg,
 }: {
   wsName: string;
-  wsDomain: string;
   googleEnabled: boolean;
   passwordEnabled: boolean;
   selfReg: boolean;
@@ -89,12 +87,9 @@ export function LoginClient({
             <Logo size={24} />
           </div>
 
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 28px', letterSpacing: '-0.02em' }}>
             {t('auth.welcome', { name: wsName })}
           </h1>
-          <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 28px', lineHeight: 1.5 }}>
-            {t('auth.tagline')}
-          </p>
 
           {passwordEnabled && (
             <form onSubmit={submit} style={{ textAlign: 'left', marginBottom: googleEnabled ? 18 : 4 }}>
@@ -156,7 +151,7 @@ export function LoginClient({
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, justifyContent: 'center', marginTop: 18 }}>
-            <Lock size={12} /> {t('auth.selfHosted')}{wsDomain ? ` · ${wsDomain}` : ''}
+            <Lock size={12} /> {t('auth.selfHosted')}
           </div>
         </div>
       </div>
