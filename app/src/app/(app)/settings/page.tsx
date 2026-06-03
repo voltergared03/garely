@@ -3,24 +3,26 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  Globe, Users, Shield, Sparkles, Settings as SettingsIcon,
+  Globe, Users, Shield, Sparkles, Building2, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { ProfileTab } from './tabs/ProfileTab';
 import { UsersTab } from './tabs/UsersTab';
+import { DepartmentsTab } from './tabs/DepartmentsTab';
 import { WorkspaceTab } from './tabs/WorkspaceTab';
 import { IntegrationsTab } from './tabs/IntegrationsTab';
 import { BillingTab } from './tabs/BillingTab';
 
 /* ── Tabs definition ──────────────────────────── */
 
-type TabKey = 'profile' | 'users' | 'workspace' | 'integrations' | 'billing';
+type TabKey = 'profile' | 'users' | 'departments' | 'workspace' | 'integrations' | 'billing';
 
 interface TabDef { key: TabKey; labelKey: string; icon: React.ReactNode; adminOnly: boolean }
 
 const TABS: TabDef[] = [
   { key: 'profile', labelKey: 'settings.tabProfile', icon: <SettingsIcon size={14} />, adminOnly: false },
   { key: 'users', labelKey: 'settings.tabUsers', icon: <Users size={14} />, adminOnly: true },
+  { key: 'departments', labelKey: 'settings.tabDepartments', icon: <Building2 size={14} />, adminOnly: true },
   { key: 'workspace', labelKey: 'settings.tabWorkspace', icon: <Shield size={14} />, adminOnly: true },
   { key: 'integrations', labelKey: 'settings.tabIntegrations', icon: <Globe size={14} />, adminOnly: true },
   { key: 'billing', labelKey: 'settings.tabBilling', icon: <Sparkles size={14} />, adminOnly: true },
@@ -60,6 +62,7 @@ export default function SettingsPage() {
       <div className="page-container" style={{ flex: 1, overflowY: 'auto' }}>
         {tab === 'profile' && <ProfileTab session={session} updateSession={updateSession} />}
         {tab === 'users' && isAdmin && <UsersTab />}
+        {tab === 'departments' && isAdmin && <DepartmentsTab />}
         {tab === 'workspace' && isAdmin && <WorkspaceTab />}
         {tab === 'integrations' && isAdmin && <IntegrationsTab />}
         {tab === 'billing' && isAdmin && <BillingTab />}

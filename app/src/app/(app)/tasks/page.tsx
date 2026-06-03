@@ -8,7 +8,8 @@ import Link from "next/link";
 import {
   ListChecks, Check, Clock, Search, X, Sparkles, ChevronDown,
   MoreHorizontal, User, Loader2, Plus, Trash2, Video,
-  LayoutList, LayoutGrid, AlertCircle, Calendar as CalendarIcon, Wand2,
+  LayoutList, LayoutGrid, AlertCircle, Calendar as CalendarIcon, Wand2, Building2,
+  MessageSquare, Paperclip, Send, Download, Users, UploadCloud, GitBranch,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useIsMobile } from "@/lib/use-is-mobile";
@@ -24,6 +25,11 @@ interface Task {
   assigneeName: string | null; meetingId: string; source?: string;
   assignee: TaskAssignee | null; meeting?: TaskMeeting;
   assigneeId?: string | null; completedAt?: string | null;
+  departmentId?: string | null;
+  department?: { id: string; name: string; color: string | null } | null;
+  parentId?: string | null;
+  collaborators?: { userId: string }[];
+  _count?: { subtasks: number; comments: number; attachments: number };
 }
 interface UserItem { id: string; name: string; email: string; image: string | null; }
 interface MeetingOption { id: string; title: string; scheduledAt: string | null; }
@@ -110,6 +116,39 @@ function PriorityTag({ p }: { p: string }) {
 }
 
 /* ─── Filter Pills ──────────────────────────────────────── */
+function DeptChip({ dept }: { dept?: { id: string; name: string; color: string | null } | null }) {
+  if (!dept) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "2px 8px", borderRadius: 999,
+      background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)", whiteSpace: "nowrap", flexShrink: 0 }}>
+      <span style={{ width: 7, height: 7, borderRadius: 2, background: dept.color || "var(--accent)", flexShrink: 0 }} />
+      {dept.name}
+    </span>
+  );
+}
+
+function CountBadges({ c }: { c?: { subtasks: number; comments: number; attachments: number } }) {
+  if (!c) return null;
+  const items = [
+    c.subtasks > 0 ? { icon: GitBranch, n: c.subtasks } : null,
+    c.comments > 0 ? { icon: MessageSquare, n: c.comments } : null,
+    c.attachments > 0 ? { icon: Paperclip, n: c.attachments } : null,
+  ].filter(Boolean) as { icon: React.ComponentType<{ size?: number }>; n: number }[];
+  if (items.length === 0) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+      {items.map((it, i) => {
+        const Icon = it.icon;
+        return (
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--muted)" }}>
+            <Icon size={11} /> {it.n}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function FilterPills({ value, onChange, options }: {
   value: string; onChange: (v: string) => void;
   options: { id: string; label: string; count: number }[];
@@ -214,6 +253,8 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
             <PriorityTag p={t.priority} />
             {dueChip}
+            <DeptChip dept={t.department} />
+            <CountBadges c={t._count} />
             {t.assignee ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>
                 <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
@@ -273,6 +314,8 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
               <ListChecks size={11} /> {tr("tasks.standaloneTask")}
             </span>
           ) : null}
+          <DeptChip dept={t.department} />
+          <CountBadges c={t._count} />
         </div>
       </div>
       <PriorityTag p={t.priority} />
@@ -303,45 +346,65 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile }: {
 /* ═══════════════════════════════════════════════════════════
    LIST VIEW
    ═══════════════════════════════════════════════════════════ */
-function TaskListView({ tasks, onEdit, onStatusChange, q, mobile }: {
+function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [] }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
+  groupBy?: "status" | "department"; departments?: { id: string; name: string; color: string | null }[];
 }) {
   const tr = useTranslations();
-  const groups = useMemo(() => ({
-    open: tasks.filter(t => t.status === "open"),
-    in_progress: tasks.filter(t => t.status === "in_progress"),
-    done: tasks.filter(t => t.status === "done"),
-  }), [tasks]);
   const [collapsedDone, setCollapsedDone] = useState(true);
 
-  const sectionMeta: Record<string, { label: string; color: string }> = {
-    open: { label: tr("tasks.statusOpen"), color: "var(--accent)" },
-    in_progress: { label: tr("tasks.statusInProgress"), color: "var(--amber)" },
-    done: { label: tr("tasks.statusDone"), color: "var(--green)" },
-  };
+  const { order, groups, meta } = useMemo(() => {
+    if (groupBy === "department") {
+      const order = [...departments.map(d => d.id), "__none__"];
+      const groups: Record<string, Task[]> = {};
+      const meta: Record<string, { label: string; color: string }> = {};
+      for (const d of departments) { groups[d.id] = []; meta[d.id] = { label: d.name, color: d.color || "var(--accent)" }; }
+      groups.__none__ = []; meta.__none__ = { label: tr("departments.none"), color: "var(--muted)" };
+      for (const t of tasks) {
+        const key = t.departmentId && groups[t.departmentId] ? t.departmentId : "__none__";
+        groups[key].push(t);
+      }
+      return { order, groups, meta };
+    }
+    return {
+      order: ["open", "in_progress", "done"],
+      groups: {
+        open: tasks.filter(t => t.status === "open"),
+        in_progress: tasks.filter(t => t.status === "in_progress"),
+        done: tasks.filter(t => t.status === "done"),
+      } as Record<string, Task[]>,
+      meta: {
+        open: { label: tr("tasks.statusOpen"), color: "var(--accent)" },
+        in_progress: { label: tr("tasks.statusInProgress"), color: "var(--amber)" },
+        done: { label: tr("tasks.statusDone"), color: "var(--green)" },
+      } as Record<string, { label: string; color: string }>,
+    };
+  }, [tasks, groupBy, departments, tr]);
 
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "18px clamp(14px, 4vw, 28px) 60px" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", gap: 26 }}>
-        {(["open", "in_progress", "done"] as const).map(status => {
-          const items = groups[status];
-          if (items.length === 0) return null;
-          const meta = sectionMeta[status];
-          const collapsed = status === "done" && collapsedDone;
+        {order.map(key => {
+          const items = groups[key];
+          if (!items || items.length === 0) return null;
+          const m = meta[key];
+          const collapsible = groupBy === "status" && key === "done";
+          const collapsed = collapsible && collapsedDone;
+          const square = groupBy === "department";
           return (
-            <section key={status}>
-              <button onClick={() => { if (status === "done") setCollapsedDone(c => !c); }}
-                disabled={status !== "done"}
+            <section key={key}>
+              <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }}
+                disabled={!collapsible}
                 style={{
                   display: "flex", alignItems: "center", gap: 10, marginBottom: 10,
                   background: "transparent", border: "none", padding: 0,
-                  cursor: status === "done" ? "pointer" : "default", color: "inherit", width: "100%",
+                  cursor: collapsible ? "pointer" : "default", color: "inherit", width: "100%",
                 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: meta.color }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{meta.label}</span>
+                <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
                 <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "2px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
                 <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 6 }} />
-                {status === "done" && (
+                {collapsible && (
                   <span style={{ color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
                     {collapsed ? tr("tasks.show") : tr("tasks.hide")}
                     <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
@@ -509,9 +572,250 @@ function EmptyState({ scope, q, onCreate }: { scope: string; q: string; onCreate
 /* ═══════════════════════════════════════════════════════════
    CREATE/EDIT TASK MODAL
    ═══════════════════════════════════════════════════════════ */
-function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
+/* ─── Task collaboration (subtasks · comments · files · collaborators) ─────── */
+interface CollabUser { id: string; name: string | null; image: string | null; }
+interface SubTask { id: string; title: string; status: string; assignee: CollabUser | null; dueDate: string | null; }
+interface TaskCommentT { id: string; body: string; createdAt: string; userId: string | null; authorName: string | null; user: CollabUser | null; }
+interface AttachmentT { id: string; fileName: string; fileSize: number | null; mimeType: string | null; createdAt: string; uploadedById: string | null; uploadedBy: { id: string; name: string | null } | null; }
+interface CollaboratorT { id: string; userId: string; user: CollabUser; }
+interface TaskDetail {
+  id: string; assignee: CollabUser | null; assigneeId: string | null;
+  subtasks: SubTask[]; comments: TaskCommentT[]; attachments: AttachmentT[]; collaborators: CollaboratorT[];
+}
+
+function fmtSize(n: number | null): string {
+  if (n == null) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const collabLabelStyle: React.CSSProperties = {
+  fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em",
+  display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
+};
+
+function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
+  taskId: string; users: UserItem[]; currentUserId?: string; isAdmin: boolean; onChanged: () => void;
+}) {
+  const tr = useTranslations();
+  const locale = useLocale();
+  const [detail, setDetail] = useState<TaskDetail | null>(null);
+  const [subTab, setSubTab] = useState<"subtasks" | "comments" | "files">("subtasks");
+  const [newSub, setNewSub] = useState("");
+  const [newComment, setNewComment] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const reload = useCallback(async () => {
+    const r = await fetch(`/api/tasks/${taskId}`);
+    if (r.ok) setDetail(await r.json());
+  }, [taskId]);
+  useEffect(() => { reload(); }, [reload]);
+
+  const after = async () => { await reload(); onChanged(); };
+
+  const addSubtask = async () => {
+    const title = newSub.trim();
+    if (!title) return;
+    setNewSub("");
+    await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, parentId: taskId }) });
+    await after();
+  };
+  const toggleSub = async (s: SubTask) => {
+    await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id, status: s.status === "done" ? "open" : "done" }) });
+    await after();
+  };
+  const delSub = async (s: SubTask) => {
+    await fetch("/api/tasks", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id }) });
+    await after();
+  };
+  const addComment = async () => {
+    const body = newComment.trim();
+    if (!body) return;
+    setNewComment("");
+    await fetch(`/api/tasks/${taskId}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+    await after();
+  };
+  const delComment = async (id: string) => {
+    await fetch(`/api/tasks/${taskId}/comments?commentId=${id}`, { method: "DELETE" });
+    await after();
+  };
+  const upload = async (file: File) => {
+    setUploadErr("");
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch(`/api/tasks/${taskId}/attachments`, { method: "POST", body: fd });
+      if (!r.ok) { setUploadErr(r.status === 413 ? tr("tasks.fileTooLarge") : tr("tasks.uploadFailed")); return; }
+      await after();
+    } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
+  const delAttachment = async (id: string) => {
+    await fetch(`/api/tasks/${taskId}/attachments/${id}`, { method: "DELETE" });
+    await after();
+  };
+  const addCollaborator = async (uid: string) => {
+    setAddOpen(false);
+    await fetch(`/api/tasks/${taskId}/collaborators`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid }) });
+    await after();
+  };
+  const removeCollaborator = async (uid: string) => {
+    await fetch(`/api/tasks/${taskId}/collaborators?userId=${uid}`, { method: "DELETE" });
+    await after();
+  };
+
+  if (!detail) return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, textAlign: "center" }}>
+      <Loader2 size={16} className="spin" style={{ color: "var(--muted)" }} />
+    </div>
+  );
+
+  const taken = new Set<string>([detail.assigneeId || "", ...detail.collaborators.map(c => c.userId)]);
+  const candidates = users.filter(u => !taken.has(u.id));
+  const fmtTime = (s: string) => new Date(s).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  const canDel = (ownerId: string | null) => isAdmin || (ownerId != null && ownerId === currentUserId);
+
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Collaborators */}
+      <div>
+        <div style={collabLabelStyle}><Users size={13} /> {tr("tasks.collaborators")}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          {detail.collaborators.map(c => (
+            <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
+              <Avatar name={c.user.name || "?"} image={c.user.image} size="sm" />
+              <span style={{ fontSize: 12 }}>{(c.user.name || "").split(" ")[0] || "?"}</span>
+              <button onClick={() => removeCollaborator(c.userId)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+            </span>
+          ))}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setAddOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={candidates.length === 0}>
+              <Plus size={13} /> {tr("tasks.addCollaborator")}
+            </button>
+            {addOpen && candidates.length > 0 && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 200, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px rgba(0,0,0,.5)" }}>
+                {candidates.map(u => (
+                  <button key={u.id} onClick={() => addCollaborator(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <Avatar name={u.name} image={u.image} size="sm" />
+                    <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-tab strip */}
+      <div style={{ display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
+        {([
+          { id: "subtasks" as const, icon: GitBranch, label: tr("tasks.subtasks"), n: detail.subtasks.length },
+          { id: "comments" as const, icon: MessageSquare, label: tr("tasks.comments"), n: detail.comments.length },
+          { id: "files" as const, icon: Paperclip, label: tr("tasks.attachments"), n: detail.attachments.length },
+        ]).map(t => {
+          const active = subTab === t.id;
+          const Icon = t.icon;
+          return (
+            <button key={t.id} onClick={() => setSubTab(t.id)} className="btn btn-sm" style={{
+              flex: 1, justifyContent: "center", gap: 6, border: "none", borderRadius: 7,
+              background: active ? "var(--surface-2, #2a2a32)" : "transparent", fontWeight: active ? 600 : 500,
+              color: active ? "var(--text)" : "var(--muted)",
+            }}>
+              <Icon size={13} /> {t.label}{t.n > 0 ? ` (${t.n})` : ""}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Panels */}
+      {subTab === "subtasks" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {detail.subtasks.map(s => (
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
+              <StatusCheckbox status={s.status} onClick={(e) => { e.stopPropagation(); toggleSub(s); }} />
+              <span style={{ flex: 1, fontSize: 13, color: s.status === "done" ? "var(--muted)" : "var(--text)", textDecoration: s.status === "done" ? "line-through" : "none" }}>{s.title}</span>
+              {s.assignee && <Avatar name={s.assignee.name || "?"} image={s.assignee.image} size="sm" />}
+              <button onClick={() => delSub(s)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex" }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+          {detail.subtasks.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "2px 2px 6px" }}>{tr("tasks.noSubtasks")}</div>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addSubtask(); }}
+              placeholder={tr("tasks.subtaskPlaceholder")}
+              style={{ flex: 1, height: 36, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+            <button className="btn btn-sm" onClick={addSubtask} disabled={!newSub.trim()} style={{ opacity: newSub.trim() ? 1 : 0.5 }}><Plus size={14} /></button>
+          </div>
+        </div>
+      )}
+
+      {subTab === "comments" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {detail.comments.map(c => (
+            <div key={c.id} style={{ display: "flex", gap: 10 }}>
+              <Avatar name={c.user?.name || c.authorName || "?"} image={c.user?.image || null} size="sm" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{c.user?.name || c.authorName || "?"}</span>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>{fmtTime(c.createdAt)}</span>
+                  {canDel(c.userId) && (
+                    <button onClick={() => delComment(c.id)} title={tr("common.delete")} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-2)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{c.body}</div>
+              </div>
+            </div>
+          ))}
+          {detail.comments.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{tr("tasks.noComments")}</div>}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <textarea value={newComment} onChange={e => setNewComment(e.target.value)} rows={2}
+              onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment(); }}
+              placeholder={tr("tasks.commentPlaceholder")}
+              style={{ flex: 1, resize: "vertical", fontSize: 13, lineHeight: 1.5, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "9px 12px", outline: "none", color: "var(--text)" }} />
+            <button className="btn btn-primary btn-sm" onClick={addComment} disabled={!newComment.trim()} style={{ opacity: newComment.trim() ? 1 : 0.5, height: 38 }}>
+              <Send size={14} /> {tr("tasks.sendComment")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {subTab === "files" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {detail.attachments.map(a => (
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
+              <Paperclip size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fileName}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtSize(a.fileSize)}{a.uploadedBy?.name ? ` · ${a.uploadedBy.name}` : ""}</div>
+              </div>
+              <a href={`/api/tasks/${taskId}/attachments/${a.id}`} title={tr("tasks.download")} download
+                style={{ color: "var(--muted)", display: "flex", padding: 2 }}><Download size={15} /></a>
+              {canDel(a.uploadedById) && (
+                <button onClick={() => delAttachment(a.id)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex" }}><Trash2 size={13} /></button>
+              )}
+            </div>
+          ))}
+          {detail.attachments.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "2px 2px 6px" }}>{tr("tasks.noAttachments")}</div>}
+          {uploadErr && <div style={{ fontSize: 12, color: "var(--red)" }}>{uploadErr}</div>}
+          <input ref={fileRef} type="file" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
+          <button className="btn btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ alignSelf: "flex-start" }}>
+            {uploading ? <Loader2 size={14} className="spin" /> : <UploadCloud size={14} />} {uploading ? tr("tasks.uploading") : tr("tasks.uploadFile")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClose, onSaved, onChanged }: {
   open: boolean; task: Task | null; meetings: MeetingOption[]; users: UserItem[];
-  onClose: () => void; onSaved: () => void;
+  currentUserId?: string; isAdmin: boolean;
+  onClose: () => void; onSaved: () => void; onChanged: () => void;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -528,6 +832,12 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [meetingQ, setMeetingQ] = useState("");
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [departmentId, setDepartmentId] = useState("");
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/departments").then((r) => (r.ok ? r.json() : [])).then((d) => setDepartments(Array.isArray(d) ? d.map((x: { id: string; name: string }) => ({ id: x.id, name: x.name })) : [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -535,10 +845,10 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
       setTitle(task.title); setDesc(task.description || "");
       setMeetingId(task.meetingId); setAssigneeId(task.assigneeId || task.assignee?.id || "");
       setPriority(task.priority); setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
-      setStatus(task.status);
+      setStatus(task.status); setDepartmentId(task.departmentId || "");
     } else {
       setTitle(""); setDesc(""); setMeetingId("");
-      setAssigneeId(""); setPriority("medium"); setDueDate(""); setStatus("open");
+      setAssigneeId(""); setPriority("medium"); setDueDate(""); setStatus("open"); setDepartmentId("");
     }
     setMeetingOpen(false); setAssigneeOpen(false); setMeetingQ("");
   }, [open, task?.id]);
@@ -575,13 +885,13 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
         await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null }),
+          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null, departmentId: departmentId || null }),
         });
       } else {
         await fetch("/api/tasks", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskId: task!.id, title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null, status }),
+          body: JSON.stringify({ taskId: task!.id, title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null, status, departmentId: departmentId || null }),
         });
       }
       onSaved();
@@ -713,6 +1023,19 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
             )}
           </div>
 
+          {departments.length > 0 && (
+            <div>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("departments.label")}</label>
+              <Select
+                value={departmentId}
+                onChange={setDepartmentId}
+                placeholder={tr("departments.none")}
+                options={[{ value: "", label: tr("departments.none") }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+                style={{ width: "100%" }}
+              />
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {/* Assignee */}
             <div>
@@ -817,6 +1140,10 @@ function TaskModal({ open, task, meetings, users, onClose, onSaved }: {
               </div>
             </div>
           )}
+
+          {!isNew && task && (
+            <TaskCollab taskId={task.id} users={users} currentUserId={currentUserId} isAdmin={isAdmin} onChanged={onChanged} />
+          )}
         </div>
 
         {/* Footer */}
@@ -869,11 +1196,13 @@ export default function TasksPage() {
   const [meetings, setMeetings] = useState<MeetingOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [view, setView] = useState<"list" | "kanban">("list");
+  const [view, setView] = useState<"list" | "kanban" | "dept">("list");
   const [scope, setScope] = useState("mine");
   const [filterMeeting, setFilterMeeting] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
+  const [filterDept, setFilterDept] = useState("all");
+  const [departments, setDepartments] = useState<{ id: string; name: string; color: string | null; members: { userId: string }[] }[]>([]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Task | null | "new">(null);
   const [tab, setTab] = useState<"tasks" | "quizzes">("tasks");
@@ -905,19 +1234,49 @@ export default function TasksPage() {
     fetch("/api/meetings").then(r => r.json()).then((data: any[]) => {
       setMeetings(data.map(m => ({ id: m.id, title: m.title, scheduledAt: m.scheduledAt })));
     }).catch(() => {});
+    fetch("/api/departments").then(r => (r.ok ? r.json() : [])).then((d: any[]) => {
+      if (Array.isArray(d)) setDepartments(d.map(x => ({ id: x.id, name: x.name, color: x.color ?? null, members: Array.isArray(x.members) ? x.members.map((m: any) => ({ userId: m.userId })) : [] })));
+    }).catch(() => {});
   }, []);
 
-  const filtered = useMemo(() => tasks.filter(t => {
-    if (scope === "mine" && t.assignee?.id !== userId && t.assigneeId !== userId) return false;
-    if (filterMeeting !== "all" && t.meetingId !== filterMeeting) return false;
-    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-    if (filterAssignee !== "all" && t.assignee?.id !== filterAssignee && t.assigneeId !== filterAssignee) return false;
-    if (q) {
-      const low = q.toLowerCase();
-      if (!t.title.toLowerCase().includes(low) && !(t.description || "").toLowerCase().includes(low)) return false;
-    }
-    return true;
-  }), [tasks, scope, filterMeeting, filterPriority, filterAssignee, q, userId]);
+  // Deep-link: /tasks?task=ID opens that task's modal (notification links use it).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tid = new URLSearchParams(window.location.search).get("task");
+    if (!tid) return;
+    fetch(`/api/tasks/${tid}`).then(r => (r.ok ? r.json() : null)).then(d => {
+      if (d && d.id) setEditing(d as Task);
+      window.history.replaceState(null, "", "/tasks");
+    }).catch(() => {});
+  }, []);
+
+  // Effective department of a task = its explicit department, else the
+  // assignee's department — so moving a user into a department attributes their
+  // tasks to it automatically. A user in several departments → their first.
+  const userDept = useMemo(() => {
+    const m: Record<string, { id: string; name: string; color: string | null }> = {};
+    for (const d of departments) for (const mem of d.members) if (!m[mem.userId]) m[mem.userId] = { id: d.id, name: d.name, color: d.color };
+    return m;
+  }, [departments]);
+
+  const filtered = useMemo(() => tasks
+    .map(t => {
+      const aid = t.assigneeId || t.assignee?.id || "";
+      const eff = t.department ?? (aid ? userDept[aid] : undefined) ?? null;
+      return { ...t, department: eff, departmentId: eff?.id ?? null };
+    })
+    .filter(t => {
+      if (scope === "mine" && t.assignee?.id !== userId && t.assigneeId !== userId) return false;
+      if (filterMeeting !== "all" && t.meetingId !== filterMeeting) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterAssignee !== "all" && t.assignee?.id !== filterAssignee && t.assigneeId !== filterAssignee) return false;
+      if (filterDept !== "all" && t.departmentId !== filterDept) return false;
+      if (q) {
+        const low = q.toLowerCase();
+        if (!t.title.toLowerCase().includes(low) && !(t.description || "").toLowerCase().includes(low)) return false;
+      }
+      return true;
+    }), [tasks, scope, filterMeeting, filterPriority, filterAssignee, filterDept, q, userId, userDept]);
 
   const meetingOptions = useMemo(() => {
     const ids = [...new Set(tasks.map(t => t.meetingId))];
@@ -979,6 +1338,12 @@ export default function TasksPage() {
                 background: view === "kanban" ? "var(--surface-2, #2a2a32)" : "transparent",
                 border: "none", borderRadius: 7, fontWeight: view === "kanban" ? 600 : 500,
               }}><LayoutGrid size={14} /> {tr("tasks.viewKanban")}</button>
+              {departments.length > 0 && (
+                <button onClick={() => setView("dept")} className="btn btn-sm" style={{
+                  background: view === "dept" ? "var(--surface-2, #2a2a32)" : "transparent",
+                  border: "none", borderRadius: 7, fontWeight: view === "dept" ? 600 : 500,
+                }}><Building2 size={14} /> {tr("departments.byDept")}</button>
+              )}
             </div>
             <button className="btn btn-primary" onClick={() => setEditing("new")} style={{ fontWeight: 600 }}>
               <Plus size={15} /> {tr("tasks.newTask")}
@@ -1001,6 +1366,10 @@ export default function TasksPage() {
               { value: "medium", label: tr("tasks.priorityMedium") },
               { value: "low", label: tr("tasks.priorityLow") },
             ]} />
+          {departments.length > 0 && (
+            <SelectChip icon={Building2} value={filterDept} onChange={setFilterDept}
+              options={[{ value: "all", label: tr("departments.filterAll") }, ...departments.map(d => ({ value: d.id, label: d.name }))]} />
+          )}
           {isAdmin && (
             <SelectChip icon={User} value={filterAssignee} onChange={(v) => { setFilterAssignee(v); if (v !== "all") setScope("all"); }}
               options={[{ value: "all", label: tr("tasks.filterAllAssignees") }, ...users.map(u => ({ value: u.id, label: u.name || u.email }))]} />
@@ -1027,13 +1396,16 @@ export default function TasksPage() {
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
           <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} />
+        ) : view === "dept" ? (
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} />
         ) : (
           <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} />
         )}
       </div>
 
       <TaskModal open={!!editing} task={editing === "new" ? null : editing as Task}
-        meetings={meetings} users={users} onClose={() => setEditing(null)} onSaved={handleSaved} />
+        meetings={meetings} users={users} currentUserId={userId} isAdmin={isAdmin}
+        onClose={() => setEditing(null)} onSaved={handleSaved} onChanged={fetchTasks} />
       </>
       )}
     </div>

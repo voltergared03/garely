@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Select } from '@/components/ui/select';
 import { useSession } from 'next-auth/react';
 import {
-  ChevronLeft, Calendar, Clock, Globe, RefreshCw,
+  ChevronLeft, Calendar, Clock, Globe, RefreshCw, Building2,
   Users, Plus, Search, X, Sparkles, Send, AlertCircle,
   CheckCircle, Link2, Copy, Wand2, ListChecks, Loader2, Trash2, GripVertical,
 } from 'lucide-react';
@@ -39,12 +39,14 @@ export default function SchedulePage() {
     transcription: true,
     aiReport: true,
     allowGuests: true,
+    departmentId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [agenda, setAgenda] = useState<string[]>([]);
   const [newItem, setNewItem] = useState('');
   const [aiAgendaLoading, setAiAgendaLoading] = useState(false);
   const [createdId, setCreatedId] = useState('');
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
 
   // Participants
   const [allUsers, setAllUsers] = useState<WsUser[]>([]);
@@ -58,6 +60,10 @@ export default function SchedulePage() {
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setAllUsers(data); })
       .catch(console.error);
+    fetch('/api/departments')
+      .then(r => (r.ok ? r.json() : []))
+      .then(data => { if (Array.isArray(data)) setDepartments(data.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }))); })
+      .catch(() => {});
   }, []);
 
   // Close dropdown on outside click
@@ -155,6 +161,7 @@ export default function SchedulePage() {
           transcriptionEnabled: form.transcription,
           aiReportEnabled: form.aiReport,
           allowGuests: form.allowGuests,
+          departmentId: form.departmentId || null,
           participants: selectedUsers.map(u => ({ userId: u.id })),
           agenda: agenda.length > 0 ? agenda : null,
         }),
@@ -351,6 +358,14 @@ export default function SchedulePage() {
                 { value: 'monthly', label: t('schedule.recurrenceMonthly') },
               ]} />
             </Field>
+            {departments.length > 0 && (
+              <Field label={t('departments.label')} icon={Building2}>
+                <Select value={form.departmentId} onChange={(v) => set('departmentId', v)} options={[
+                  { value: '', label: t('departments.none') },
+                  ...departments.map((d) => ({ value: d.id, label: d.name })),
+                ]} />
+              </Field>
+            )}
           </div>
 
           {/* Participants */}

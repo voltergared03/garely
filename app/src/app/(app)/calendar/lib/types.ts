@@ -33,6 +33,10 @@ export interface CalTask {
   meetingId: string | null;
   meeting?: { id: string; title: string } | null;
   assignee?: { id: string; name: string | null; image: string | null } | null;
+  assigneeId?: string | null;
+  parentId?: string | null;
+  departmentId?: string | null;
+  department?: { id: string; name: string; color: string | null } | null;
 }
 
 export interface WsUser {

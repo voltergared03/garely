@@ -4,6 +4,39 @@ All notable changes to EZmeet are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.11.0-beta.1] — 2026-06-03
+
+**Departments & a real task workspace.** Tasks gain org structure, collaboration,
+and a role-aware calendar — turning the post-meeting task list into a place work
+actually happens.
+
+### Added
+- **Departments (org structure).** Admins create departments (name + colour) in
+  *Settings → Departments* and assign members (with an optional lead). Meetings
+  and tasks can belong to a department. A task's **effective department** is its
+  explicit one, else its **assignee's** department — so moving a person into a
+  department automatically attributes their tasks to it.
+- **Access gating by department.** Non-admins see their **own** tasks, their
+  **meetings'** tasks, their **department's** tasks, and tasks they **collaborate**
+  on; admins see everything. The Tasks board adds a **By department** grouped view
+  and a department filter; admins also get a department filter on the calendar.
+- **Subtasks.** Break a task into a checklist of subtasks (one level), each
+  toggleable and assignable; the board shows a subtask count.
+- **Comments.** A threaded discussion per task. The assignee, collaborators and
+  the task's department are notified of new comments; explicit @mentions notify
+  the mentioned teammate (gated to people who can already see the task).
+- **File attachments.** Upload files to a task (stored in a dedicated Docker
+  volume, 25 MB each); download is authenticated and always served as an
+  attachment. Uploader or an admin can delete.
+- **Collaborators.** Add extra people to a task beyond the assignee; they get the
+  task in their lists, on their calendar, and a notification when added.
+- **Tasks on the calendar, role-scoped.** Task (and subtask) deadlines appear on
+  the calendar within each person's access scope; clicking one opens the task.
+
+### Changed
+- The Tasks page modal now hosts the full task workspace — details plus a
+  **Subtasks / Comments / Files** panel and a collaborators row.
+
 ## [1.10.0-beta.1] — 2026-05-30
 
 A **mobile & in-meeting UX** pass. This entry also **consolidates the 1.6.0–1.9.0

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
 import { auth } from '@/lib/auth';
-import { userCanAccessMeeting, meetingIdOfTask } from '@/lib/access';
+import { userCanAccessMeeting, meetingIdOfTask, userDepartmentIds, userCanViewTask } from '@/lib/access';
 import { mockSession, jsonReq } from '@/test/helpers';
 import { GET, PATCH, DELETE } from '@/app/api/tasks/route';
 
@@ -11,6 +11,8 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/access', () => ({
   userCanAccessMeeting: vi.fn(),
   meetingIdOfTask: vi.fn(),
+  userDepartmentIds: vi.fn(),
+  userCanViewTask: vi.fn(),
 }));
 vi.mock('next-intl/server', () => ({
   getTranslations: vi.fn(async () => (k: string) => k),
@@ -19,12 +21,20 @@ vi.mock('next-intl/server', () => ({
 const mockAuth = vi.mocked(auth);
 const mockAccess = vi.mocked(userCanAccessMeeting);
 const mockMeetingOfTask = vi.mocked(meetingIdOfTask);
+const mockDeptIds = vi.mocked(userDepartmentIds);
+const mockCanView = vi.mocked(userCanViewTask);
 
 beforeEach(() => {
   mockReset(prismaMock);
   mockAuth.mockReset();
   mockAccess.mockReset();
   mockMeetingOfTask.mockReset();
+  mockDeptIds.mockReset();
+  mockDeptIds.mockResolvedValue([]);
+  mockCanView.mockReset();
+  // Default: standalone tasks the caller doesn't own are not viewable (→ 403),
+  // matching the pre-existing authorization tests.
+  mockCanView.mockResolvedValue(false);
 });
 
 const tasksUrl = (qs = '') => `http://localhost/api/tasks${qs}`;
@@ -44,14 +54,20 @@ describe('GET /api/tasks — scope filter', () => {
     expect(whereOf().OR).toBeUndefined();
   });
 
-  it("a non-admin scope=all is scoped (cannot leak other users' tasks)", async () => {
+  it("a non-admin scope=all is scoped (own + meetings + own department)", async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    mockDeptIds.mockResolvedValue(['d1']);
     prismaMock.meetingTask.findMany.mockResolvedValue([] as any);
     await GET(jsonReq('GET', undefined, tasksUrl('?scope=all')));
     expect(whereOf().assigneeId).toBeUndefined();
-    // OR-scoped to: own tasks, meetings participated in, meetings created
+    // OR-scoped to: own tasks, meetings participated in, meetings created, own department
     expect(Array.isArray(whereOf().OR)).toBe(true);
-    expect(whereOf().OR).toHaveLength(3);
+    expect(whereOf().OR).toHaveLength(6);
+    // department lens: tasks tagged to my dept, OR assigned to anyone in my dept — own departments only
+    expect(whereOf().OR).toContainEqual({ departmentId: { in: ['d1'] } });
+    expect(whereOf().OR).toContainEqual({ assignee: { departmentMemberships: { some: { departmentId: { in: ['d1'] } } } } });
+    // collaboration lens: tasks I've been added to as a collaborator
+    expect(whereOf().OR).toContainEqual({ collaborators: { some: { userId: 'u1' } } });
   });
 
   it('an admin scope=all sees everything (no scope filter)', async () => {
@@ -60,6 +76,13 @@ describe('GET /api/tasks — scope filter', () => {
     await GET(jsonReq('GET', undefined, tasksUrl('?scope=all')));
     expect(whereOf().assigneeId).toBeUndefined();
     expect(whereOf().OR).toBeUndefined();
+  });
+
+  it('the department filter narrows results to one department', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'a1', role: 'admin' }));
+    prismaMock.meetingTask.findMany.mockResolvedValue([] as any);
+    await GET(jsonReq('GET', undefined, tasksUrl('?scope=all&department=sales')));
+    expect(whereOf().departmentId).toBe('sales');
   });
 });
 
@@ -102,6 +125,14 @@ describe('PATCH /api/tasks — authorization', () => {
   it('updates a standalone task when the caller is its assignee', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
     prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'u1' } as any);
+    prismaMock.meetingTask.update.mockResolvedValue({ id: 't1' } as any);
+    expect((await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }))).status).toBe(200);
+  });
+
+  it('allows a non-assignee who can view the task (e.g. department member) to update it', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: null, assigneeId: 'someone-else' } as any);
+    mockCanView.mockResolvedValue(true);
     prismaMock.meetingTask.update.mockResolvedValue({ id: 't1' } as any);
     expect((await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }))).status).toBe(200);
   });

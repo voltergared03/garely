@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { userCanAccessMeeting } from "@/lib/access";
+import { userCanAccessMeeting, userDepartmentIds, userCanViewTask } from "@/lib/access";
 import { z } from "zod";
 import { validateBody } from "@/lib/validate";
 
@@ -14,6 +14,8 @@ const taskCreateSchema = z.object({
   assigneeId: z.string().nullish(),
   priority: z.string().nullish(),
   dueDate: z.string().nullish(),
+  departmentId: z.string().nullish(),
+  parentId: z.string().nullish(),
 });
 
 // PATCH accepts ONLY these fields; zod strips everything else, so a client can
@@ -26,6 +28,7 @@ const taskUpdateSchema = z.object({
   priority: z.string().optional(),
   dueDate: z.string().nullish(),
   assigneeId: z.string().nullish(),
+  departmentId: z.string().nullish(),
   sortOrder: z.number().int().optional(),
 });
 
@@ -51,7 +54,11 @@ async function authorizeTaskMutation(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   } else if (role !== "admin" && task.assigneeId !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Standalone task: assignee/admin always; otherwise allow team members who can
+    // see it (own department, collaborator, or a subtask of a meeting they access).
+    if (!(await userCanViewTask(taskId, userId, role))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
   return task;
 }
@@ -69,21 +76,39 @@ export async function GET(req: NextRequest) {
   const meetingId = url.searchParams.get("meetingId");
   const priority = url.searchParams.get("priority");
   const status = url.searchParams.get("status");
+  const department = url.searchParams.get("department");
   const search = url.searchParams.get("q");
+  const parentId = url.searchParams.get("parentId");
+  const includeSubtasks = url.searchParams.get("includeSubtasks");
 
   const where: any = {};
 
-  // Scope filter
+  // Subtasks live inside their parent's modal, not on the board. Default to
+  // top-level tasks only; `?parentId=X` fetches one parent's subtasks, and
+  // `?includeSubtasks=1` returns everything (the calendar wants subtask due dates).
+  if (parentId) where.parentId = parentId;
+  else if (!includeSubtasks) where.parentId = null;
+
+  // Scope filter. Non-admins in "all" scope also see their department's tasks
+  // (the team lens) on top of their own / meeting-derived tasks — department
+  // membership gates which teams' work is visible.
   if (scope === "mine") {
     where.assigneeId = userId;
   } else if (!isAdmin) {
+    const myDeptIds = await userDepartmentIds(userId);
     where.OR = [
       { assigneeId: userId },
       { meeting: { participants: { some: { userId } } } },
       { meeting: { createdById: userId } },
+      { departmentId: { in: myDeptIds } },
+      // team lens: tasks assigned to anyone in my department(s)
+      { assignee: { departmentMemberships: { some: { departmentId: { in: myDeptIds } } } } },
+      // tasks I collaborate on (added as an extra participant)
+      { collaborators: { some: { userId } } },
     ];
   }
 
+  if (department) where.departmentId = department;
   if (meetingId) where.meetingId = meetingId;
   if (priority) where.priority = priority;
   if (status) where.status = status;
@@ -104,6 +129,9 @@ export async function GET(req: NextRequest) {
     include: {
       assignee: { select: { id: true, name: true, image: true } },
       meeting: { select: { id: true, title: true, scheduledAt: true } },
+      department: { select: { id: true, name: true, color: true } },
+      collaborators: { select: { userId: true } },
+      _count: { select: { subtasks: true, comments: true, attachments: true } },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
@@ -118,13 +146,33 @@ export async function POST(req: NextRequest) {
 
   const v = await validateBody(req, taskCreateSchema);
   if (!v.ok) return v.response;
-  const { title, description, meetingId, assigneeId, priority, dueDate } = v.data;
+  const { title, description, assigneeId, priority, dueDate, departmentId, parentId } = v.data;
 
-  if (meetingId) {
-    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
+  let resolvedMeetingId: string | null = v.data.meetingId || null;
+  let resolvedDeptId: string | null = departmentId || null;
+
+  if (parentId) {
+    // Subtask: inherit the parent's meeting + department; one level deep only.
+    const parent = await prisma.meetingTask.findUnique({
+      where: { id: parentId },
+      select: { id: true, meetingId: true, departmentId: true, parentId: true },
+    });
+    if (!parent) return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+    if (parent.parentId) {
+      return NextResponse.json({ error: "Cannot nest subtasks more than one level" }, { status: 400 });
+    }
+    if (!(await userCanViewTask(parentId, session.user.id, session.user.role))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    resolvedMeetingId = parent.meetingId;
+    if (!resolvedDeptId) resolvedDeptId = parent.departmentId;
+  } else if (resolvedMeetingId) {
+    // Department: explicit choice wins; otherwise inherit the meeting's department.
+    const meeting = await prisma.meeting.findUnique({ where: { id: resolvedMeetingId }, select: { id: true, departmentId: true } });
     if (!meeting) {
       return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
     }
+    if (!resolvedDeptId) resolvedDeptId = meeting.departmentId;
   }
 
   let assigneeName: string | null = null;
@@ -137,13 +185,15 @@ export async function POST(req: NextRequest) {
     data: {
       title,
       description: description || null,
-      meetingId,
+      meetingId: resolvedMeetingId,
+      parentId: parentId || null,
       assigneeId: assigneeId || null,
       assigneeName,
       priority: priority || "medium",
       dueDate: dueDate ? new Date(dueDate) : null,
       status: "open",
       source: "manual",
+      departmentId: resolvedDeptId,
     },
     include: {
       assignee: { select: { id: true, name: true, image: true } },
@@ -186,6 +236,7 @@ export async function PATCH(req: NextRequest) {
       data.assigneeName = null;
     }
   }
+  if (fields.departmentId !== undefined) data.departmentId = fields.departmentId || null;
   if (fields.status !== undefined) {
     data.status = fields.status;
     data.completedAt = fields.status === "done" ? new Date() : null;

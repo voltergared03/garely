@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
       aiReportEnabled,
       allowGuests,
       agenda = null,
+      departmentId = null,
     } = body;
 
     const cleanTitle = typeof title === 'string' ? title.trim() : '';
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
         aiReportEnabled: effAiReport,
         allowGuests: effAllowGuests,
         agenda,
+        departmentId: typeof departmentId === 'string' && departmentId ? departmentId : null,
         participants: {
           create: [
             // Creator as host

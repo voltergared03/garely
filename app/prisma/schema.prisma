@@ -74,6 +74,10 @@ model User {
   speakerTracks       SpeakerTrack[]
   createdQuizzes      Quiz[]               @relation("QuizCreator")
   quizAssignments     QuizAssignment[]     @relation("QuizAssignee")
+  departmentMemberships DepartmentMember[]
+  taskComments        TaskComment[]
+  taskAttachments     TaskAttachment[]
+  taskCollaborations  TaskCollaborator[]
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -133,6 +137,7 @@ model Meeting {
   aiReportEnabled      Boolean @default(true)
   allowGuests          Boolean @default(true)
   agenda               Json?
+  departmentId         String?
 
   participants    MeetingParticipant[]
   transcripts     TranscriptSegment[]
@@ -145,8 +150,10 @@ model Meeting {
   speakerTracks   SpeakerTrack[]
   joinRequests    JoinRequest[]
   quiz            Quiz?
+  department      Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([status, scheduledAt])
+  @@index([departmentId])
 }
 
 model JoinRequest {
@@ -281,10 +288,20 @@ model MeetingTask {
   externalUrl  String?
   externalSync String?
   lastSyncedAt DateTime?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  parentId      String?
+  parent        MeetingTask?  @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks      MeetingTask[] @relation("Subtasks")
+  comments      TaskComment[]
+  attachments   TaskAttachment[]
+  collaborators TaskCollaborator[]
 
   @@index([assigneeId])
   @@index([status])
   @@index([meetingId])
+  @@index([departmentId])
+  @@index([parentId])
 }
 
 model EmailLog {
@@ -367,4 +384,76 @@ model QuizAssignment {
 
   @@unique([quizId, userId])
   @@index([userId, status])
+}
+
+// === Departments (org structure) ===
+// Users are grouped into departments (many-to-many via DepartmentMember; a user
+// can belong to several). A membership flagged isLead marks a department lead.
+// Meetings and tasks belong to at most one department, which drives access
+// gating in EZmeet and the per-department Teable base routing (option A).
+model Department {
+  id           String   @id @default(cuid())
+  name         String
+  color        String?  // hex accent for UI chips
+  teableBaseId String?  // Teable base this department's tasks sync to
+  createdAt    DateTime @default(now())
+
+  members  DepartmentMember[]
+  meetings Meeting[]
+  tasks    MeetingTask[]
+}
+
+model DepartmentMember {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isLead       Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@unique([departmentId, userId])
+  @@index([userId])
+}
+
+// === Task collaboration: comments, file attachments (stored in a Docker
+// volume), and extra collaborators. Subtasks use the MeetingTask self-relation. ===
+model TaskComment {
+  id         String      @id @default(cuid())
+  taskId     String
+  task       MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  authorName String?     // snapshot, survives user deletion
+  body       String      @db.Text
+  createdAt  DateTime    @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+model TaskAttachment {
+  id           String      @id @default(cuid())
+  taskId       String
+  task         MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fileName     String
+  filePath     String      // relative path within the task-attachments volume
+  mimeType     String?
+  fileSize     BigInt?
+  uploadedById String?
+  uploadedBy   User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@index([taskId])
+}
+
+model TaskCollaborator {
+  id        String      @id @default(cuid())
+  taskId    String
+  task      MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
 }

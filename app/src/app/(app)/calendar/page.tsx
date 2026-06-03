@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Plus, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, Building2 } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import { Select } from '@/components/ui/select';
 import type { Meeting, CalTask } from './lib/types';
 import { startOfWeek } from './lib/dates';
 import { WeekView } from './components/WeekView';
@@ -39,6 +41,10 @@ export default function CalendarPage() {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editMeeting, setEditMeeting] = useState<Meeting | null>(null);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'admin';
+  const [departments, setDepartments] = useState<{ id: string; name: string; color: string | null; members: { userId: string }[] }[]>([]);
+  const [filterDept, setFilterDept] = useState('all');
 
   const today = useMemo(() => {
     const d = new Date();
@@ -80,8 +86,10 @@ export default function CalendarPage() {
   }, [fetchMeetings]);
 
   /* ---- Fetch task deadlines (accessible tasks that have a due date) ---- */
+  // includeSubtasks=1 so subtask due dates show too; role-scoping (own +
+  // department + collaborations, or everything for admins) is enforced by the API.
   useEffect(() => {
-    fetch('/api/tasks?scope=all')
+    fetch('/api/tasks?scope=all&includeSubtasks=1')
       .then((r) => (r.ok ? r.json() : []))
       .then((data: CalTask[]) => {
         if (Array.isArray(data)) {
@@ -91,7 +99,29 @@ export default function CalendarPage() {
         }
       })
       .catch(() => {});
+    fetch('/api/departments')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: { id: string; name: string; color: string | null; members?: { userId: string }[] }[]) => {
+        if (Array.isArray(d)) setDepartments(d.map((x) => ({ id: x.id, name: x.name, color: x.color ?? null, members: Array.isArray(x.members) ? x.members.map((m) => ({ userId: m.userId })) : [] })));
+      })
+      .catch(() => {});
   }, []);
+
+  // Effective department of a task = explicit department, else the assignee's
+  // department (mirrors the tasks board), enabling the admin department filter.
+  const userDept = useMemo(() => {
+    const m: Record<string, { id: string; name: string; color: string | null }> = {};
+    for (const d of departments) for (const mem of d.members) if (!m[mem.userId]) m[mem.userId] = { id: d.id, name: d.name, color: d.color };
+    return m;
+  }, [departments]);
+
+  const visibleTasks = useMemo(() => {
+    if (filterDept === 'all') return tasks;
+    return tasks.filter((tk) => {
+      const eff = tk.department?.id ?? tk.departmentId ?? (tk.assigneeId ? userDept[tk.assigneeId]?.id : undefined) ?? null;
+      return eff === filterDept;
+    });
+  }, [tasks, filterDept, userDept]);
 
   /* ---- Navigation ---- */
   const goToday = () => {
@@ -124,10 +154,10 @@ export default function CalendarPage() {
     [],
   );
 
-  /* ---- Task deadline click → the task hub ---- */
+  /* ---- Task deadline click → open that task's modal in the hub ---- */
   const handleTaskClick = useCallback(
-    (_tk: CalTask) => {
-      router.push('/tasks');
+    (tk: CalTask) => {
+      router.push(`/tasks?task=${tk.id}`);
     },
     [router],
   );
@@ -212,6 +242,15 @@ export default function CalendarPage() {
         )}
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {/* Department filter (admins only — members are already scoped server-side) */}
+          {isAdmin && departments.length > 0 && (
+            <Select
+              value={filterDept}
+              onChange={setFilterDept}
+              icon={<Building2 size={14} />}
+              options={[{ value: 'all', label: t('departments.filterAll') }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+            />
+          )}
           {/* View toggle (desktop only — mobile uses the agenda list) */}
           {!isMobile && (
             <div
@@ -273,7 +312,7 @@ export default function CalendarPage() {
       ) : isMobile ? (
         <AgendaView
           meetings={meetings}
-          tasks={tasks}
+          tasks={visibleTasks}
           today={today}
           onMeetingClick={handleMeetingClick}
           onTaskClick={handleTaskClick}
@@ -282,7 +321,7 @@ export default function CalendarPage() {
         <WeekView
           weekStart={weekStart}
           meetings={meetings}
-          tasks={tasks}
+          tasks={visibleTasks}
           today={today}
           onMeetingClick={handleMeetingClick}
           onTaskClick={handleTaskClick}
@@ -292,7 +331,7 @@ export default function CalendarPage() {
           year={currentYear}
           month={currentMonth}
           meetings={meetings}
-          tasks={tasks}
+          tasks={visibleTasks}
           today={today}
           onDayClick={handleDayClick}
           onTaskClick={handleTaskClick}
