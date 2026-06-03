@@ -338,6 +338,7 @@
     "timeDaysAgo": "{count, plural, one {{n} d ago} other {{n} d ago}}",
     "registrationTitle": "New registration request",
     "taskAssignedTitle": "New task",
+    "taskUpdatedTitle": "Task updated",
     "reportReadyTitle": "Report ready",
     "reportReadyBody": "The report for meeting \"{title}\" has been generated",
     "mentionTitle": "You were mentioned in the notes",
@@ -977,6 +978,19 @@
       "startsBefore": "Starts at",
       "startsAfter": "(in about 15 min).",
       "joinButton": "Join →"
+    },
+    "task": {
+      "assignedSubject": "New task: {title}",
+      "assignedHeading": "You've been assigned a task",
+      "assignedBy": "{name} assigned this to you",
+      "updatedSubject": "Task updated: {title}",
+      "updatedHeading": "A task was updated",
+      "updatedBy": "{name} made changes",
+      "changeStatus": "Status → {value}",
+      "changeDue": "Due → {value}",
+      "dueLabel": "Due",
+      "meetingLabel": "Meeting",
+      "cta": "Open task"
     },
     "registrationRequest": {
       "subject": "New registration request",

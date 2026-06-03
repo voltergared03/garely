@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, userDepartmentIds, userCanViewTask } from "@/lib/access";
+import { notifyTaskAssigned, notifyTaskUpdated } from "@/lib/task-notify";
 import { z } from "zod";
 import { validateBody } from "@/lib/validate";
 
@@ -210,6 +211,9 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Notify + email the assignee (best-effort, fire-and-forget).
+  if (assigneeId) void notifyTaskAssigned(task.id, assigneeId, { id: session.user.id, name: session.user.name });
+
   return NextResponse.json(task, { status: 201 });
 }
 
@@ -225,6 +229,9 @@ export async function PATCH(req: NextRequest) {
 
   const authz = await authorizeTaskMutation(taskId, session.user.id, session.user.role, t);
   if (authz instanceof Response) return authz;
+
+  // Snapshot status/dueDate so we only notify on a real change (not no-op saves).
+  const before = await prisma.meetingTask.findUnique({ where: { id: taskId }, select: { status: true, dueDate: true } });
 
   // Build the update from whitelisted fields only — never spread the raw body.
   const data: Prisma.MeetingTaskUncheckedUpdateInput = {};
@@ -260,6 +267,20 @@ export async function PATCH(req: NextRequest) {
         meeting: { select: { id: true, title: true, scheduledAt: true } },
       },
     });
+
+    // Best-effort task notifications (in-app + email), only on a real change.
+    const actor = { id: session.user.id, name: session.user.name };
+    const newAssignee = fields.assigneeId || null;
+    if (fields.assigneeId !== undefined && newAssignee && newAssignee !== (authz.assigneeId || null)) {
+      void notifyTaskAssigned(taskId, newAssignee, actor);
+    }
+    const statusChanged = fields.status !== undefined && before != null && fields.status !== before.status;
+    const newDue = fields.dueDate !== undefined ? (fields.dueDate ? new Date(fields.dueDate) : null) : undefined;
+    const dueChanged = newDue !== undefined && before != null && (newDue ? newDue.getTime() : null) !== (before.dueDate ? before.dueDate.getTime() : null);
+    if (statusChanged || dueChanged) {
+      void notifyTaskUpdated(taskId, { status: statusChanged ? fields.status : undefined, dueDate: dueChanged ? newDue : undefined }, actor);
+    }
+
     return NextResponse.json(task);
   } catch {
     return NextResponse.json({ error: t("taskNotFound") }, { status: 404 });

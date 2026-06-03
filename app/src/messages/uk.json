@@ -338,6 +338,7 @@
     "timeDaysAgo": "{count, plural, one {{n} дн тому} few {{n} дн тому} many {{n} дн тому} other {{n} дн тому}}",
     "registrationTitle": "Нова заявка на реєстрацію",
     "taskAssignedTitle": "Нове завдання",
+    "taskUpdatedTitle": "Завдання оновлено",
     "reportReadyTitle": "Звіт готовий",
     "reportReadyBody": "Звіт по мітингу \"{title}\" згенерований",
     "mentionTitle": "Вас згадали в нотатках",
@@ -977,6 +978,19 @@
       "startsBefore": "Почнеться о",
       "startsAfter": "(приблизно за 15 хв).",
       "joinButton": "Приєднатися →"
+    },
+    "task": {
+      "assignedSubject": "Нове завдання: {title}",
+      "assignedHeading": "Вам призначено завдання",
+      "assignedBy": "{name} призначив(ла) це вам",
+      "updatedSubject": "Завдання оновлено: {title}",
+      "updatedHeading": "Завдання оновлено",
+      "updatedBy": "{name} вніс(ла) зміни",
+      "changeStatus": "Статус → {value}",
+      "changeDue": "Дедлайн → {value}",
+      "dueLabel": "Дедлайн",
+      "meetingLabel": "Мітинг",
+      "cta": "Відкрити завдання"
     },
     "registrationRequest": {
       "subject": "Нова заявка на реєстрацію",

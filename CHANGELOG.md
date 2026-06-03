@@ -11,6 +11,11 @@ ships `beta` tags ahead of a 1.0 public release.
   in *Settings → Calendar sync* to subscribe to **their own meetings and task
   deadlines** from Google Calendar, Outlook or Apple Calendar. One-way, the
   secret URL is the credential, and regenerating it revokes old subscriptions.
+- **Email notifications for tasks.** You get an email (and in-app notification)
+  when a task is **assigned** to you, and when a task's **status or due date
+  changes** — sent to the assignee and collaborators, never to the person who
+  made the change, and only on a real change. Honours the per-user task
+  notification toggle.
 
 ### Changed
 - **Manage subtasks inline on the Tasks board.** Each task row has a disclosure
