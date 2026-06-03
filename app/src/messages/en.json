@@ -585,7 +585,7 @@
     "next": "Next",
     "finish": "Finish setup",
     "copy": "Copy",
-    "footer": "EZmeet · self-hosted setup",
+    "footer": "Garely · self-hosted setup",
     "tokenTitle": "First run",
     "tokenSub": "Enter the setup token from the container logs to begin configuration.",
     "tokenLabel": "Setup token",
@@ -865,7 +865,7 @@
     "appCodeLabel": "Code from the app",
     "backupCodesIntro": "Store these codes in a safe place. Each one works <b>once</b> and will be needed if you lose access to your authenticator app.",
     "backupCodesTitle": "Backup codes",
-    "backupFileHeader": "EZmeet — 2FA backup codes",
+    "backupFileHeader": "Garely — 2FA backup codes",
     "connectTitle": "Set up 2FA",
     "copied": "Copied",
     "copy": "Copy",
@@ -920,7 +920,7 @@
       }
     },
     "digest": {
-      "subject": "EZmeet — weekly digest",
+      "subject": "Garely — weekly digest",
       "eyebrow": "Weekly digest",
       "greeting": "Hi!",
       "greetingNamed": "Hi, {name}!",
@@ -931,13 +931,13 @@
       "cta": "Open tasks"
     },
     "invite": {
-      "subject": "Invitation to EZmeet",
-      "heading": "Invitation to EZmeet",
-      "bodyText": "{inviter} invited you to EZmeet (role: {role}). Sign in with Google: {url}",
+      "subject": "Invitation to Garely",
+      "heading": "Invitation to Garely",
+      "bodyText": "{inviter} invited you to Garely (role: {role}). Sign in with Google: {url}",
       "bodyHtml": "<b>{inviter}</b> invited you to join (role: <b>{role}</b>).",
       "cta": "Sign in with Google",
       "setupCta": "Create password",
-      "setupBodyText": "{inviter} invited you to EZmeet (role: {role}). Create your password to activate your account: {url}",
+      "setupBodyText": "{inviter} invited you to Garely (role: {role}). Create your password to activate your account: {url}",
       "setupBodyHtml": "<b>{inviter}</b> invited you to join (role: <b>{role}</b>). Create a password to activate your account.",
       "roles": {
         "admin": "Administrator",
@@ -963,10 +963,10 @@
       "passwordLabel": "New temporary password"
     },
     "test": {
-      "subject": "EZmeet — test email",
+      "subject": "Garely — test email",
       "heading": "SMTP works",
-      "bodyText": "SMTP works. This is a test email from EZmeet.",
-      "bodyHtml": "This is a test email from <b>EZmeet</b>. If you can see it, your email settings are saved and correct.",
+      "bodyText": "SMTP works. This is a test email from Garely.",
+      "bodyHtml": "This is a test email from <b>Garely</b>. If you can see it, your email settings are saved and correct.",
       "errors": {
         "noRecipient": "No recipient address provided"
       }

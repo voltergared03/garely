@@ -1,5 +1,5 @@
 #!/bin/sh
-# EZmeet scheduler sidecar — runs the periodic jobs against the app's internal
+# Garely scheduler sidecar — runs the periodic jobs against the app's internal
 # API. Replaces the old host-crontab step.
 #
 # busybox crond logs each job's full command line (at -d 8), so the CRON_SECRET

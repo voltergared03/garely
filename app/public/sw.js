@@ -1,4 +1,4 @@
-/* EZmeet — service worker.
+/* Garely — service worker.
  *
  * Push-only by design. This is a real-time video app, so the SW must NEVER
  * intercept navigations or cache app chunks: doing so risks serving stale JS
@@ -32,10 +32,10 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: event.data && event.data.text ? event.data.text() : 'EZmeet' };
+    data = { title: event.data && event.data.text ? event.data.text() : 'Garely' };
   }
 
-  const title = data.title || 'EZmeet';
+  const title = data.title || 'Garely';
   const options = {
     body: data.body || '',
     icon: '/icons/icon-192.png',

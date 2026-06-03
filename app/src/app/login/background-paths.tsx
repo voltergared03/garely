@@ -1,7 +1,7 @@
 'use client';
 
 // Animated "flowing paths" backdrop for the login screen. Adapted from a
-// framer-motion concept to EZmeet's stack: pure SVG + CSS animation (no extra
+// framer-motion concept to Garely's stack: pure SVG + CSS animation (no extra
 // deps), dark-theme + accent-tinted, decorative only (pointer-events-none,
 // aria-hidden), and it honours prefers-reduced-motion (see .login-bg-path in
 // globals.css). Path durations/delays are index-derived → SSR-safe (no random).

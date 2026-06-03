@@ -331,7 +331,7 @@ export function IntegrationsTab() {
                   onChange={e => setSmtp(s => ({ ...s, from: e.target.value }))} />
               </FieldWrapper>
               <FieldWrapper label={t('settings.smtpFromName')}>
-                <input className="field" value={smtp.fromName} placeholder="EZmeet"
+                <input className="field" value={smtp.fromName} placeholder="Garely"
                   onChange={e => setSmtp(s => ({ ...s, fromName: e.target.value }))} />
               </FieldWrapper>
             </div>

@@ -1,6 +1,6 @@
-# Contributing to EZmeet
+# Contributing to Garely
 
-Thanks for your interest! EZmeet is licensed **AGPL-3.0** — by contributing you
+Thanks for your interest! Garely is licensed **AGPL-3.0** — by contributing you
 agree your changes are released under the same license.
 
 ## Project layout

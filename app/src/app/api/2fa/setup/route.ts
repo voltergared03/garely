@@ -27,7 +27,7 @@ async function postHandler() {
   }
 
   const cfg = await readConfig(['WS_NAME']);
-  const issuer = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'EZmeet';
+  const issuer = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'Garely';
   const account = user.email || user.name || userId;
 
   const secret = generateSecret();

@@ -723,7 +723,7 @@ ul.tp-list li::before{content:'';position:absolute;left:2px;top:9px;width:4px;he
 <div class="wrap">
 <!-- ═══ COVER ═══ -->
 <div class="cover">
-  <div class="brand">EZmeet · ${tr('report.pdfTitle')}</div>
+  <div class="brand">Garely · ${tr('report.pdfTitle')}</div>
   <h1>${esc(meeting.title)}</h1>
   <div class="cover-row">
     <div class="cmeta">
@@ -763,7 +763,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
 <!-- ═══ FOOTER ═══ -->
 <div class="foot">
-  <div class="foot-l">EZmeet</div>
+  <div class="foot-l">Garely</div>
   <div class="foot-r">${esc(typeof window !== 'undefined' ? window.location.host : '')} &middot; ${esc(new Date().toLocaleDateString(locale))}</div>
 </div>
 

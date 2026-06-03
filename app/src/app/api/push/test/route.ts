@@ -19,7 +19,7 @@ async function postHandler() {
 
   const t = await getTranslations('push');
   const { sent, pruned } = await sendPushToUsers([userId], {
-    title: 'EZmeet',
+    title: 'Garely',
     body: t('testBody'),
     url: '/',
     tag: 'eam-test',

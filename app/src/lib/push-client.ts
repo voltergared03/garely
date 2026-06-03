@@ -142,12 +142,12 @@ export async function showTestNotification(): Promise<TestResult> {
         new Promise<null>((r) => setTimeout(() => r(null), 3000)),
       ]);
       if (reg) {
-        await (reg as ServiceWorkerRegistration).showNotification('EZmeet', opts);
+        await (reg as ServiceWorkerRegistration).showNotification('Garely', opts);
         return { ok: true, via: 'sw' };
       }
     }
     // Fallback for desktop browsers without a ready SW.
-    new Notification('EZmeet', { body, icon: '/icons/icon-192.png' });
+    new Notification('Garely', { body, icon: '/icons/icon-192.png' });
     return { ok: true, via: 'direct' };
   } catch (e: any) {
     return { ok: false, reason: 'error', detail: e?.message };

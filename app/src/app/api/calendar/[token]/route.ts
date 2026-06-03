@@ -65,12 +65,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     });
   }
 
-  const ics = buildCalendar({ name: `EZmeet — ${user.name || "Calendar"}`, events });
+  const ics = buildCalendar({ name: `Garely — ${user.name || "Calendar"}`, events });
   return new NextResponse(ics, {
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": 'inline; filename="ezmeet.ics"',
+      "Content-Disposition": 'inline; filename="garely.ics"',
       "Cache-Control": "private, max-age=300",
     },
   });

@@ -114,7 +114,7 @@ export function emailAllowedForSelfReg(email: string, domains: string[]): boolea
 
 /** Defaults for workspace + pricing config (used when a key is not set). */
 export const CONFIG_DEFAULTS: Record<string, string> = {
-  WS_NAME: 'EZmeet',
+  WS_NAME: 'Garely',
   WS_DOMAIN: '',
   WS_TIMEZONE: 'Europe/Kyiv',
   WS_LANGUAGE: 'en',

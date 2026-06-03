@@ -193,7 +193,7 @@ function downloadCodes(codes: string[], header: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'eam-meet-backup-codes.txt';
+    a.download = 'garely-backup-codes.txt';
     a.click();
     URL.revokeObjectURL(url);
   };

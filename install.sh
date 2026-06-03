@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# EZmeet — one-command installer.
+# Garely — one-command installer.
 #
-#   curl -fsSL https://raw.githubusercontent.com/voltergared03/ezmeet/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/voltergared03/garely/main/install.sh | sudo bash
 #
-# Installs Docker (if missing), fetches EZmeet, asks a few questions, generates
+# Installs Docker (if missing), fetches Garely, asks a few questions, generates
 # all secrets, brings up the full stack behind Caddy with automatic HTTPS, and
 # prints the link to the first-run /setup wizard. Re-running it updates an
 # existing install in place (your config + secrets are kept).
@@ -12,9 +12,9 @@
 set -euo pipefail
 
 # ── Settings (override via env) ─────────────────────────────────────────────
-REPO_URL="${EZMEET_REPO:-https://github.com/voltergared03/ezmeet.git}"
+REPO_URL="${GARELY_REPO:-https://github.com/voltergared03/garely.git}"
 BRANCH="${EZMEET_BRANCH:-main}"
-INSTALL_DIR="${EZMEET_DIR:-/opt/ezmeet}"
+INSTALL_DIR="${GARELY_DIR:-/opt/garely}"
 PRISMA_VERSION="6.2.0"
 COMPOSE="docker compose -f docker-compose.yml -f docker-compose.caddy.yml"
 
@@ -105,7 +105,7 @@ docker info >/dev/null 2>&1 || die "Docker is installed but not running. Start i
 ok "Docker $(docker --version | awk '{print $3}' | tr -d ',') + Compose ready"
 
 # ── Fetch / update the code ─────────────────────────────────────────────────
-step "Fetching EZmeet → $INSTALL_DIR"
+step "Fetching Garely → $INSTALL_DIR"
 FRESH=1
 if [ -d "$INSTALL_DIR/.git" ]; then
   FRESH=0
@@ -304,7 +304,7 @@ if [ -z "$SETUP_BLOCK" ]; then
 fi
 
 # ── Done ────────────────────────────────────────────────────────────────────
-printf '\n%s\n' "${GREEN}${B}════════════════  EZmeet is running  ════════════════${R}"
+printf '\n%s\n' "${GREEN}${B}════════════════  Garely is running  ════════════════${R}"
 echo
 if [ -n "$SETUP_BLOCK" ]; then
   printf '%s\n' "$SETUP_BLOCK"

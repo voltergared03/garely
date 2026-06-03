@@ -1,11 +1,11 @@
-# EZmeet
+# Garely
 
 Self-hosted video-conferencing platform with AI meeting intelligence: live
 multilingual transcription, automatic summaries, action items, collaborative
 notes, a report-grounded AI chat, post-meeting comprehension quizzes, and
 on-demand recording.
 
-[![CI](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml/badge.svg)](https://github.com/voltergared03/ezmeet/actions/workflows/ci.yml)
+[![CI](https://github.com/voltergared03/garely/actions/workflows/ci.yml/badge.svg)](https://github.com/voltergared03/garely/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
 ---
@@ -16,7 +16,7 @@ On a fresh Linux server with a domain pointed at it, **one command** installs
 everything — Docker, the full stack, and automatic HTTPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/voltergared03/ezmeet/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/voltergared03/garely/main/install.sh | sudo bash
 ```
 
 It installs **Docker + Compose** if missing, asks for your **domain** (plus an
@@ -77,7 +77,7 @@ install in place (secrets and config are preserved).
 
 ## Languages
 
-EZmeet ships **bilingual — English (default) and Ukrainian**:
+Garely ships **bilingual — English (default) and Ukrainian**:
 
 - The **workspace language** is the very first choice in the `/setup` wizard. It's the
   default interface language for everyone **and** the language of all *generated content*:
@@ -122,7 +122,7 @@ Services defined in `docker-compose.yml`:
 The one-command [installer](#install) adds a **Caddy** container
 (`docker-compose.caddy.yml`) that terminates TLS with an automatic Let's Encrypt
 certificate and routes `/livekit/*` → LiveKit, everything else → the app.
-Alternatively, front EZmeet with your own host reverse proxy (terminate TLS,
+Alternatively, front Garely with your own host reverse proxy (terminate TLS,
 forward `/` → `127.0.0.1:3100` and `/livekit/` + `/twirp/` → LiveKit on
 `127.0.0.1:7880`); a sample nginx config is in [`app/nginx.conf`](app/nginx.conf).
 
@@ -143,11 +143,11 @@ forward `/` → `127.0.0.1:3100` and `/livekit/` + `/twirp/` → LiveKit on
 
 ## Manual install
 
-Prefer to set things up yourself, or front EZmeet with your own reverse proxy?
+Prefer to set things up yourself, or front Garely with your own reverse proxy?
 The whole stack is plain Docker Compose:
 
 ```bash
-git clone https://github.com/voltergared03/ezmeet.git && cd ezmeet
+git clone https://github.com/voltergared03/garely.git && cd garely
 
 # 1. Secrets / config (never commit the real files — they are gitignored)
 cp .env.example .env                     # fill in all values
@@ -345,14 +345,14 @@ All persistent state lives in named Docker volumes:
 disaster recovery copy them off-box, e.g.:
 
 ```bash
-docker compose cp db-backup:/backups ./ezmeet-backups   # pull all dumps
+docker compose cp db-backup:/backups ./garely-backups   # pull all dumps
 ```
 
 To take an immediate manual dump:
 
 ```bash
 docker compose exec -T eam-meet-db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-  | gzip > ezmeet-db-$(date +%F).sql.gz
+  | gzip > garely-db-$(date +%F).sql.gz
 ```
 
 ## Updating
@@ -417,7 +417,7 @@ npm run test:coverage  # coverage of the server libs + API routes
 
 ## License
 
-EZmeet is licensed under the **GNU Affero General Public License v3.0** — see
+Garely is licensed under the **GNU Affero General Public License v3.0** — see
 [`LICENSE`](LICENSE). You're free to use, study, modify and self-host it; if you
 run a modified version as a network service, you must make your source available
 to its users under the same license.

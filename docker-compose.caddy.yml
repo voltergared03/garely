@@ -1,4 +1,4 @@
-# docker-compose.caddy.yml — turnkey HTTPS reverse proxy for EZmeet.
+# docker-compose.caddy.yml — turnkey HTTPS reverse proxy for Garely.
 #
 # Adds a Caddy container that terminates TLS (automatic Let's Encrypt) and routes
 # traffic to the app + LiveKit. Compose it ALONGSIDE the base file:
@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
 #
 # (install.sh does this for you.) The base docker-compose.yml stays proxy-less,
-# so deployments that front EZmeet with their own nginx/Traefik are unaffected.
+# so deployments that front Garely with their own nginx/Traefik are unaffected.
 #
 # Requires a ./Caddyfile — install.sh generates it, or: cp Caddyfile.example Caddyfile
 services:

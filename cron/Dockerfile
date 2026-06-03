@@ -1,4 +1,4 @@
-# EZmeet scheduler sidecar: runs the periodic jobs (reminders, weekly digest,
+# Garely scheduler sidecar: runs the periodic jobs (reminders, weekly digest,
 # recording retention, registration-request cleanup) against the app's internal
 # API on the compose network. Replaces the old host-crontab step.
 #

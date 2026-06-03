@@ -1,7 +1,7 @@
 import { SetPasswordClient } from './set-password-client';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Set password · EZmeet' };
+export const metadata = { title: 'Set password · Garely' };
 
 // Public page (outside the (app) auth gate): invited users create their first
 // password here via the one-time token from their invitation email.

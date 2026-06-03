@@ -585,7 +585,7 @@
     "next": "Далі",
     "finish": "Завершити налаштування",
     "copy": "Копіювати",
-    "footer": "EZmeet · самостійне розгортання",
+    "footer": "Garely · самостійне розгортання",
     "tokenTitle": "Перший запуск",
     "tokenSub": "Введіть setup-токен із логів контейнера, щоб розпочати налаштування.",
     "tokenLabel": "Setup-токен",
@@ -865,7 +865,7 @@
     "appCodeLabel": "Код з додатку",
     "backupCodesIntro": "Збережіть ці коди в безпечному місці. Кожен працює <b>один раз</b> і знадобиться, якщо ви втратите доступ до додатку-автентифікатора.",
     "backupCodesTitle": "Резервні коди",
-    "backupFileHeader": "EZmeet — резервні коди 2FA",
+    "backupFileHeader": "Garely — резервні коди 2FA",
     "connectTitle": "Підключення 2FA",
     "copied": "Скопійовано",
     "copy": "Копіювати",
@@ -920,7 +920,7 @@
       }
     },
     "digest": {
-      "subject": "EZmeet — щотижневий дайджест",
+      "subject": "Garely — щотижневий дайджест",
       "eyebrow": "Щотижневий дайджест",
       "greeting": "Привіт!",
       "greetingNamed": "Привіт, {name}!",
@@ -931,13 +931,13 @@
       "cta": "Відкрити задачі"
     },
     "invite": {
-      "subject": "Запрошення до EZmeet",
-      "heading": "Запрошення до EZmeet",
-      "bodyText": "{inviter} запросив вас до EZmeet (роль: {role}). Увійдіть через Google: {url}",
+      "subject": "Запрошення до Garely",
+      "heading": "Запрошення до Garely",
+      "bodyText": "{inviter} запросив вас до Garely (роль: {role}). Увійдіть через Google: {url}",
       "bodyHtml": "<b>{inviter}</b> запросив вас приєднатися (роль: <b>{role}</b>).",
       "cta": "Увійти через Google",
       "setupCta": "Створити пароль",
-      "setupBodyText": "{inviter} запросив(-ла) вас до EZmeet (роль: {role}). Створіть пароль, щоб активувати акаунт: {url}",
+      "setupBodyText": "{inviter} запросив(-ла) вас до Garely (роль: {role}). Створіть пароль, щоб активувати акаунт: {url}",
       "setupBodyHtml": "<b>{inviter}</b> запросив(-ла) вас приєднатися (роль: <b>{role}</b>). Створіть пароль, щоб активувати акаунт.",
       "roles": {
         "admin": "Адміністратор",
@@ -963,10 +963,10 @@
       "passwordLabel": "Новий тимчасовий пароль"
     },
     "test": {
-      "subject": "EZmeet — тестовий лист",
+      "subject": "Garely — тестовий лист",
       "heading": "SMTP працює",
-      "bodyText": "SMTP працює. Це тестовий лист з EZmeet.",
-      "bodyHtml": "Це тестовий лист з <b>EZmeet</b>. Якщо ти його бачиш — налаштування пошти збережені й коректні.",
+      "bodyText": "SMTP працює. Це тестовий лист з Garely.",
+      "bodyHtml": "Це тестовий лист з <b>Garely</b>. Якщо ти його бачиш — налаштування пошти збережені й коректні.",
       "errors": {
         "noRecipient": "Не вказано адресу одержувача"
       }

@@ -208,7 +208,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ═══════════════════════════════════════════════════════
-   EZmeet — Mobile Responsive (< 768px)
+   Garely — Mobile Responsive (< 768px)
    ═══════════════════════════════════════════════════════ */
 
 /* ── Mobile bottom nav ───────────────────────── */

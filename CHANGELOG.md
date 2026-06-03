@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to EZmeet are documented here. The format is based on
+All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
@@ -190,9 +190,9 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
-[1.10.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.10.0-beta.1
-[1.5.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.5.0-beta.1
-[1.4.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.4.0-beta.1
-[1.3.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.3.0-beta.1
-[1.2.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.2.0-beta.1
-[1.0.0-beta.1]: https://github.com/voltergared03/ezmeet/releases/tag/v1.0.0-beta.1
+[1.10.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.10.0-beta.1
+[1.5.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.5.0-beta.1
+[1.4.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.4.0-beta.1
+[1.3.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.3.0-beta.1
+[1.2.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.2.0-beta.1
+[1.0.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.0.0-beta.1

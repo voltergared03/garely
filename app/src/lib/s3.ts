@@ -44,7 +44,7 @@ export async function testS3(c: S3Config): Promise<{ ok: boolean; error?: string
   try {
     const client = makeS3Client(c);
     const key = `__eam-test-${Date.now()}.txt`;
-    await client.send(new PutObjectCommand({ Bucket: c.bucket, Key: key, Body: 'eam-meet connection test', ContentType: 'text/plain' }));
+    await client.send(new PutObjectCommand({ Bucket: c.bucket, Key: key, Body: 'garely connection test', ContentType: 'text/plain' }));
     await client.send(new DeleteObjectCommand({ Bucket: c.bucket, Key: key }));
     return { ok: true };
   } catch (e: any) {

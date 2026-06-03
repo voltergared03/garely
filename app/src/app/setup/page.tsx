@@ -4,7 +4,7 @@ import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 import { SetupWizard } from './setup-wizard';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Setup · EZmeet' };
+export const metadata = { title: 'Setup · Garely' };
 
 export default async function SetupPage() {
   // Once configured, /setup is permanently locked.

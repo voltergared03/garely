@@ -393,7 +393,7 @@ model QuizAssignment {
 // Users are grouped into departments (many-to-many via DepartmentMember; a user
 // can belong to several). A membership flagged isLead marks a department lead.
 // Meetings and tasks belong to at most one department, which drives access
-// gating in EZmeet and the per-department Teable base routing (option A).
+// gating in Garely and the per-department Teable base routing (option A).
 model Department {
   id           String   @id @default(cuid())
   name         String

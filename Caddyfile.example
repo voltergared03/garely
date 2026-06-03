@@ -1,4 +1,4 @@
-# EZmeet — Caddy reverse proxy with automatic HTTPS.
+# Garely — Caddy reverse proxy with automatic HTTPS.
 #
 # install.sh generates the real ./Caddyfile from your answers. To set it up by
 # hand:  cp Caddyfile.example Caddyfile  then replace meet.example.com below.

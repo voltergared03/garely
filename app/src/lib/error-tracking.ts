@@ -39,7 +39,7 @@ export function captureException(err: unknown, context?: Record<string, unknown>
     timestamp: Date.now() / 1000,
     platform: 'node',
     level: 'error',
-    logger: 'eam-meet',
+    logger: 'garely',
     environment: process.env.NODE_ENV || 'production',
     server_name: process.env.HOSTNAME || undefined,
     exception: { values: [{ type: error.name || 'Error', value: error.message || String(err) }] },
@@ -53,7 +53,7 @@ export function captureException(err: unknown, context?: Record<string, unknown>
     method: 'POST',
     headers: {
       'content-type': 'application/x-sentry-envelope',
-      'x-sentry-auth': `Sentry sentry_version=7, sentry_key=${d.key}, sentry_client=eam-meet/1.0`,
+      'x-sentry-auth': `Sentry sentry_version=7, sentry_key=${d.key}, sentry_client=garely/1.0`,
     },
     body,
   }).catch((e) => logger.warn('sentry_send_failed', { message: e instanceof Error ? e.message : String(e) }));

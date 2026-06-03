@@ -110,7 +110,7 @@ services:
       - eam-meet
 
   # --- Scheduler (reminders, weekly digest, recording retention, reg-cleanup) ---
-  # Replaces the host crontab: runs EZmeet's periodic jobs against the app's
+  # Replaces the host crontab: runs Garely's periodic jobs against the app's
   # internal API on the compose network. CRON_SECRET comes from .env.
   cron:
     build: ./cron

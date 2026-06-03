@@ -74,7 +74,7 @@ export function buildCalendar(opts: { name: string; events: IcsEvent[]; prodId?:
   const L: string[] = [];
   L.push("BEGIN:VCALENDAR");
   L.push("VERSION:2.0");
-  L.push(`PRODID:${opts.prodId || "-//EZmeet//Calendar//EN"}`);
+  L.push(`PRODID:${opts.prodId || "-//Garely//Calendar//EN"}`);
   L.push("CALSCALE:GREGORIAN");
   L.push(`METHOD:${opts.method || "PUBLISH"}`);
   L.push(fold(`X-WR-CALNAME:${esc(opts.name)}`));

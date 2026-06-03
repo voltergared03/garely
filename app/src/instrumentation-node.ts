@@ -20,7 +20,7 @@ export async function logSetupTokenIfNeeded() {
     const bar = '═'.repeat(62);
     console.log(
       `\n${bar}\n` +
-        `  EZmeet — FIRST-RUN SETUP REQUIRED\n` +
+        `  Garely — FIRST-RUN SETUP REQUIRED\n` +
         `\n` +
         `  1) Open:  ${base}/setup\n` +
         `  2) Paste this setup token on the first screen:\n` +
