@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendMeetingInvite } from '@/lib/meeting-invite';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
@@ -178,6 +179,20 @@ async function patchHandler(
     },
   });
 
+  // Calendar invite: newly scheduled → invite; otherwise an update on a real change.
+  const wasScheduled = !!existing.scheduledAt;
+  const nowScheduled = !!updated?.scheduledAt;
+  if (nowScheduled && !wasScheduled) {
+    void sendMeetingInvite(id, 'invite');
+  } else if (nowScheduled && updated) {
+    const timeChanged = +new Date(existing.scheduledAt as Date) !== +new Date(updated.scheduledAt as Date);
+    const changed = timeChanged
+      || existing.durationMin !== updated.durationMin
+      || existing.title !== updated.title
+      || updated.participants.length > existing.participants.length;
+    if (changed) void sendMeetingInvite(id, 'update');
+  }
+
   return NextResponse.json(updated);
 }
 
@@ -211,6 +226,8 @@ async function deleteHandler(
     return NextResponse.json({ error: 'Cannot delete a live meeting' }, { status: 400 });
   }
 
+  // Tell attendees it's cancelled before the participant rows cascade away.
+  await sendMeetingInvite(id, 'cancel').catch(() => {});
   await prisma.meeting.delete({ where: { id } });
 
   return NextResponse.json({ success: true });

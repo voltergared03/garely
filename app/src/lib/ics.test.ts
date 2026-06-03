@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCalendar } from '@/lib/ics';
+import { buildCalendar, googleCalendarUrl } from '@/lib/ics';
 
 const d = (s: string) => new Date(s);
 
@@ -39,5 +39,37 @@ describe('buildCalendar', () => {
     }
     // folded content is still recoverable (unfold = strip CRLF + leading space)
     expect(ics.replace(/\r\n /g, '')).toContain(`SUMMARY:${long}`);
+  });
+});
+
+describe('buildCalendar — invites + google url', () => {
+  it('emits METHOD:REQUEST with ORGANIZER, ATTENDEE, SEQUENCE, STATUS', () => {
+    const ics = buildCalendar({
+      name: 'M',
+      method: 'REQUEST',
+      events: [{
+        uid: 'meeting-x@ezmeet',
+        start: d('2026-06-10T09:00:00Z'),
+        end: d('2026-06-10T10:00:00Z'),
+        summary: 'Sync',
+        sequence: 0,
+        status: 'CONFIRMED',
+        organizer: { email: 'host@x', name: 'Host' },
+        attendees: [{ email: 'a@x', name: 'Aa' }, { email: 'b@x' }],
+      }],
+    });
+    expect(ics).toContain('METHOD:REQUEST');
+    expect(ics).toContain('SEQUENCE:0');
+    expect(ics).toContain('STATUS:CONFIRMED');
+    expect(ics).toContain('ORGANIZER;CN="Host":mailto:host@x');
+    expect(ics).toContain('ATTENDEE;CN="Aa";RSVP=TRUE:mailto:a@x');
+    expect(ics).toContain('ATTENDEE;RSVP=TRUE:mailto:b@x');
+  });
+
+  it('googleCalendarUrl builds a render link with UTC dates', () => {
+    const url = googleCalendarUrl({ title: 'Sync', start: d('2026-06-10T09:00:00Z'), end: d('2026-06-10T10:00:00Z'), location: 'https://x/room/1' });
+    expect(url).toContain('https://calendar.google.com/calendar/render');
+    expect(url).toContain('action=TEMPLATE');
+    expect(url).toContain('dates=20260610T090000Z%2F20260610T100000Z');
   });
 });

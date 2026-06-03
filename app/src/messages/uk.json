@@ -992,6 +992,18 @@
       "meetingLabel": "Мітинг",
       "cta": "Відкрити завдання"
     },
+    "inviteMeeting": {
+      "subject": "Запрошення на мітинг: {title}",
+      "heading": "Вас запрошено на мітинг",
+      "updatedSubject": "Оновлено: {title}",
+      "updatedHeading": "Мітинг оновлено",
+      "cancelledSubject": "Скасовано: {title}",
+      "cancelledHeading": "Мітинг скасовано",
+      "organizer": "Організатор: {name}",
+      "join": "Приєднатися",
+      "addGoogle": "Додати в Google Calendar",
+      "addIcs": "Додати в календар (.ics)"
+    },
     "registrationRequest": {
       "subject": "Нова заявка на реєстрацію",
       "heading": "Нова заявка на реєстрацію",

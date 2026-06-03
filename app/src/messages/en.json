@@ -992,6 +992,18 @@
       "meetingLabel": "Meeting",
       "cta": "Open task"
     },
+    "inviteMeeting": {
+      "subject": "Meeting invitation: {title}",
+      "heading": "You're invited to a meeting",
+      "updatedSubject": "Updated: {title}",
+      "updatedHeading": "A meeting was updated",
+      "cancelledSubject": "Cancelled: {title}",
+      "cancelledHeading": "This meeting was cancelled",
+      "organizer": "Organizer: {name}",
+      "join": "Join meeting",
+      "addGoogle": "Add to Google Calendar",
+      "addIcs": "Add to calendar (.ics)"
+    },
     "registrationRequest": {
       "subject": "New registration request",
       "heading": "New registration request",

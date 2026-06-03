@@ -16,6 +16,11 @@ ships `beta` tags ahead of a 1.0 public release.
   changes** — sent to the assignee and collaborators, never to the person who
   made the change, and only on a real change. Honours the per-user task
   notification toggle.
+- **Email + calendar invitations for meetings.** Scheduling a meeting now emails
+  everyone (creator + participants/guests) an invitation with an attached `.ics`
+  plus **Join**, **Add to Google Calendar** and **Add to calendar (.ics)** buttons
+  — so it drops straight into Google / Outlook / Apple Calendar. Rescheduling
+  sends an update; deleting sends a cancellation.
 
 ### Changed
 - **Manage subtasks inline on the Tasks board.** Each task row has a disclosure

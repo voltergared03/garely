@@ -69,7 +69,7 @@ install in place (secrets and config are preserved).
 - **Collaborative notes** with @mentions, **recurring meetings**
 - **On-demand recording** via LiveKit Egress — start / stop from an in-meeting button (host/admin); see [Recording](#recording-livekit-egress)
 - **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
-- **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (task assigned / updated, meeting reminders, weekly digest, report-ready, mentions)
+- **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (meeting invitations with `.ics`, task assigned / updated, meeting reminders, weekly digest, report-ready, mentions)
 - **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
 - **Admin panel**: users, workspace policies, integrations, usage/cost
 - **First-run setup wizard** (`/setup`): configure auth methods, branding & integrations from the browser — zero config-file editing
