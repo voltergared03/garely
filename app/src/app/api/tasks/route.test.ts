@@ -70,6 +70,14 @@ describe('GET /api/tasks — scope filter', () => {
     expect(whereOf().OR).toContainEqual({ collaborators: { some: { userId: 'u1' } } });
   });
 
+  it('org-scopes the list to the session org (cross-tenant isolation keystone)', async () => {
+    // A member of org-B must never get org-A's tasks back from the list query.
+    mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'member', orgId: 'org-B' } } as any);
+    prismaMock.meetingTask.findMany.mockResolvedValue([] as any);
+    await GET(jsonReq('GET', undefined, tasksUrl('?scope=mine')));
+    expect(whereOf().AND).toContainEqual({ OR: [{ orgId: 'org-B' }, { orgId: null }] });
+  });
+
   it('an admin scope=all sees everything (no scope filter)', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'a1', role: 'admin' }));
     prismaMock.meetingTask.findMany.mockResolvedValue([] as any);

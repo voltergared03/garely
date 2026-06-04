@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { prisma } from './prisma';
+import { getSingletonOrgId } from './org';
 
 const SMTP_KEYS = [
   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE',
@@ -92,6 +93,7 @@ export async function sendEmail(
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean);
   if (recipients.length === 0) return { ok: false, error: 'No recipients' };
 
+  const logOrgId = await getSingletonOrgId();
   const logAll = (status: string, messageId: string | null) =>
     Promise.all(
       recipients.map((r) =>
@@ -103,6 +105,7 @@ export async function sendEmail(
               meetingId: opts.meetingId || null,
               mailersendId: messageId,
               status,
+              orgId: logOrgId,
             },
           })
           .catch(() => {}),

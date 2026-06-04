@@ -339,13 +339,15 @@ ${numbered}`;
         rawResponse: content,
       },
     });
-    const meetingDeptId = (await tx.meeting.findUnique({ where: { id: meetingId }, select: { departmentId: true } }))?.departmentId ?? null;
+    const meetingMeta = await tx.meeting.findUnique({ where: { id: meetingId }, select: { departmentId: true, orgId: true } });
+    const meetingDeptId = meetingMeta?.departmentId ?? null;
     for (const r of resolvedTasks) {
       await tx.meetingTask.create({
         data: {
           meetingId,
           reportId: created.id,
           departmentId: meetingDeptId,
+          orgId: meetingMeta?.orgId ?? null,
           title: r.title,
           assigneeId: r.assigneeId,
           assigneeName: r.assigneeName,

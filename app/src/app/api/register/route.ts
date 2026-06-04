@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/email';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { notify } from '@/lib/notify';
 import { rateLimit } from '@/lib/rate-limit';
+import { getSingletonOrgId } from '@/lib/org';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,9 +57,10 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date(Date.now() + authCfg.requestTtlDays * 86_400_000);
 
   // Upsert so a re-submission refreshes the request instead of erroring.
+  const orgId = await getSingletonOrgId();
   await prisma.registrationRequest.upsert({
     where: { email },
-    create: { email, name, passwordHash, status: 'pending', expiresAt },
+    create: { email, name, passwordHash, status: 'pending', expiresAt, orgId },
     update: { name, passwordHash, status: 'pending', expiresAt, decidedAt: null, decidedById: null },
   });
 

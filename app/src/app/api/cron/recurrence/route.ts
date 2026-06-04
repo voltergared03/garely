@@ -76,6 +76,7 @@ async function getHandler(req: NextRequest) {
             allowGuests: m.allowGuests,
             agenda: m.agenda ?? Prisma.JsonNull,
             status: 'scheduled',
+            orgId: m.orgId,
             participants: {
               create: m.participants.map((p) => ({
                 userId: p.userId || null,

@@ -7,6 +7,7 @@
 import { prisma } from './prisma';
 import { sendPushToUsers } from './push';
 import { getTranslator, workspaceLocale } from './i18n-server';
+import { getSingletonOrgId } from './org';
 
 export interface NotifyInput {
   userIds: string[];
@@ -45,6 +46,7 @@ export async function notify(input: NotifyInput): Promise<number> {
   }
 
   // 1) Persist in-app notifications (drives the bell + unread count).
+  const orgId = await getSingletonOrgId();
   await prisma.notification
     .createMany({
       data: userIds.map((uid) => ({
@@ -54,6 +56,7 @@ export async function notify(input: NotifyInput): Promise<number> {
         body,
         link: input.link ?? null,
         meetingId: input.meetingId ?? null,
+        orgId,
       })),
     })
     .catch((e) => {
