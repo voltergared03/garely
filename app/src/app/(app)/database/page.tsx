@@ -71,7 +71,8 @@ export default function DatabaseHome() {
   }
 
   return (
-    <div style={{ padding: '30px clamp(20px, 5vw, 56px) 60px', maxWidth: 1500, margin: '0 auto' }}>
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', width: '100%' }}>
+      <div style={{ maxWidth: 1500, margin: '0 auto', padding: '30px clamp(20px, 5vw, 56px) 60px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
         <div>
           <div className="mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 9 }}>
@@ -88,7 +89,7 @@ export default function DatabaseHome() {
       {bases === null ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spinner size={22} /></div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+        <div className="db-bento">
           {bases.map((b, i) => (
             <BaseCard
               key={b.id}
@@ -132,6 +133,7 @@ export default function DatabaseHome() {
       </Modal>
 
       {shareId && <ShareModal open={!!shareId} baseId={shareId} onClose={() => setShareId(null)} />}
+      </div>
     </div>
   );
 }
