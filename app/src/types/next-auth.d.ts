@@ -13,6 +13,8 @@ declare module 'next-auth' {
       role: string;
       status: string;
       mustChangePassword: boolean;
+      orgId?: string;
+      orgRole?: string;
       locale?: 'en' | 'uk';
     } & DefaultSession['user'];
   }
@@ -25,6 +27,8 @@ declare module 'next-auth/jwt' {
     totpEnabled?: boolean;
     status?: string;
     mustChangePassword?: boolean;
+    orgId?: string;
+    orgRole?: string;
     locale?: 'en' | 'uk';
     seenAt?: number;
   }

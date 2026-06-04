@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
 import { generateMeetingSlug } from '@/lib/utils';
 import { readConfig, num } from '@/lib/config';
+import { getCurrentOrgId } from '@/lib/org';
 import { isInternalAuthed } from '@/lib/internal-auth';
 
 // GET /api/meetings — list meetings
@@ -135,6 +136,7 @@ export async function POST(req: NextRequest) {
         allowGuests: effAllowGuests,
         agenda,
         departmentId: typeof departmentId === 'string' && departmentId ? departmentId : null,
+        orgId: await getCurrentOrgId(session),
         participants: {
           create: [
             // Creator as host

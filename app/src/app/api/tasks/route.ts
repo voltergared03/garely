@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, userDepartmentIds, userCanViewTask } from "@/lib/access";
+import { getCurrentOrgId } from "@/lib/org";
 import { notifyTaskAssigned, notifyTaskUpdated } from "@/lib/task-notify";
 import { z } from "zod";
 import { validateBody } from "@/lib/validate";
@@ -204,6 +205,7 @@ export async function POST(req: NextRequest) {
       status: "open",
       source: "manual",
       departmentId: resolvedDeptId,
+      orgId: await getCurrentOrgId(session),
     },
     include: {
       assignee: { select: { id: true, name: true, image: true } },

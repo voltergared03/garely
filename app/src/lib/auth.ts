@@ -6,6 +6,7 @@ import { prisma } from './prisma';
 import { readConfig, CONFIG_DEFAULTS, getGoogleConfig, getAuthConfig } from './config';
 import { verifyPassword } from './password';
 import { rateLimit, rateLimitReset } from './rate-limit';
+import { getSingletonOrgId } from './org';
 
 // Lazy / per-request config so the enabled sign-in methods + Google OAuth
 // credentials can be read from the database (set during /setup) instead of
@@ -86,12 +87,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         if (token.id) {
           const dbUser = (await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, totpEnabled: true, status: true, mustChangePassword: true, preferences: true } as any,
+            select: { role: true, totpEnabled: true, status: true, mustChangePassword: true, preferences: true, memberships: { orderBy: { createdAt: 'asc' }, take: 1, select: { orgId: true, role: true } } } as any,
           })) as any;
           token.role = dbUser?.role || 'member';
           token.totpEnabled = !!dbUser?.totpEnabled;
           token.status = dbUser?.status || 'active';
           token.mustChangePassword = !!dbUser?.mustChangePassword;
+          // Multi-tenancy: the user's active org (single membership in self-host).
+          token.orgId = dbUser?.memberships?.[0]?.orgId;
+          token.orgRole = dbUser?.memberships?.[0]?.role;
           // The user's saved UI language (if any). Read client-side by <LocaleSync>
           // to keep the `locale` cookie in step with their preference.
           const prefLang = (dbUser?.preferences as any)?.language;
@@ -121,6 +125,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
           session.user.status = token.status ?? 'active';
           session.user.mustChangePassword = !!token.mustChangePassword;
           session.user.locale = token.locale;
+          session.user.orgId = token.orgId;
+          session.user.orgRole = token.orgRole;
         }
         return session;
       },
@@ -136,6 +142,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
             where: { id: user.id as string },
             data: { timezone: tz, preferences: { language: lang } },
           });
+          // Multi-tenancy: enroll the new (SSO) user into the current org.
+          const orgId = await getSingletonOrgId();
+          if (orgId) {
+            await prisma.membership.upsert({
+              where: { orgId_userId: { orgId, userId: user.id as string } },
+              update: {},
+              create: { orgId, userId: user.id as string, role: 'MEMBER' },
+            });
+          }
         } catch {
           /* non-fatal: keep schema defaults */
         }

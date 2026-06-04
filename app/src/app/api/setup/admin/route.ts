@@ -32,7 +32,7 @@ async function postHandler(req: NextRequest) {
   const cfg = await readConfig(['WS_TIMEZONE', 'WS_LANGUAGE']);
   const passwordHash = await hashPassword(String(password));
 
-  await prisma.user.create({
+  const admin = await prisma.user.create({
     data: {
       email: e,
       name: (name && String(name).trim()) || e.split('@')[0],
@@ -43,6 +43,12 @@ async function postHandler(req: NextRequest) {
       preferences: { language: cfg.WS_LANGUAGE || CONFIG_DEFAULTS.WS_LANGUAGE },
     } as any,
   });
+
+  // Multi-tenancy: create org #1 and make this first admin its OWNER (fresh install).
+  const wsName = ((await readConfig(['WS_NAME'])).WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'Workspace').trim();
+  const slug = wsName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'org';
+  const org = await prisma.organization.create({ data: { name: wsName, slug } });
+  await prisma.membership.create({ data: { orgId: org.id, userId: admin.id, role: 'OWNER' } });
 
   // Burns the setup token and flips SETUP_COMPLETE → /setup is now locked.
   await markSetupComplete();

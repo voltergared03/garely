@@ -1,6 +1,7 @@
 import type { Session } from 'next-auth';
 import { auth } from './auth';
 import { userCanAccessMeeting } from './access';
+import { getCurrentOrgId } from './org';
 import { jsonError } from './http';
 
 // Shared route guards. Routes currently copy-paste `const session = await auth();
@@ -39,4 +40,17 @@ export async function requireMeetingAccess(meetingId: string): Promise<Session |
   const ok = await userCanAccessMeeting(meetingId, session.user.id, session.user.role);
   if (!ok) return jsonError('forbidden', 403);
   return session;
+}
+
+/**
+ * Require an authenticated user AND resolve their active organization.
+ * Returns `{ session, orgId }`, or a 401 / 403 response. Use in routes that
+ * read or write tenant-scoped data so every query can filter / stamp by orgId.
+ */
+export async function requireOrg(): Promise<{ session: Session; orgId: string } | Response> {
+  const session = await auth();
+  if (!session?.user) return jsonError('unauthorized', 401);
+  const orgId = await getCurrentOrgId(session);
+  if (!orgId) return jsonError('no_org', 403);
+  return { session, orgId };
 }
