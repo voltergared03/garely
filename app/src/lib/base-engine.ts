@@ -19,11 +19,17 @@ export const fieldTypeSchema = z.enum([
   'text',
   'longText',
   'number',
+  'currency',
+  'percent',
+  'rating',
   'singleSelect',
   'multiSelect',
   'date',
   'person',
   'checkbox',
+  'url',
+  'email',
+  'phone',
 ]);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 export const FIELD_TYPES = fieldTypeSchema.options;
@@ -59,12 +65,25 @@ export function normalizeFieldOptions(
       return {
         precision: Number.isInteger(o.precision) ? Math.min(Math.max(o.precision, 0), 8) : 0,
       };
+    case 'currency':
+      return {
+        symbol: typeof o.symbol === 'string' && o.symbol.trim() ? o.symbol.trim().slice(0, 4) : '₴',
+        precision: Number.isInteger(o.precision) ? Math.min(Math.max(o.precision, 0), 8) : 2,
+      };
+    case 'percent':
+      return {
+        precision: Number.isInteger(o.precision) ? Math.min(Math.max(o.precision, 0), 8) : 0,
+      };
+    case 'rating':
+      return {
+        max: Number.isInteger(o.max) ? Math.min(Math.max(o.max, 1), 10) : 5,
+      };
     case 'date':
       return { includeTime: !!o.includeTime };
     case 'person':
       return { multiple: !!o.multiple };
     default:
-      return undefined; // text | longText | checkbox have no options
+      return undefined; // text | longText | checkbox | url | email | phone have no options
   }
 }
 

@@ -50,6 +50,22 @@ describe('coerceCell', () => {
     expect(coerceCell(perS, 'u1')).toBe('u1');
     expect(coerceCell(perS, ['u1', 'u2'])).toBe('u1');
   });
+  it('currency/percent: numeric like number', () => {
+    expect(coerceCell({ id: 'c', type: 'currency', options: { symbol: '$' } }, '9.5')).toBe(9.5);
+    expect(coerceCell({ id: 'p', type: 'percent', options: null }, 42)).toBe(42);
+    expect(coerceCell({ id: 'p', type: 'percent', options: null }, 'x')).toBeUndefined();
+  });
+  it('rating: rounds + clamps to [0,max], 0 clears', () => {
+    const r = { id: 'r', type: 'rating', options: { max: 5 } };
+    expect(coerceCell(r, 3)).toBe(3);
+    expect(coerceCell(r, 9)).toBe(5);
+    expect(coerceCell(r, 2.6)).toBe(3);
+    expect(coerceCell(r, 0)).toBeUndefined();
+  });
+  it('url/email/phone: trim non-empty strings', () => {
+    expect(coerceCell({ id: 'u', type: 'url', options: null }, '  example.com ')).toBe('example.com');
+    expect(coerceCell({ id: 'e', type: 'email', options: null }, '')).toBeUndefined();
+  });
 });
 
 describe('coerceRowData / mergeRowData', () => {

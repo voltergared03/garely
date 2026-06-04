@@ -26,6 +26,7 @@ export default function DatabaseHome() {
   const [renameVal, setRenameVal] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<BaseSummary | null>(null);
   const [shareId, setShareId] = useState<string | null>(null);
+  const [createErr, setCreateErr] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/bases').then((r) => (r.ok ? r.json() : [])).then(setBases).catch(() => setBases([]));
@@ -38,6 +39,7 @@ export default function DatabaseHome() {
     const n = name.trim();
     if (!n || busy) return;
     setBusy(true);
+    setCreateErr(null);
     const res = await fetch('/api/bases', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ name: n }) });
     setBusy(false);
     if (res.ok) {
@@ -45,6 +47,8 @@ export default function DatabaseHome() {
       setCreateOpen(false);
       setName('');
       router.push(`/database/${b.id}`);
+    } else {
+      setCreateErr(t('actionFailed'));
     }
   }
 
@@ -107,9 +111,10 @@ export default function DatabaseHome() {
         </div>
       )}
 
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('createBase')} width={420}>
+      <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateErr(null); }} title={t('createBase')} width={420}>
         <label className="field-label">{t('baseName')}</label>
-        <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} placeholder={t('baseNamePlaceholder')} style={{ width: '100%', marginBottom: 18 }} />
+        <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} placeholder={t('baseNamePlaceholder')} style={{ width: '100%', marginBottom: createErr ? 8 : 18 }} />
+        {createErr && <div style={{ color: 'var(--red, #ef4444)', fontSize: 12.5, marginBottom: 14 }}>{createErr}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn btn-ghost" onClick={() => setCreateOpen(false)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={create} disabled={!name.trim() || busy}>{busy ? <Spinner size={15} /> : t('createBase')}</button>
@@ -188,6 +193,7 @@ function BaseCard({
           </div>
           <button
             ref={btnRef}
+            aria-label={t('menu')}
             className="btn btn-ghost btn-icon"
             style={{ width: 30, height: 30, opacity: hover || menu ? 1 : 0, transition: 'opacity .12s' }}
             onClick={(e) => { e.stopPropagation(); const r = btnRef.current!.getBoundingClientRect(); setPos({ left: r.right - 196, top: r.bottom }); setMenu((m) => !m); }}

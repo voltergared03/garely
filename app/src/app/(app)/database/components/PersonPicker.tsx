@@ -47,10 +47,13 @@ export function PersonPicker({
       if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
       setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);

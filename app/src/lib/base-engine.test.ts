@@ -45,10 +45,26 @@ describe('normalizeFieldOptions', () => {
     expect((normalizeFieldOptions('person', {}) as any).multiple).toBe(false);
   });
 
-  it('exposes the 8 v1 field types', () => {
+  it('exposes all field types', () => {
     expect([...FIELD_TYPES]).toEqual([
-      'text', 'longText', 'number', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox',
+      'text', 'longText', 'number', 'currency', 'percent', 'rating',
+      'singleSelect', 'multiSelect', 'date', 'person', 'checkbox',
+      'url', 'email', 'phone',
     ]);
+  });
+
+  it('currency defaults symbol + precision; percent/rating shape', () => {
+    expect(normalizeFieldOptions('currency', {})).toEqual({ symbol: '₴', precision: 2 });
+    expect(normalizeFieldOptions('currency', { symbol: '$', precision: 0 })).toEqual({ symbol: '$', precision: 0 });
+    expect(normalizeFieldOptions('percent', {})).toEqual({ precision: 0 });
+    expect((normalizeFieldOptions('rating', { max: 99 }) as any).max).toBe(10);
+    expect((normalizeFieldOptions('rating', {}) as any).max).toBe(5);
+  });
+
+  it('url/email/phone carry no options', () => {
+    expect(normalizeFieldOptions('url', { x: 1 })).toBeUndefined();
+    expect(normalizeFieldOptions('email', {})).toBeUndefined();
+    expect(normalizeFieldOptions('phone', {})).toBeUndefined();
   });
 });
 

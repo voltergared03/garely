@@ -29,6 +29,7 @@ export default function BaseDetailPage() {
 
   const [newTableOpen, setNewTableOpen] = useState(false);
   const [newTableName, setNewTableName] = useState('');
+  const [tableErr, setTableErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [renameBaseOpen, setRenameBaseOpen] = useState(false);
@@ -75,6 +76,7 @@ export default function BaseDetailPage() {
     const n = newTableName.trim();
     if (!n || busy) return;
     setBusy(true);
+    setTableErr(null);
     const res = await fetch(`/api/bases/${baseId}/tables`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ name: n }) });
     setBusy(false);
     if (res.ok) {
@@ -84,6 +86,8 @@ export default function BaseDetailPage() {
       setNewTableOpen(false);
       setNewTableName('');
       setActiveTableId(newT.id);
+    } else {
+      setTableErr(t('actionFailed'));
     }
   }
 
@@ -170,7 +174,7 @@ export default function BaseDetailPage() {
         <button className="btn btn-ghost" onClick={() => setShareOpen(true)} style={{ fontWeight: 600, gap: 7 }}>
           {restricted ? <Lock size={15} /> : <Share2 size={15} />} {t('share')}
         </button>
-        <PopMenu trigger={<MoreHorizontal size={18} />}>
+        <PopMenu trigger={<MoreHorizontal size={18} />} label={t('menu')}>
           {(close) => (
             <>
               <MenuRow icon={<Pencil size={14} />} label={t('rename')} onClick={() => { close(); setRenameBaseVal(base.name); setRenameBaseOpen(true); }} />
@@ -200,7 +204,7 @@ export default function BaseDetailPage() {
                 <Table2 size={14} /> {tab.name}
               </button>
               {active ? (
-                <PopMenu trigger={<MoreHorizontal size={14} />} width={180} small>
+                <PopMenu trigger={<MoreHorizontal size={14} />} width={180} small label={t('menu')}>
                   {(close) => (
                     <>
                       <MenuRow icon={<Pencil size={14} />} label={t('renameTable')} onClick={() => { close(); setRenameTableVal(tab.name); setRenameTableT(tab); }} />
@@ -230,9 +234,10 @@ export default function BaseDetailPage() {
       )}
 
       {/* Modals */}
-      <Modal open={newTableOpen} onClose={() => setNewTableOpen(false)} title={t('newTable')} width={420}>
+      <Modal open={newTableOpen} onClose={() => { setNewTableOpen(false); setTableErr(null); }} title={t('newTable')} width={420}>
         <label className="field-label">{t('tableName')}</label>
-        <input className="field" autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createTable()} placeholder={t('tableNamePlaceholder')} style={{ width: '100%', marginBottom: 18 }} />
+        <input className="field" autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createTable()} placeholder={t('tableNamePlaceholder')} style={{ width: '100%', marginBottom: tableErr ? 8 : 18 }} />
+        {tableErr && <div style={{ color: 'var(--red, #ef4444)', fontSize: 12.5, marginBottom: 14 }}>{tableErr}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn btn-ghost" onClick={() => setNewTableOpen(false)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={createTable} disabled={!newTableName.trim() || busy}>{busy ? <Spinner size={15} /> : t('createTable')}</button>
@@ -276,7 +281,7 @@ export default function BaseDetailPage() {
   );
 }
 
-function PopMenu({ trigger, width = 200, small, children }: { trigger: ReactNode; width?: number; small?: boolean; children: (close: () => void) => ReactNode }) {
+function PopMenu({ trigger, width = 200, small, label, children }: { trigger: ReactNode; width?: number; small?: boolean; label?: string; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -291,6 +296,7 @@ function PopMenu({ trigger, width = 200, small, children }: { trigger: ReactNode
     <>
       <button
         ref={ref}
+        aria-label={label}
         className="btn btn-ghost btn-icon"
         style={{ width: small ? 24 : 30, height: small ? 24 : 30, color: 'var(--muted)' }}
         onClick={(e) => { e.stopPropagation(); const r = ref.current!.getBoundingClientRect(); setPos({ left: r.right - width, top: r.bottom }); setOpen((o) => !o); }}

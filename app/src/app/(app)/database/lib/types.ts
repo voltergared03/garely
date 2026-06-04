@@ -4,11 +4,17 @@ export type FieldType =
   | 'text'
   | 'longText'
   | 'number'
+  | 'currency'
+  | 'percent'
+  | 'rating'
   | 'singleSelect'
   | 'multiSelect'
   | 'date'
   | 'person'
-  | 'checkbox';
+  | 'checkbox'
+  | 'url'
+  | 'email'
+  | 'phone';
 
 export interface SelectChoice {
   id: string;
@@ -26,6 +32,8 @@ export interface FieldT {
     precision?: number;
     includeTime?: boolean;
     multiple?: boolean;
+    symbol?: string;
+    max?: number;
   } | null;
   position: number;
 }

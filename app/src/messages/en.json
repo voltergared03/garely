@@ -61,6 +61,8 @@
     "addRow": "New row",
     "noRows": "No rows yet",
     "noRowsHint": "Add your first row to this table.",
+    "deleteRow": "Delete row",
+    "menu": "Menu",
     "addField": "Add field",
     "editField": "Edit field",
     "deleteField": "Delete field",
@@ -105,6 +107,7 @@
     "addPerson": "Add",
     "addPersonPlaceholder": "Add a person by email",
     "notInWorkspace": "No workspace member has that email",
+    "actionFailed": "Something went wrong. Please try again.",
     "remove": "Remove",
     "roleViewer": "Viewer",
     "roleEditor": "Editor",
@@ -120,15 +123,23 @@
     "renameTable": "Rename table",
     "renameBaseTitle": "Rename base",
     "untitled": "Untitled",
+    "currencySymbol": "Symbol",
+    "ratingMax": "Max stars",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",
       "number": "Number",
+      "currency": "Currency",
+      "percent": "Percent",
+      "rating": "Rating",
       "singleSelect": "Single select",
       "multiSelect": "Multi-select",
       "date": "Date",
       "person": "Person",
-      "checkbox": "Checkbox"
+      "checkbox": "Checkbox",
+      "url": "URL",
+      "email": "Email",
+      "phone": "Phone"
     }
   },
   "sidebar": {

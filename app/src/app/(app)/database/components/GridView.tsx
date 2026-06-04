@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
   Plus, Trash2, MoreHorizontal, Pencil, Type, AlignLeft, Hash, List, Tags,
-  Calendar, User, CheckSquare, Star,
+  Calendar, User, CheckSquare, Star, Banknote, Percent, Link2, AtSign, Phone,
 } from 'lucide-react';
 import { FieldCell } from './FieldCell';
 import { FieldEditor } from './FieldEditor';
@@ -14,6 +14,8 @@ import type { TableT, RowT, OrgMember, FieldT, FieldType } from '../lib/types';
 const TYPE_ICONS: Record<FieldType, ElementType> = {
   text: Type, longText: AlignLeft, number: Hash, singleSelect: List,
   multiSelect: Tags, date: Calendar, person: User, checkbox: CheckSquare,
+  currency: Banknote, percent: Percent, rating: Star,
+  url: Link2, email: AtSign, phone: Phone,
 };
 
 export function GridView({
@@ -92,6 +94,13 @@ export function GridView({
         ))}
       </div>
 
+      {rows.length === 0 && (
+        <div style={{ padding: '26px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)' }}>{t('noRows')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>{t('noRowsHint')}</div>
+        </div>
+      )}
+
       <button
         onClick={onAddRow}
         style={{
@@ -117,6 +126,7 @@ export function GridView({
 }
 
 function RowNumCell({ n, style, onDelete }: { n: number; style: CSSProperties; onDelete: () => void }) {
+  const t = useTranslations('database');
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -125,7 +135,7 @@ function RowNumCell({ n, style, onDelete }: { n: number; style: CSSProperties; o
       onMouseLeave={() => setHover(false)}
     >
       {hover ? (
-        <button onClick={onDelete} title="Delete row" style={{ border: 'none', background: 'transparent', color: 'var(--red, #ef4444)', cursor: 'pointer', display: 'flex' }}>
+        <button onClick={onDelete} title={t('deleteRow')} aria-label={t('deleteRow')} style={{ border: 'none', background: 'transparent', color: 'var(--red, #ef4444)', cursor: 'pointer', display: 'flex' }}>
           <Trash2 size={14} />
         </button>
       ) : (
@@ -175,6 +185,7 @@ function FieldHeaderCell({
       </span>
       <button
         ref={ref}
+        aria-label={t('menu')}
         onClick={(e) => {
           e.stopPropagation();
           const r = ref.current!.getBoundingClientRect();

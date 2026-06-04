@@ -7,9 +7,9 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { CHOICE_COLORS, type FieldT, type FieldType, type SelectChoice } from '../lib/types';
 
-const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox'];
+const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone'];
 
-type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean };
+type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number };
 
 function defaultsFor(type: FieldType, prev: Opts): Opts {
   switch (type) {
@@ -18,6 +18,12 @@ function defaultsFor(type: FieldType, prev: Opts): Opts {
       return { choices: prev.choices ?? [] };
     case 'number':
       return { precision: prev.precision ?? 0 };
+    case 'currency':
+      return { symbol: prev.symbol ?? '₴', precision: prev.precision ?? 2 };
+    case 'percent':
+      return { precision: prev.precision ?? 0 };
+    case 'rating':
+      return { max: prev.max ?? 5 };
     case 'date':
       return { includeTime: prev.includeTime ?? false };
     case 'person':
@@ -72,6 +78,9 @@ export function FieldEditor({
     const draft: FieldDraft = { name: name.trim() || t('fieldName'), type };
     if (type === 'singleSelect' || type === 'multiSelect') draft.options = { choices: choices.filter((c) => c.name.trim()) };
     else if (type === 'number') draft.options = { precision: opts.precision ?? 0 };
+    else if (type === 'currency') draft.options = { symbol: (opts.symbol || '₴').slice(0, 4), precision: opts.precision ?? 2 };
+    else if (type === 'percent') draft.options = { precision: opts.precision ?? 0 };
+    else if (type === 'rating') draft.options = { max: opts.max ?? 5 };
     else if (type === 'date') draft.options = { includeTime: !!opts.includeTime };
     else if (type === 'person') draft.options = { multiple: !!opts.multiple };
     onSave(draft);
@@ -127,6 +136,63 @@ export function FieldEditor({
             className="field"
             value={opts.precision ?? 0}
             onChange={(e) => setOpts((p) => ({ ...p, precision: Math.max(0, Math.min(8, Number(e.target.value) || 0)) }))}
+            style={{ width: 120 }}
+          />
+        </div>
+      )}
+
+      {type === 'currency' && (
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+          <div>
+            <label className="field-label">{t('currencySymbol')}</label>
+            <input
+              className="field"
+              value={opts.symbol ?? '₴'}
+              maxLength={4}
+              onChange={(e) => setOpts((p) => ({ ...p, symbol: e.target.value }))}
+              style={{ width: 90 }}
+            />
+          </div>
+          <div>
+            <label className="field-label">{t('precision')}</label>
+            <input
+              type="number"
+              min={0}
+              max={8}
+              className="field"
+              value={opts.precision ?? 2}
+              onChange={(e) => setOpts((p) => ({ ...p, precision: Math.max(0, Math.min(8, Number(e.target.value) || 0)) }))}
+              style={{ width: 90 }}
+            />
+          </div>
+        </div>
+      )}
+
+      {type === 'percent' && (
+        <div style={{ marginBottom: 14 }}>
+          <label className="field-label">{t('precision')}</label>
+          <input
+            type="number"
+            min={0}
+            max={8}
+            className="field"
+            value={opts.precision ?? 0}
+            onChange={(e) => setOpts((p) => ({ ...p, precision: Math.max(0, Math.min(8, Number(e.target.value) || 0)) }))}
+            style={{ width: 120 }}
+          />
+        </div>
+      )}
+
+      {type === 'rating' && (
+        <div style={{ marginBottom: 14 }}>
+          <label className="field-label">{t('ratingMax')}</label>
+          <input
+            type="number"
+            min={1}
+            max={10}
+            className="field"
+            value={opts.max ?? 5}
+            onChange={(e) => setOpts((p) => ({ ...p, max: Math.max(1, Math.min(10, Number(e.target.value) || 5)) }))}
             style={{ width: 120 }}
           />
         </div>

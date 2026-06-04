@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Mail, Phone, Star } from 'lucide-react';
 import type { FieldT, OrgMember, SelectChoice } from '../lib/types';
 import { PersonPicker } from './PersonPicker';
 
@@ -108,9 +108,110 @@ export function FieldCell({
           onCommit={onCommit}
         />
       );
+    case 'currency':
+      return <AdornedNumberCell value={value} prefix={field.options?.symbol || '₴'} onCommit={onCommit} />;
+    case 'percent':
+      return <AdornedNumberCell value={value} suffix="%" onCommit={onCommit} />;
+    case 'rating':
+      return <RatingCell value={value} max={field.options?.max ?? 5} onCommit={onCommit} />;
+    case 'url':
+    case 'email':
+    case 'phone':
+      return <LinkCell kind={field.type} value={value} onCommit={onCommit} />;
     default:
       return null;
   }
+}
+
+/** Number cell with a non-editable currency symbol prefix or "%" suffix. */
+function AdornedNumberCell({
+  value,
+  prefix,
+  suffix,
+  onCommit,
+}: {
+  value: unknown;
+  prefix?: string;
+  suffix?: string;
+  onCommit: (value: unknown) => void;
+}) {
+  const has = typeof value === 'number';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+      {prefix && has && <span style={{ paddingLeft: 10, color: 'var(--muted)', fontSize: 13, flexShrink: 0 }}>{prefix}</span>}
+      <input
+        type="number"
+        style={{ ...cellInput, paddingLeft: prefix && has ? 4 : 10 }}
+        defaultValue={has ? String(value) : ''}
+        key={String(value ?? '')}
+        onBlur={(e) => {
+          const v = e.target.value === '' ? '' : Number(e.target.value);
+          if (v !== (value ?? '')) onCommit(v === '' ? '' : v);
+        }}
+        onKeyDown={enterBlur}
+      />
+      {suffix && has && <span style={{ paddingRight: 10, color: 'var(--muted)', fontSize: 13, flexShrink: 0 }}>{suffix}</span>}
+    </div>
+  );
+}
+
+/** Star rating, 1..max. Click the current value to step it down (0 clears). */
+function RatingCell({ value, max, onCommit }: { value: unknown; max: number; onCommit: (value: unknown) => void }) {
+  const cur = typeof value === 'number' ? value : 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: '0 8px', height: '100%', overflow: 'hidden' }}>
+      {Array.from({ length: Math.min(Math.max(max, 1), 10) }, (_, i) => i + 1).map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onCommit(cur === n ? n - 1 : n)}
+          aria-label={`${n}`}
+          style={{
+            border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, display: 'inline-flex',
+            color: n <= cur ? 'var(--amber, #f59e0b)' : 'var(--border-2, var(--border))',
+          }}
+        >
+          <Star size={15} fill={n <= cur ? 'currentColor' : 'none'} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** URL / email / phone: editable inline, with a trailing icon that opens the link. */
+function LinkCell({ kind, value, onCommit }: { kind: 'url' | 'email' | 'phone'; value: unknown; onCommit: (value: unknown) => void }) {
+  const v = typeof value === 'string' ? value : '';
+  const href = !v
+    ? ''
+    : kind === 'email'
+      ? `mailto:${v}`
+      : kind === 'phone'
+        ? `tel:${v.replace(/[^\d+]/g, '')}`
+        : /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  const Icon = kind === 'email' ? Mail : kind === 'phone' ? Phone : ExternalLink;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
+      <input
+        style={cellInput}
+        defaultValue={v}
+        key={v}
+        onBlur={(e) => { if (e.target.value !== v) onCommit(e.target.value); }}
+        onKeyDown={enterBlur}
+      />
+      {v && (
+        <a
+          href={href}
+          target={kind === 'url' ? '_blank' : undefined}
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title={v}
+          style={{ flexShrink: 0, display: 'inline-flex', padding: '0 9px', color: 'var(--accent)' }}
+        >
+          <Icon size={13} />
+        </a>
+      )}
+    </div>
+  );
 }
 
 function Chip({ choice }: { choice: SelectChoice }) {
@@ -163,10 +264,13 @@ function ChoiceCell({
       if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
       setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);

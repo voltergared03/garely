@@ -65,9 +65,11 @@ export function ShareModal({
   );
 
   async function setVis(v: Vis) {
+    const prev = visibility;
     setVisibility(v);
     onVisibility?.(v);
-    await fetch(`/api/bases/${baseId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ visibility: v }) });
+    const res = await fetch(`/api/bases/${baseId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ visibility: v }) });
+    if (!res.ok) { setVisibility(prev); onVisibility?.(prev); setErr(t('actionFailed')); }
   }
 
   async function addMember(body: { userId?: string; email?: string }) {
@@ -79,26 +81,32 @@ export function ShareModal({
       setQuery('');
     } else {
       const d = await res.json().catch(() => ({}));
-      setErr(d.error === 'not_in_workspace' ? t('notInWorkspace') : '—');
+      setErr(d.error === 'not_in_workspace' ? t('notInWorkspace') : t('actionFailed'));
     }
   }
 
   async function setRole(userId: string, role: BaseRole) {
-    setMembers((prev) => prev.map((m) => (m.id === userId ? { ...m, role } : m)));
-    await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ role }) });
+    const prev = members;
+    setMembers((p) => p.map((m) => (m.id === userId ? { ...m, role } : m)));
+    const res = await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ role }) });
+    if (!res.ok) { setMembers(prev); setErr(t('actionFailed')); }
   }
 
   async function toggleHidden(userId: string, fieldId: string) {
     const m = members.find((x) => x.id === userId);
     if (!m) return;
+    const prev = members;
     const next = m.hiddenFields.includes(fieldId) ? m.hiddenFields.filter((f) => f !== fieldId) : [...m.hiddenFields, fieldId];
-    setMembers((prev) => prev.map((x) => (x.id === userId ? { ...x, hiddenFields: next } : x)));
-    await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ hiddenFields: next }) });
+    setMembers((p) => p.map((x) => (x.id === userId ? { ...x, hiddenFields: next } : x)));
+    const res = await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ hiddenFields: next }) });
+    if (!res.ok) { setMembers(prev); setErr(t('actionFailed')); }
   }
 
   async function removeMember(userId: string) {
-    setMembers((prev) => prev.filter((x) => x.id !== userId));
-    await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'DELETE' });
+    const prev = members;
+    setMembers((p) => p.filter((x) => x.id !== userId));
+    const res = await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'DELETE' });
+    if (!res.ok) { setMembers(prev); setErr(t('actionFailed')); }
   }
 
   const roleOptions = [

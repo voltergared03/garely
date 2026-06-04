@@ -61,6 +61,8 @@
     "addRow": "Новий рядок",
     "noRows": "Ще немає рядків",
     "noRowsHint": "Додайте перший рядок до цієї таблиці.",
+    "deleteRow": "Видалити рядок",
+    "menu": "Меню",
     "addField": "Додати поле",
     "editField": "Редагувати поле",
     "deleteField": "Видалити поле",
@@ -105,6 +107,7 @@
     "addPerson": "Додати",
     "addPersonPlaceholder": "Додати людину за email",
     "notInWorkspace": "Немає учасника воркспейсу з таким email",
+    "actionFailed": "Сталася помилка. Спробуйте ще раз.",
     "remove": "Прибрати",
     "roleViewer": "Перегляд",
     "roleEditor": "Редагування",
@@ -120,15 +123,23 @@
     "renameTable": "Перейменувати таблицю",
     "renameBaseTitle": "Перейменувати базу",
     "untitled": "Без назви",
+    "currencySymbol": "Символ",
+    "ratingMax": "Макс. зірок",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",
       "number": "Число",
+      "currency": "Валюта",
+      "percent": "Відсоток",
+      "rating": "Рейтинг",
       "singleSelect": "Один вибір",
       "multiSelect": "Кілька виборів",
       "date": "Дата",
       "person": "Людина",
-      "checkbox": "Прапорець"
+      "checkbox": "Прапорець",
+      "url": "Посилання",
+      "email": "Email",
+      "phone": "Телефон"
     }
   },
   "sidebar": {

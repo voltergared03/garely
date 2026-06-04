@@ -44,9 +44,24 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
       const s = String(value);
       return s.length ? s.slice(0, 100_000) : undefined;
     }
-    case 'number': {
+    case 'url':
+    case 'email':
+    case 'phone': {
+      const s = String(value).trim();
+      return s.length ? s.slice(0, 1000) : undefined;
+    }
+    case 'number':
+    case 'currency':
+    case 'percent': {
       const n = typeof value === 'number' ? value : Number(value);
       return Number.isFinite(n) ? n : undefined;
+    }
+    case 'rating': {
+      const max = Number.isInteger((field.options as any)?.max) ? (field.options as any).max : 5;
+      const n = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(n)) return undefined;
+      const r = Math.round(Math.min(Math.max(n, 0), max));
+      return r > 0 ? r : undefined;
     }
     case 'date': {
       const d = new Date(value as string | number);
@@ -137,7 +152,10 @@ function matchOne(type: string, cell: unknown, op: string, val: unknown): boolea
 
   switch (type) {
     case 'text':
-    case 'longText': {
+    case 'longText':
+    case 'url':
+    case 'email':
+    case 'phone': {
       const s = String(cell).toLowerCase();
       const v = String(val ?? '').toLowerCase();
       if (op === 'is') return s === v;
@@ -146,7 +164,10 @@ function matchOne(type: string, cell: unknown, op: string, val: unknown): boolea
       if (op === 'notContains') return !s.includes(v);
       return true;
     }
-    case 'number': {
+    case 'number':
+    case 'currency':
+    case 'percent':
+    case 'rating': {
       const n = Number(cell);
       const v = Number(val);
       if (!Number.isFinite(v)) return true;
@@ -212,6 +233,9 @@ function compareCells(type: string, x: unknown, y: unknown): number {
   if (ye) return -1;
   switch (type) {
     case 'number':
+    case 'currency':
+    case 'percent':
+    case 'rating':
       return Number(x) - Number(y);
     case 'date':
       return new Date(String(x)).getTime() - new Date(String(y)).getTime();
