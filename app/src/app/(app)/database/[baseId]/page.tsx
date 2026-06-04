@@ -188,7 +188,7 @@ export default function BaseDetailPage() {
       </div>
 
       {/* Table tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto', overflowY: 'hidden' }}>
         {base.tables.map((tab) => {
           const active = tab.id === activeTableId;
           return (
