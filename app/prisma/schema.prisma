@@ -575,12 +575,14 @@ model Base {
 // Per-base sharing (Phase 2). A row = explicit access for a user to a
 // `restricted` base. `org`-visible bases ignore this (every org member sees them).
 model BaseMember {
-  id        String   @id @default(cuid())
-  baseId    String
-  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  baseId       String
+  base         Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         String   @default("editor") // viewer | editor | admin
+  hiddenFields Json     @default("[]") // fieldIds hidden from this member
+  createdAt    DateTime @default(now())
 
   @@unique([baseId, userId])
   @@index([userId])

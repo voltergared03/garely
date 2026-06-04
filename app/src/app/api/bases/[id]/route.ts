@@ -4,11 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { baseForOrg } from '@/lib/base-engine';
+import { baseForOrg, gate } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// GET /api/bases/[id] — base + its tables (for the table-tab navigation).
+// GET /api/bases/[id] — base + its tables (any access level).
 export const GET = withRoute('bases.get', async (_req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
@@ -33,24 +33,30 @@ const patchSchema = z
   })
   .strict();
 
-// PATCH /api/bases/[id] — rename / recolor / reorder.
+// PATCH — base settings (rename / color / visibility): admin only.
 export const PATCH = withRoute('bases.update', async (req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await baseForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
+  const acc = await baseForOrg(id, r.orgId, r.session);
+  if (!acc) return jsonError('not_found', 404);
+  const g = await gate(acc, r.orgId, r.session, 'admin');
+  if (g) return g;
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
   const base = await prisma.base.update({ where: { id }, data: parsed.data });
   return NextResponse.json(base);
 });
 
-// DELETE /api/bases/[id] — cascades tables → fields/rows/views.
+// DELETE — admin only (cascades tables → fields/rows/views/members).
 export const DELETE = withRoute('bases.delete', async (_req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await baseForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
+  const acc = await baseForOrg(id, r.orgId, r.session);
+  if (!acc) return jsonError('not_found', 404);
+  const g = await gate(acc, r.orgId, r.session, 'admin');
+  if (g) return g;
   await prisma.base.delete({ where: { id } });
   return jsonOk();
 });

@@ -43,7 +43,10 @@ export function PersonPicker({
         setOpen(false);
       }
     };
-    const onScroll = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('scroll', onScroll, true);
     return () => {

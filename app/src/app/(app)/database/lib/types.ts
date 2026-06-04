@@ -110,6 +110,17 @@ export interface OrgMember {
   email: string | null;
 }
 
+export type BaseRole = 'viewer' | 'editor' | 'admin';
+export interface BaseMemberT extends OrgMember {
+  role: BaseRole;
+  hiddenFields: string[];
+}
+export interface BaseFieldRef {
+  id: string;
+  name: string;
+  tableName: string;
+}
+
 // A small palette for new select choices (cycled through as choices are added).
 export const CHOICE_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7',

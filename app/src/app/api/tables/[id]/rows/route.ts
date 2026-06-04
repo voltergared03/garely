@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
-import { tableForOrg } from '@/lib/base-engine';
+import { tableForOrg, basePermission, atLeast, stripHidden } from '@/lib/base-engine';
 import {
   coerceRowData,
   rowMatchesFilters,
@@ -16,14 +16,15 @@ import {
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// GET /api/tables/[id]/rows?view=<id>&limit=&offset=
-// Lists rows, applying the view's filters + sorts app-side (v1 — see base-rows).
-// Without ?view, returns all rows in position order.
+// GET /api/tables/[id]/rows?view=&limit=&offset= — filtered/sorted rows.
+// Hidden-from-member fields are stripped from each returned row.
 export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id: tableId } = await ctx.params;
-  if (!(await tableForOrg(tableId, r.orgId, r.session))) return jsonError('not_found', 404);
+  const t = await tableForOrg(tableId, r.orgId, r.session);
+  if (!t) return jsonError('not_found', 404);
+  const perm = await basePermission(t.base, r.orgId, r.session);
 
   const url = new URL(req.url);
   const viewId = url.searchParams.get('view');
@@ -31,11 +32,7 @@ export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => 
   const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
 
   const [fields, allRows, view] = await Promise.all([
-    prisma.field.findMany({
-      where: { tableId },
-      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-      select: { id: true, type: true, options: true },
-    }),
+    prisma.field.findMany({ where: { tableId }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }], select: { id: true, type: true, options: true } }),
     prisma.row.findMany({ where: { tableId }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] }),
     viewId ? prisma.view.findFirst({ where: { id: viewId, tableId } }) : Promise.resolve(null),
   ]);
@@ -46,31 +43,31 @@ export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => 
   let rows = allRows.map((row) => ({ ...row, data: (row.data ?? {}) as Record<string, unknown> }));
   rows = rows.filter((row) => rowMatchesFilters(row.data, fieldLikes, cfg.filters));
   rows = sortRows(rows, fieldLikes, cfg.sorts);
-
   const total = rows.length;
-  const page = rows.slice(offset, offset + limit);
+  const page = rows
+    .slice(offset, offset + limit)
+    .map((row) => ({ ...row, data: stripHidden(row.data, perm.hiddenFields) }));
   return NextResponse.json({ rows: page, total, limit, offset });
 });
 
 const createSchema = z.object({ data: z.record(z.string(), z.unknown()).optional() });
 
-// POST /api/tables/[id]/rows — create a row (data validated per field type).
+// POST — create a row (editor+). Hidden fields can't be written.
 export const POST = withRoute('rows.create', async (req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id: tableId } = await ctx.params;
-  if (!(await tableForOrg(tableId, r.orgId, r.session))) return jsonError('not_found', 404);
+  const t = await tableForOrg(tableId, r.orgId, r.session);
+  if (!t) return jsonError('not_found', 404);
+  const perm = await basePermission(t.base, r.orgId, r.session);
+  if (!atLeast(perm.level, 'editor')) return jsonError('forbidden', 403);
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
 
-  const fields = await prisma.field.findMany({
-    where: { tableId },
-    select: { id: true, type: true, options: true },
-  });
-  const rowData = coerceRowData(fields, parsed.data.data ?? {});
+  const fields = await prisma.field.findMany({ where: { tableId }, select: { id: true, type: true, options: true } });
+  const input = stripHidden((parsed.data.data ?? {}) as Record<string, unknown>, perm.hiddenFields);
+  const rowData = coerceRowData(fields, input);
   const count = await prisma.row.count({ where: { tableId } });
-  const row = await prisma.row.create({
-    data: { tableId, data: rowData, createdById: r.session.user.id, position: count },
-  });
+  const row = await prisma.row.create({ data: { tableId, data: rowData, createdById: r.session.user.id, position: count } });
   return NextResponse.json(row, { status: 201 });
 });

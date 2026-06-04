@@ -49,10 +49,15 @@ export function Select({
         setOpen(false);
       }
     };
-    const onScroll = () => setOpen(false);
+    // Close on OUTSIDE scroll only — ignore scrolling inside the panel itself
+    // (the options list has its own overflow), otherwise it vanishes mid-scroll.
+    const onScroll = (e: Event) => {
+      if (panelRef.current && e.target instanceof Node && panelRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', () => setOpen(false));
     return () => {
       document.removeEventListener('mousedown', onDown);
       window.removeEventListener('scroll', onScroll, true);

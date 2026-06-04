@@ -2,11 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Globe, Lock, X } from 'lucide-react';
+import { Globe, Lock, X, EyeOff, UserPlus, Check } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
-import type { OrgMember } from '../lib/types';
+import { Select } from '@/components/ui/select';
+import type { OrgMember, BaseMemberT, BaseFieldRef, BaseRole } from '../lib/types';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 type Vis = 'org' | 'restricted';
@@ -27,17 +28,19 @@ export function ShareModal({
   const [visibility, setVisibility] = useState<Vis>('org');
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
-  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [members, setMembers] = useState<BaseMemberT[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
-  const [email, setEmail] = useState('');
+  const [fields, setFields] = useState<BaseFieldRef[]>([]);
+  const [query, setQuery] = useState('');
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [managingCols, setManagingCols] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setErr(null);
-    setEmail('');
+    setQuery('');
+    setManagingCols(null);
     Promise.all([
       fetch(`/api/bases/${baseId}/members`).then((r) => (r.ok ? r.json() : null)),
       fetch('/api/org/members').then((r) => (r.ok ? r.json() : [])),
@@ -47,13 +50,19 @@ export function ShareModal({
         setOwnerId(m.ownerId ?? null);
         setCanManage(!!m.canManage);
         setMembers(m.members ?? []);
+        setFields(m.fields ?? []);
       }
       setOrgMembers(om ?? []);
       setLoading(false);
     });
   }, [open, baseId]);
 
+  const memberIds = new Set(members.map((m) => m.id));
   const owner = orgMembers.find((u) => u.id === ownerId) ?? null;
+  const candidates = orgMembers.filter(
+    (u) => u.id !== ownerId && !memberIds.has(u.id) &&
+      (!query.trim() || (u.name || '').toLowerCase().includes(query.toLowerCase()) || (u.email || '').toLowerCase().includes(query.toLowerCase())),
+  );
 
   async function setVis(v: Vis) {
     setVisibility(v);
@@ -61,21 +70,30 @@ export function ShareModal({
     await fetch(`/api/bases/${baseId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ visibility: v }) });
   }
 
-  async function add() {
-    const e = email.trim();
-    if (!e || busy) return;
-    setBusy(true);
+  async function addMember(body: { userId?: string; email?: string }) {
     setErr(null);
-    const res = await fetch(`/api/bases/${baseId}/members`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ email: e }) });
-    setBusy(false);
+    const res = await fetch(`/api/bases/${baseId}/members`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ...body, role: 'editor' }) });
     if (res.ok) {
-      const u: OrgMember = await res.json();
-      setMembers((prev) => (prev.some((x) => x.id === u.id) ? prev : [...prev, u]));
-      setEmail('');
+      const m: BaseMemberT = await res.json();
+      setMembers((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+      setQuery('');
     } else {
       const d = await res.json().catch(() => ({}));
       setErr(d.error === 'not_in_workspace' ? t('notInWorkspace') : '—');
     }
+  }
+
+  async function setRole(userId: string, role: BaseRole) {
+    setMembers((prev) => prev.map((m) => (m.id === userId ? { ...m, role } : m)));
+    await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ role }) });
+  }
+
+  async function toggleHidden(userId: string, fieldId: string) {
+    const m = members.find((x) => x.id === userId);
+    if (!m) return;
+    const next = m.hiddenFields.includes(fieldId) ? m.hiddenFields.filter((f) => f !== fieldId) : [...m.hiddenFields, fieldId];
+    setMembers((prev) => prev.map((x) => (x.id === userId ? { ...x, hiddenFields: next } : x)));
+    await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ hiddenFields: next }) });
   }
 
   async function removeMember(userId: string) {
@@ -83,8 +101,14 @@ export function ShareModal({
     await fetch(`/api/bases/${baseId}/members/${userId}`, { method: 'DELETE' });
   }
 
+  const roleOptions = [
+    { value: 'viewer', label: t('roleViewer') },
+    { value: 'editor', label: t('roleEditor') },
+    { value: 'admin', label: t('roleAdmin') },
+  ];
+
   return (
-    <Modal open={open} onClose={onClose} title={t('shareBase')} width={460}>
+    <Modal open={open} onClose={onClose} title={t('shareBase')} width={520}>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spinner size={20} /></div>
       ) : (
@@ -94,41 +118,106 @@ export function ShareModal({
             <VisOption icon={<Lock size={15} />} title={t('accessRestrictedShort')} sub={t('accessRestricted')} active={visibility === 'restricted'} disabled={!canManage} onClick={() => setVis('restricted')} />
           </div>
 
+          {canManage && (
+            <div style={{ marginBottom: 14 }}>
+              <input
+                className="field"
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setErr(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && query.includes('@')) addMember({ email: query.trim() }); }}
+                placeholder={t('addPeople')}
+                style={{ width: '100%' }}
+              />
+              {err && <div style={{ color: 'var(--red, #ef4444)', fontSize: 12, marginTop: 6 }}>{err}</div>}
+              {query.trim() && candidates.length > 0 && (
+                <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', maxHeight: 200, overflowY: 'auto' }}>
+                  {candidates.slice(0, 8).map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => addMember({ userId: u.id })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <Avatar name={u.name || u.email || '?'} image={u.image} size="sm" />
+                      <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name || u.email}</span>
+                      <UserPlus size={14} style={{ color: 'var(--accent)' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
             {t('peopleWithAccess')}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: canManage ? 14 : 0 }}>
-            {owner && <PersonRow user={owner} badge={t('owner')} />}
-            {members.filter((m) => m.id !== ownerId).map((m) => (
-              <PersonRow key={m.id} user={m} onRemove={canManage ? () => removeMember(m.id) : undefined} />
-            ))}
-            {!owner && members.length === 0 && (
-              <div style={{ color: 'var(--muted)', fontSize: 13, padding: '6px 2px' }}>—</div>
-            )}
-          </div>
-
-          {canManage && (
-            <div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  className="field"
-                  list="db-share-emails"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setErr(null); }}
-                  onKeyDown={(e) => e.key === 'Enter' && add()}
-                  placeholder={t('addPersonPlaceholder')}
-                  style={{ flex: 1 }}
-                />
-                <datalist id="db-share-emails">
-                  {orgMembers.map((u) => (u.email ? <option key={u.id} value={u.email} /> : null))}
-                </datalist>
-                <button className="btn btn-primary" onClick={add} disabled={!email.trim() || busy}>
-                  {busy ? <Spinner size={14} /> : t('addPerson')}
-                </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {owner && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 4px' }}>
+                <Avatar name={owner.name || owner.email || '?'} image={owner.image} size="sm" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner.name || owner.email}</div>
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{t('owner')}</span>
               </div>
-              {err && <div style={{ color: 'var(--red, #ef4444)', fontSize: 12, marginTop: 6 }}>{err}</div>}
-            </div>
-          )}
+            )}
+            {members.filter((m) => m.id !== ownerId).map((m) => (
+              <div key={m.id}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 4px' }}>
+                  <Avatar name={m.name || m.email || '?'} image={m.image} size="sm" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name || m.email}</div>
+                  </div>
+                  {canManage ? (
+                    <>
+                      <button
+                        onClick={() => setManagingCols(managingCols === m.id ? null : m.id)}
+                        className="btn btn-ghost"
+                        title={t('hiddenColumnsTitle')}
+                        style={{ fontSize: 12, padding: '4px 8px', gap: 5, color: m.hiddenFields.length ? 'var(--accent)' : 'var(--text-2)' }}
+                      >
+                        <EyeOff size={13} /> {m.hiddenFields.length ? t('columnsHiddenCount', { count: m.hiddenFields.length }) : t('hideColumns')}
+                      </button>
+                      <Select value={m.role} onChange={(v) => setRole(m.id, v as BaseRole)} options={roleOptions} style={{ width: 132, padding: '6px 8px' }} />
+                      <button onClick={() => removeMember(m.id)} className="btn btn-ghost btn-icon" style={{ width: 28, height: 28 }} title={t('remove')}><X size={14} /></button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t(`role${m.role[0].toUpperCase()}${m.role.slice(1)}` as never)}</span>
+                  )}
+                </div>
+                {managingCols === m.id && (
+                  <div style={{ margin: '2px 0 10px 38px', padding: 10, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)' }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 8 }}>{t('hiddenColumnsTitle')}</div>
+                    {fields.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>—</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
+                        {fields.map((f) => {
+                          const hidden = m.hiddenFields.includes(f.id);
+                          return (
+                            <button
+                              key={f.id}
+                              onClick={() => toggleHidden(m.id, f.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px', border: 'none', borderRadius: 6, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <span style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${hidden ? 'var(--accent)' : 'var(--border-2, var(--border))'}`, background: hidden ? 'var(--accent)' : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {hidden && <Check size={11} style={{ color: '#fff' }} />}
+                              </span>
+                              <span style={{ fontSize: 12.5 }}>{f.name}</span>
+                              <span className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>{f.tableName}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </>
       )}
     </Modal>
@@ -154,23 +243,5 @@ function VisOption({ icon, title, sub, active, disabled, onClick }: { icon: Reac
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{sub}</div>
     </button>
-  );
-}
-
-function PersonRow({ user, badge, onRemove }: { user: OrgMember; badge?: string; onRemove?: () => void }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px' }}>
-      <Avatar name={user.name || user.email || '?'} image={user.image} size="sm" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || user.email}</div>
-        {user.name && user.email && <div className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{user.email}</div>}
-      </div>
-      {badge && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{badge}</span>}
-      {onRemove && (
-        <button onClick={onRemove} className="btn btn-ghost btn-icon" style={{ width: 28, height: 28 }} title="Remove">
-          <X size={14} />
-        </button>
-      )}
-    </div>
   );
 }

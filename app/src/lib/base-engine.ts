@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import type { Session } from 'next-auth';
 import { prisma } from './prisma';
+import { jsonError } from './http';
 
 /**
  * Base engine (Phase 2, roadmap §14) — shared helpers for the generic
@@ -75,15 +76,56 @@ export function normalizeFieldOptions(
 type BaseAccess = { id: string; orgId: string; visibility: string; createdById: string | null };
 const baseSel = { id: true, orgId: true, visibility: true, createdById: true };
 
-export async function canAccessBase(base: BaseAccess, orgId: string, session: Session): Promise<boolean> {
-  if (base.orgId !== orgId) return false;
-  const userId = session.user.id;
-  if (session.user.role === 'admin' || base.visibility !== 'restricted' || base.createdById === userId) return true;
+export type BaseLevel = 'none' | 'viewer' | 'editor' | 'admin';
+export interface BasePerm {
+  level: BaseLevel;
+  hiddenFields: string[];
+}
+const RANK: Record<BaseLevel, number> = { none: 0, viewer: 1, editor: 2, admin: 3 };
+/** True if `level` meets/exceeds `min` (none < viewer < editor < admin). */
+export const atLeast = (level: BaseLevel, min: BaseLevel) => RANK[level] >= RANK[min];
+
+/**
+ * A user's permission on a base: admin (workspace-admin OR base creator),
+ * else their explicit BaseMember role, else org-visible → editor, else none.
+ * `hiddenFields` (per-member column hiding) is empty for admins/org-visible.
+ */
+export async function basePermission(base: BaseAccess, orgId: string, session: Session): Promise<BasePerm> {
+  if (base.orgId !== orgId) return { level: 'none', hiddenFields: [] };
+  if (session.user.role === 'admin' || base.createdById === session.user.id) {
+    return { level: 'admin', hiddenFields: [] };
+  }
   const m = await prisma.baseMember.findUnique({
-    where: { baseId_userId: { baseId: base.id, userId } },
-    select: { id: true },
+    where: { baseId_userId: { baseId: base.id, userId: session.user.id } },
+    select: { role: true, hiddenFields: true },
   });
-  return !!m;
+  if (m) {
+    const level: BaseLevel = m.role === 'viewer' || m.role === 'admin' ? m.role : 'editor';
+    const hiddenFields = Array.isArray(m.hiddenFields)
+      ? (m.hiddenFields as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [];
+    return { level, hiddenFields };
+  }
+  if (base.visibility !== 'restricted') return { level: 'editor', hiddenFields: [] };
+  return { level: 'none', hiddenFields: [] };
+}
+
+export async function canAccessBase(base: BaseAccess, orgId: string, session: Session): Promise<boolean> {
+  return (await basePermission(base, orgId, session)).level !== 'none';
+}
+
+/** Write gate: returns a 403 Response if the user's level is below `min`, else null. */
+export async function gate(base: BaseAccess, orgId: string, session: Session, min: BaseLevel): Promise<Response | null> {
+  const perm = await basePermission(base, orgId, session);
+  return atLeast(perm.level, min) ? null : jsonError('forbidden', 403);
+}
+
+/** Drop hidden-field keys from a row data object (per-member column hiding). */
+export function stripHidden<T extends Record<string, unknown>>(data: T, hidden: string[]): T {
+  if (!hidden.length) return data;
+  const out = { ...data };
+  for (const h of hidden) delete out[h];
+  return out;
 }
 
 export async function baseForOrg(baseId: string, orgId: string, session: Session) {
