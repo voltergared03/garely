@@ -83,6 +83,7 @@ model User {
   taskCollaborations    TaskCollaborator[]
   memberships           Membership[]
   taskAssignments       TaskAssignment[]
+  baseMemberships       BaseMember[]
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -559,14 +560,30 @@ model Base {
   name        String
   icon        String?
   color       String?
+  visibility  String       @default("org") // org = all org members | restricted = creator + explicit members
   createdById String?
   position    Int          @default(0)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  tables Table[]
+  tables  Table[]
+  members BaseMember[]
 
   @@index([orgId])
+}
+
+// Per-base sharing (Phase 2). A row = explicit access for a user to a
+// `restricted` base. `org`-visible bases ignore this (every org member sees them).
+model BaseMember {
+  id        String   @id @default(cuid())
+  baseId    String
+  base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([baseId, userId])
+  @@index([userId])
 }
 
 model Table {

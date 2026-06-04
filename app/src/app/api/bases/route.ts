@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
@@ -9,8 +10,20 @@ import { jsonError } from '@/lib/http';
 export const GET = withRoute('bases.list', async () => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
+  const uid = r.session.user.id;
+  const where: Prisma.BaseWhereInput =
+    r.session.user.role === 'admin'
+      ? { orgId: r.orgId }
+      : {
+          orgId: r.orgId,
+          OR: [
+            { visibility: { not: 'restricted' } },
+            { createdById: uid },
+            { members: { some: { userId: uid } } },
+          ],
+        };
   const bases = await prisma.base.findMany({
-    where: { orgId: r.orgId },
+    where,
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { tables: true } } },
   });
@@ -20,6 +33,8 @@ export const GET = withRoute('bases.list', async () => {
       name: b.name,
       icon: b.icon,
       color: b.color,
+      visibility: b.visibility,
+      mine: b.createdById === uid,
       tableCount: b._count.tables,
       createdAt: b.createdAt,
     })),

@@ -88,6 +88,8 @@ export interface BaseSummary {
   name: string;
   icon?: string | null;
   color?: string | null;
+  visibility?: string;
+  mine?: boolean;
   tableCount: number;
 }
 
@@ -96,6 +98,8 @@ export interface BaseDetail {
   name: string;
   icon?: string | null;
   color?: string | null;
+  visibility?: string;
+  createdById?: string | null;
   tables: TableTab[];
 }
 

@@ -24,7 +24,7 @@ export const PATCH = withRoute('views.update', async (req: NextRequest, ctx: Ctx
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await viewForOrg(id, r.orgId))) return jsonError('not_found', 404);
+  if (!(await viewForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
 
@@ -42,7 +42,7 @@ export const DELETE = withRoute('views.delete', async (_req: NextRequest, ctx: C
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  const view = await viewForOrg(id, r.orgId);
+  const view = await viewForOrg(id, r.orgId, r.session);
   if (!view) return jsonError('not_found', 404);
   const count = await prisma.view.count({ where: { tableId: view.table.id } });
   if (count <= 1) return jsonError('last_view', 400);

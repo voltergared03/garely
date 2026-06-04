@@ -13,7 +13,7 @@ export const GET = withRoute('bases.get', async (_req: NextRequest, ctx: Ctx) =>
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  const base = await baseForOrg(id, r.orgId);
+  const base = await baseForOrg(id, r.orgId, r.session);
   if (!base) return jsonError('not_found', 404);
   const tables = await prisma.table.findMany({
     where: { baseId: id },
@@ -28,6 +28,7 @@ const patchSchema = z
     name: z.string().trim().min(1).max(80).optional(),
     icon: z.string().trim().max(40).nullish(),
     color: z.string().trim().max(20).nullish(),
+    visibility: z.enum(['org', 'restricted']).optional(),
     position: z.number().int().optional(),
   })
   .strict();
@@ -37,7 +38,7 @@ export const PATCH = withRoute('bases.update', async (req: NextRequest, ctx: Ctx
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await baseForOrg(id, r.orgId))) return jsonError('not_found', 404);
+  if (!(await baseForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
   const base = await prisma.base.update({ where: { id }, data: parsed.data });
@@ -49,7 +50,7 @@ export const DELETE = withRoute('bases.delete', async (_req: NextRequest, ctx: C
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await baseForOrg(id, r.orgId))) return jsonError('not_found', 404);
+  if (!(await baseForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
   await prisma.base.delete({ where: { id } });
   return jsonOk();
 });

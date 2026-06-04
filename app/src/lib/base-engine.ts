@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import type { Session } from 'next-auth';
 import { prisma } from './prisma';
 
 /**
@@ -66,42 +67,58 @@ export function normalizeFieldOptions(
   }
 }
 
-// ---- Org access guards ----------------------------------------------------
-// Each returns the resource if it belongs to `orgId`, else null.
+// ---- Access guards --------------------------------------------------------
+// Each guard enforces BOTH org isolation AND per-base access. A user may reach a
+// base when: they're an admin, OR the base is org-visible (visibility != 'restricted'),
+// OR they created it, OR they're an explicit BaseMember. Returns the resource or null.
+// (Names kept as *ForOrg for call-site stability; they are now access-aware.)
+type BaseAccess = { id: string; orgId: string; visibility: string; createdById: string | null };
+const baseSel = { id: true, orgId: true, visibility: true, createdById: true };
 
-export async function baseForOrg(baseId: string, orgId: string) {
-  const base = await prisma.base.findUnique({ where: { id: baseId } });
-  return base && base.orgId === orgId ? base : null;
+export async function canAccessBase(base: BaseAccess, orgId: string, session: Session): Promise<boolean> {
+  if (base.orgId !== orgId) return false;
+  const userId = session.user.id;
+  if (session.user.role === 'admin' || base.visibility !== 'restricted' || base.createdById === userId) return true;
+  const m = await prisma.baseMember.findUnique({
+    where: { baseId_userId: { baseId: base.id, userId } },
+    select: { id: true },
+  });
+  return !!m;
 }
 
-export async function tableForOrg(tableId: string, orgId: string) {
+export async function baseForOrg(baseId: string, orgId: string, session: Session) {
+  const base = await prisma.base.findUnique({ where: { id: baseId } });
+  return base && (await canAccessBase(base, orgId, session)) ? base : null;
+}
+
+export async function tableForOrg(tableId: string, orgId: string, session: Session) {
   const t = await prisma.table.findUnique({
     where: { id: tableId },
-    include: { base: { select: { orgId: true } } },
+    include: { base: { select: baseSel } },
   });
-  return t && t.base.orgId === orgId ? t : null;
+  return t && (await canAccessBase(t.base, orgId, session)) ? t : null;
 }
 
-export async function fieldForOrg(fieldId: string, orgId: string) {
+export async function fieldForOrg(fieldId: string, orgId: string, session: Session) {
   const f = await prisma.field.findUnique({
     where: { id: fieldId },
-    include: { table: { select: { id: true, primaryFieldId: true, base: { select: { orgId: true } } } } },
+    include: { table: { select: { id: true, primaryFieldId: true, base: { select: baseSel } } } },
   });
-  return f && f.table.base.orgId === orgId ? f : null;
+  return f && (await canAccessBase(f.table.base, orgId, session)) ? f : null;
 }
 
-export async function rowForOrg(rowId: string, orgId: string) {
+export async function rowForOrg(rowId: string, orgId: string, session: Session) {
   const row = await prisma.row.findUnique({
     where: { id: rowId },
-    include: { table: { select: { id: true, base: { select: { orgId: true } } } } },
+    include: { table: { select: { id: true, base: { select: baseSel } } } },
   });
-  return row && row.table.base.orgId === orgId ? row : null;
+  return row && (await canAccessBase(row.table.base, orgId, session)) ? row : null;
 }
 
-export async function viewForOrg(viewId: string, orgId: string) {
+export async function viewForOrg(viewId: string, orgId: string, session: Session) {
   const v = await prisma.view.findUnique({
     where: { id: viewId },
-    include: { table: { select: { id: true, base: { select: { orgId: true } } } } },
+    include: { table: { select: { id: true, base: { select: baseSel } } } },
   });
-  return v && v.table.base.orgId === orgId ? v : null;
+  return v && (await canAccessBase(v.table.base, orgId, session)) ? v : null;
 }

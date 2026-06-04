@@ -23,7 +23,7 @@ export const PATCH = withRoute('rows.update', async (req: NextRequest, ctx: Ctx)
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  const row = await rowForOrg(id, r.orgId);
+  const row = await rowForOrg(id, r.orgId, r.session);
   if (!row) return jsonError('not_found', 404);
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
@@ -50,7 +50,7 @@ export const DELETE = withRoute('rows.delete', async (_req: NextRequest, ctx: Ct
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  if (!(await rowForOrg(id, r.orgId))) return jsonError('not_found', 404);
+  if (!(await rowForOrg(id, r.orgId, r.session))) return jsonError('not_found', 404);
   await prisma.row.delete({ where: { id } });
   return jsonOk();
 });

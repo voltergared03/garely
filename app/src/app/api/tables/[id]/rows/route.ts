@@ -23,7 +23,7 @@ export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => 
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id: tableId } = await ctx.params;
-  if (!(await tableForOrg(tableId, r.orgId))) return jsonError('not_found', 404);
+  if (!(await tableForOrg(tableId, r.orgId, r.session))) return jsonError('not_found', 404);
 
   const url = new URL(req.url);
   const viewId = url.searchParams.get('view');
@@ -59,7 +59,7 @@ export const POST = withRoute('rows.create', async (req: NextRequest, ctx: Ctx) 
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id: tableId } = await ctx.params;
-  if (!(await tableForOrg(tableId, r.orgId))) return jsonError('not_found', 404);
+  if (!(await tableForOrg(tableId, r.orgId, r.session))) return jsonError('not_found', 404);
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
 

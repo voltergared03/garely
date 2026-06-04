@@ -55,21 +55,21 @@ describe('normalizeFieldOptions', () => {
 describe('org access guards (cross-tenant isolation)', () => {
   it('baseForOrg → null when the base belongs to another org', async () => {
     prismaMock.base.findUnique.mockResolvedValue({ id: 'b1', orgId: 'org-B' } as any);
-    expect(await baseForOrg('b1', 'org-A')).toBeNull();
+    expect(await baseForOrg('b1', 'org-A', { user: { id: 'u1', role: 'member' } } as any)).toBeNull();
   });
 
   it('baseForOrg → the base when the org matches', async () => {
     prismaMock.base.findUnique.mockResolvedValue({ id: 'b1', orgId: 'org-A' } as any);
-    expect(await baseForOrg('b1', 'org-A')).toMatchObject({ id: 'b1' });
+    expect(await baseForOrg('b1', 'org-A', { user: { id: 'u1', role: 'member' } } as any)).toMatchObject({ id: 'b1' });
   });
 
   it('tableForOrg checks the OWNING base orgId (child inherits)', async () => {
     prismaMock.table.findUnique.mockResolvedValue({ id: 't1', base: { orgId: 'org-B' } } as any);
-    expect(await tableForOrg('t1', 'org-A')).toBeNull();
+    expect(await tableForOrg('t1', 'org-A', { user: { id: 'u1', role: 'member' } } as any)).toBeNull();
   });
 
   it('guards → null when the resource does not exist', async () => {
     prismaMock.base.findUnique.mockResolvedValue(null as any);
-    expect(await baseForOrg('missing', 'org-A')).toBeNull();
+    expect(await baseForOrg('missing', 'org-A', { user: { id: 'u1', role: 'member' } } as any)).toBeNull();
   });
 });

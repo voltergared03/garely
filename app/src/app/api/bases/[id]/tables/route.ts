@@ -19,7 +19,7 @@ export const POST = withRoute('tables.create', async (req: NextRequest, ctx: Ctx
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id: baseId } = await ctx.params;
-  if (!(await baseForOrg(baseId, r.orgId))) return jsonError('not_found', 404);
+  if (!(await baseForOrg(baseId, r.orgId, r.session))) return jsonError('not_found', 404);
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
 

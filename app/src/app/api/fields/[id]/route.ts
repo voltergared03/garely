@@ -24,7 +24,7 @@ export const PATCH = withRoute('fields.update', async (req: NextRequest, ctx: Ct
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  const field = await fieldForOrg(id, r.orgId);
+  const field = await fieldForOrg(id, r.orgId, r.session);
   if (!field) return jsonError('not_found', 404);
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
@@ -50,7 +50,7 @@ export const DELETE = withRoute('fields.delete', async (_req: NextRequest, ctx: 
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
-  const field = await fieldForOrg(id, r.orgId);
+  const field = await fieldForOrg(id, r.orgId, r.session);
   if (!field) return jsonError('not_found', 404);
 
   await prisma.$transaction(async (tx) => {
