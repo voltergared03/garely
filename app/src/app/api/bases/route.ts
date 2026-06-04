@@ -25,7 +25,10 @@ export const GET = withRoute('bases.list', async () => {
   const bases = await prisma.base.findMany({
     where,
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    include: { _count: { select: { tables: true } } },
+    include: {
+      _count: { select: { tables: true } },
+      tables: { select: { name: true }, orderBy: { position: 'asc' }, take: 5 },
+    },
   });
   return NextResponse.json(
     bases.map((b) => ({
@@ -36,6 +39,7 @@ export const GET = withRoute('bases.list', async () => {
       visibility: b.visibility,
       mine: b.createdById === uid,
       tableCount: b._count.tables,
+      tables: b.tables.map((t) => t.name),
       createdAt: b.createdAt,
     })),
   );

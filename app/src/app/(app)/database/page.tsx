@@ -71,14 +71,14 @@ export default function DatabaseHome() {
   }
 
   return (
-    <div style={{ padding: '28px clamp(16px, 4vw, 44px)', maxWidth: 1120, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 26 }}>
+    <div style={{ padding: '30px clamp(20px, 5vw, 56px) 60px', maxWidth: 1500, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
         <div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8 }}>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 9 }}>
             Garely · {t('title')}
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.05 }}>{t('title')}</h1>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, marginTop: 6 }}>{t('subtitle')}</div>
+          <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.05 }}>{t('title')}</h1>
+          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 7 }}>{t('subtitle')}</div>
         </div>
         <button className="btn btn-primary" onClick={() => setCreateOpen(true)} style={{ fontWeight: 600, flexShrink: 0 }}>
           <Plus size={16} /> {t('newBase')}
@@ -86,25 +86,9 @@ export default function DatabaseHome() {
       </div>
 
       {bases === null ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 70 }}><Spinner size={22} /></div>
-      ) : bases.length === 0 ? (
-        <div
-          style={{
-            textAlign: 'center', padding: '64px 24px', borderRadius: 18, border: '1px dashed var(--border)',
-            background: 'radial-gradient(120% 100% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 70%)',
-          }}
-        >
-          <div style={{ width: 60, height: 60, borderRadius: 16, background: 'color-mix(in oklab, var(--accent) 16%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <DbIcon size={28} style={{ color: 'var(--accent)' }} />
-          </div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{t('noBases')}</div>
-          <div style={{ color: 'var(--muted)', fontSize: 13.5, margin: '8px auto 20px', maxWidth: 400 }}>{t('noBasesHint')}</div>
-          <button className="btn btn-primary" onClick={() => setCreateOpen(true)} style={{ fontWeight: 600 }}>
-            <Plus size={16} /> {t('createBase')}
-          </button>
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spinner size={22} /></div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(238px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
           {bases.map((b, i) => (
             <BaseCard
               key={b.id}
@@ -118,10 +102,10 @@ export default function DatabaseHome() {
               onDelete={() => setDeleteTarget(b)}
             />
           ))}
+          <GhostCard index={bases.length} label={bases.length === 0 ? t('createBase') : t('newBase')} onClick={() => setCreateOpen(true)} />
         </div>
       )}
 
-      {/* Create */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title={t('createBase')} width={420}>
         <label className="field-label">{t('baseName')}</label>
         <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} placeholder={t('baseNamePlaceholder')} style={{ width: '100%', marginBottom: 18 }} />
@@ -131,7 +115,6 @@ export default function DatabaseHome() {
         </div>
       </Modal>
 
-      {/* Rename */}
       <Modal open={!!renameTarget} onClose={() => setRenameTarget(null)} title={t('renameBaseTitle')} width={420}>
         <input className="field" autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doRename()} style={{ width: '100%', marginBottom: 18 }} />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -140,7 +123,6 @@ export default function DatabaseHome() {
         </div>
       </Modal>
 
-      {/* Delete confirm */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('deleteBase')} width={420}>
         <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteBase')}</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -149,29 +131,22 @@ export default function DatabaseHome() {
         </div>
       </Modal>
 
-      {shareId && <ShareModal open={!!shareId} baseId={shareId} onClose={() => setShareId(null)} onVisibility={() => { /* refresh badge on next load */ }} />}
+      {shareId && <ShareModal open={!!shareId} baseId={shareId} onClose={() => setShareId(null)} />}
     </div>
   );
 }
 
+const chipStyle: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', maxWidth: '100%', padding: '2px 9px', borderRadius: 7,
+  background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 11.5, color: 'var(--text-2)',
+  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+};
+
 function BaseCard({
-  base,
-  accent,
-  index,
-  onOpen,
-  onRename,
-  onRecolor,
-  onShare,
-  onDelete,
+  base, accent, index, onOpen, onRename, onRecolor, onShare, onDelete,
 }: {
-  base: BaseSummary;
-  accent: string;
-  index: number;
-  onOpen: () => void;
-  onRename: () => void;
-  onRecolor: (c: string) => void;
-  onShare: () => void;
-  onDelete: () => void;
+  base: BaseSummary; accent: string; index: number;
+  onOpen: () => void; onRename: () => void; onRecolor: (c: string) => void; onShare: () => void; onDelete: () => void;
 }) {
   const t = useTranslations('database');
   const [hover, setHover] = useState(false);
@@ -187,37 +162,52 @@ function BaseCard({
     return () => { window.removeEventListener('scroll', close, true); document.removeEventListener('mousedown', close); };
   }, [menu]);
 
-  const card: CSSProperties = {
-    position: 'relative', cursor: 'pointer', borderRadius: 14, background: 'var(--surface)', overflow: 'hidden',
-    border: `1px solid ${hover ? 'var(--border-2, var(--border))' : 'var(--border)'}`,
-    transform: hover ? 'translateY(-2px)' : 'none', boxShadow: hover ? '0 12px 32px -14px rgba(0,0,0,.55)' : 'none',
-    transition: 'transform .14s, border-color .14s, box-shadow .14s', animation: 'fadeIn .35s ease both', animationDelay: `${index * 45}ms`,
-  };
+  const previews = (base.tables ?? []).slice(0, 4);
+  const more = base.tableCount - previews.length;
 
   return (
-    <div style={card} onClick={onOpen} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div
+      onClick={onOpen}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative', cursor: 'pointer', borderRadius: 14, background: 'var(--surface)', overflow: 'hidden',
+        border: `1px solid ${hover ? 'var(--border-2, var(--border))' : 'var(--border)'}`,
+        minHeight: 162, display: 'flex',
+        transform: hover ? 'translateY(-2px)' : 'none', boxShadow: hover ? '0 14px 36px -16px rgba(0,0,0,.6)' : 'none',
+        transition: 'transform .14s, border-color .14s, box-shadow .14s', animation: 'fadeIn .35s ease both', animationDelay: `${index * 45}ms`,
+      }}
+    >
       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: accent }} />
-      <div style={{ padding: '15px 14px 15px 20px' }}>
+      <div style={{ padding: '16px 16px 14px 22px', display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, background: `color-mix(in oklab, ${accent} 22%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Table2 size={20} style={{ color: accent }} />
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: `color-mix(in oklab, ${accent} 22%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Table2 size={21} style={{ color: accent }} />
           </div>
           <button
             ref={btnRef}
             className="btn btn-ghost btn-icon"
             style={{ width: 30, height: 30, opacity: hover || menu ? 1 : 0, transition: 'opacity .12s' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              const r = btnRef.current!.getBoundingClientRect();
-              setPos({ left: r.right - 196, top: r.bottom });
-              setMenu((m) => !m);
-            }}
+            onClick={(e) => { e.stopPropagation(); const r = btnRef.current!.getBoundingClientRect(); setPos({ left: r.right - 196, top: r.bottom }); setMenu((m) => !m); }}
           >
             <MoreHorizontal size={16} />
           </button>
         </div>
-        <div style={{ fontSize: 15.5, fontWeight: 600, marginTop: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{base.name}</div>
-        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>
+
+        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{base.name}</div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 11, flex: 1, alignContent: 'flex-start' }}>
+          {previews.length === 0 ? (
+            <span style={{ fontSize: 12, color: 'var(--muted-2, var(--muted))' }}>—</span>
+          ) : (
+            previews.map((n, i) => (
+              <span key={i} style={chipStyle}><Table2 size={10} style={{ marginRight: 5, opacity: 0.6 }} />{n || t('untitled')}</span>
+            ))
+          )}
+          {more > 0 && <span style={{ ...chipStyle, color: 'var(--muted)' }}>+{more}</span>}
+        </div>
+
+        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--muted)', marginTop: 12 }}>
           <span>{t('tableCount', { count: base.tableCount })}</span>
           {base.visibility === 'restricted' && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Lock size={11} /> {t('accessRestrictedShort')}</span>
@@ -236,7 +226,7 @@ function BaseCard({
             <MenuRow icon={<Share2 size={14} />} label={t('share')} onClick={() => { setMenu(false); onShare(); }} />
             <div style={{ display: 'flex', gap: 5, padding: '8px 10px 6px', flexWrap: 'wrap' }}>
               {CHOICE_COLORS.slice(0, 8).map((c) => (
-                <button key={c} onClick={() => { onRecolor(c); }} title={t('recolor')} style={{ width: 18, height: 18, borderRadius: 5, background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid rgba(255,255,255,.12)', cursor: 'pointer' }} />
+                <button key={c} onClick={() => onRecolor(c)} title={t('recolor')} style={{ width: 18, height: 18, borderRadius: 5, background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid rgba(255,255,255,.12)', cursor: 'pointer' }} />
               ))}
             </div>
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -245,6 +235,28 @@ function BaseCard({
           document.body,
         )}
     </div>
+  );
+}
+
+function GhostCard({ onClick, index, label }: { onClick: () => void; index: number; label: string }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        minHeight: 162, borderRadius: 14, cursor: 'pointer',
+        border: `1.5px dashed ${hover ? 'var(--accent)' : 'var(--border)'}`,
+        background: hover ? 'color-mix(in oklab, var(--accent) 7%, transparent)' : 'transparent',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+        color: hover ? 'var(--accent)' : 'var(--muted)', transition: 'border-color .14s, background .14s, color .14s',
+        animation: 'fadeIn .35s ease both', animationDelay: `${index * 45}ms`,
+      }}
+    >
+      <Plus size={24} />
+      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+    </button>
   );
 }
 

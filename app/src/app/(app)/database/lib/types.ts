@@ -91,6 +91,7 @@ export interface BaseSummary {
   visibility?: string;
   mine?: boolean;
   tableCount: number;
+  tables?: string[];
 }
 
 export interface BaseDetail {
