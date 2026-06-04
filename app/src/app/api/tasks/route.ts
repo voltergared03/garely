@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, userDepartmentIds, userCanViewTask } from "@/lib/access";
 import { getCurrentOrgId } from "@/lib/org";
+import { setTaskAssignees } from "@/lib/task-assignees";
 import { notifyTaskAssigned, notifyTaskUpdated } from "@/lib/task-notify";
 import { z } from "zod";
 import { validateBody } from "@/lib/validate";
@@ -14,6 +15,7 @@ const taskCreateSchema = z.object({
   description: z.string().nullish(),
   meetingId: z.string().nullish(),
   assigneeId: z.string().nullish(),
+  assigneeIds: z.array(z.string()).optional(),
   priority: z.string().nullish(),
   dueDate: z.string().nullish(),
   departmentId: z.string().nullish(),
@@ -107,6 +109,8 @@ export async function GET(req: NextRequest) {
       { assignee: { departmentMemberships: { some: { departmentId: { in: myDeptIds } } } } },
       // tasks I collaborate on (added as an extra participant)
       { collaborators: { some: { userId } } },
+      // tasks I'm one of the assignees of (multi-assignee set)
+      { assignees: { some: { userId } } },
     ];
   }
 
@@ -137,6 +141,7 @@ export async function GET(req: NextRequest) {
       meeting: { select: { id: true, title: true, scheduledAt: true } },
       department: { select: { id: true, name: true, color: true } },
       collaborators: { select: { userId: true } },
+      assignees: { select: { user: { select: { id: true, name: true, image: true } } } },
       // Embed subtasks so the board can expand them inline (instant, no refetch)
       // and show accurate done/total progress without opening each task.
       subtasks: {
@@ -217,8 +222,11 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify + email the assignee (best-effort, fire-and-forget).
-  if (assigneeId) void notifyTaskAssigned(task.id, assigneeId, { id: session.user.id, name: session.user.name });
+  // Multi-assignee: persist the full set (assigneeId stays the lead) + notify each.
+  const finalAssignees = v.data.assigneeIds?.length ? v.data.assigneeIds : (assigneeId ? [assigneeId] : []);
+  if (finalAssignees.length) await setTaskAssignees(task.id, finalAssignees);
+  const actor = { id: session.user.id, name: session.user.name };
+  for (const uid of finalAssignees) if (uid !== session.user.id) void notifyTaskAssigned(task.id, uid, actor);
 
   return NextResponse.json(task, { status: 201 });
 }
@@ -286,6 +294,9 @@ export async function PATCH(req: NextRequest) {
     if (statusChanged || dueChanged) {
       void notifyTaskUpdated(taskId, { status: statusChanged ? fields.status : undefined, dueDate: dueChanged ? newDue : undefined }, actor);
     }
+
+    // Keep the multi-assignee set in sync when the single assignee is set here.
+    if (fields.assigneeId !== undefined) await setTaskAssignees(taskId, fields.assigneeId ? [fields.assigneeId] : []);
 
     return NextResponse.json(task);
   } catch {

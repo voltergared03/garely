@@ -702,7 +702,7 @@ interface AttachmentT { id: string; fileName: string; fileSize: number | null; m
 interface CollaboratorT { id: string; userId: string; user: CollabUser; }
 interface TaskDetail {
   id: string; assignee: CollabUser | null; assigneeId: string | null;
-  subtasks: SubTask[]; comments: TaskCommentT[]; attachments: AttachmentT[]; collaborators: CollaboratorT[];
+  subtasks: SubTask[]; comments: TaskCommentT[]; attachments: AttachmentT[]; collaborators: CollaboratorT[]; assignees: CollaboratorT[];
 }
 
 function fmtSize(n: number | null): string {
@@ -727,6 +727,7 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
   const [newSub, setNewSub] = useState("");
   const [newComment, setNewComment] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [addAsgOpen, setAddAsgOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -789,6 +790,15 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
     await fetch(`/api/tasks/${taskId}/collaborators?userId=${uid}`, { method: "DELETE" });
     await after();
   };
+  const addAssignee = async (uid: string) => {
+    setAddAsgOpen(false);
+    await fetch(`/api/tasks/${taskId}/assignees`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid }) });
+    await after();
+  };
+  const removeAssignee = async (uid: string) => {
+    await fetch(`/api/tasks/${taskId}/assignees?userId=${uid}`, { method: "DELETE" });
+    await after();
+  };
 
   if (!detail) return (
     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, textAlign: "center" }}>
@@ -796,13 +806,45 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
     </div>
   );
 
-  const taken = new Set<string>([detail.assigneeId || "", ...detail.collaborators.map(c => c.userId)]);
+  // A person is either an assignee or a collaborator — keep the two pickers disjoint.
+  const taken = new Set<string>([...detail.assignees.map(a => a.userId), ...detail.collaborators.map(c => c.userId)]);
   const candidates = users.filter(u => !taken.has(u.id));
   const fmtTime = (s: string) => new Date(s).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const canDel = (ownerId: string | null) => isAdmin || (ownerId != null && ownerId === currentUserId);
 
   return (
     <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Assignees (виконавці) — multiple, the people responsible for the task */}
+      <div>
+        <div style={collabLabelStyle}><Users size={13} /> {tr("tasks.assignees")}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          {detail.assignees.map(a => (
+            <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
+              <Avatar name={a.user.name || "?"} image={a.user.image} size="sm" />
+              <span style={{ fontSize: 12 }}>{(a.user.name || "").split(" ")[0] || "?"}</span>
+              <button onClick={() => removeAssignee(a.userId)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+            </span>
+          ))}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setAddAsgOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={candidates.length === 0}>
+              <Plus size={13} /> {tr("tasks.addAssignee")}
+            </button>
+            {addAsgOpen && candidates.length > 0 && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 200, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px rgba(0,0,0,.5)" }}>
+                {candidates.map(u => (
+                  <button key={u.id} onClick={() => addAssignee(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <Avatar name={u.name} image={u.image} size="sm" />
+                    <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Collaborators */}
       <div>
         <div style={collabLabelStyle}><Users size={13} /> {tr("tasks.collaborators")}</div>

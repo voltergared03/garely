@@ -62,12 +62,13 @@ describe('GET /api/tasks — scope filter', () => {
     expect(whereOf().assigneeId).toBeUndefined();
     // OR-scoped to: own tasks, meetings participated in, meetings created, own department
     expect(Array.isArray(whereOf().OR)).toBe(true);
-    expect(whereOf().OR).toHaveLength(6);
+    expect(whereOf().OR).toHaveLength(7);
     // department lens: tasks tagged to my dept, OR assigned to anyone in my dept — own departments only
     expect(whereOf().OR).toContainEqual({ departmentId: { in: ['d1'] } });
     expect(whereOf().OR).toContainEqual({ assignee: { departmentMemberships: { some: { departmentId: { in: ['d1'] } } } } });
     // collaboration lens: tasks I've been added to as a collaborator
     expect(whereOf().OR).toContainEqual({ collaborators: { some: { userId: 'u1' } } });
+    expect(whereOf().OR).toContainEqual({ assignees: { some: { userId: 'u1' } } });
   });
 
   it('org-scopes the list to the session org (cross-tenant isolation keystone)', async () => {

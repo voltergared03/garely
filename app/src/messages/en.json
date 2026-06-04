@@ -139,6 +139,8 @@
     "dueDate": "Due date",
     "collaborators": "Collaborators",
     "addCollaborator": "Add collaborator",
+    "assignees": "Assignees",
+    "addAssignee": "Add assignee",
     "subtasks": "Subtasks",
     "subtaskPlaceholder": "Add a subtask…",
     "noSubtasks": "No subtasks yet",

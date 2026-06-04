@@ -82,6 +82,7 @@ model User {
   taskAttachments       TaskAttachment[]
   taskCollaborations    TaskCollaborator[]
   memberships           Membership[]
+  taskAssignments       TaskAssignment[]
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -306,6 +307,7 @@ model MeetingTask {
   comments      TaskComment[]
   attachments   TaskAttachment[]
   collaborators TaskCollaborator[]
+  assignees     TaskAssignment[]
 
   @@index([assigneeId])
   @@index([status])
@@ -465,6 +467,21 @@ model TaskAttachment {
 }
 
 model TaskCollaborator {
+  id        String      @id @default(cuid())
+  taskId    String
+  task      MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+// Multiple assignees per task/subtask (the "виконавці" set). MeetingTask.assigneeId
+// stays as the denormalized primary/lead (= first assignee) for backward-compat
+// with the ~50 sites that read a single assignee (reports, AI, calendar, lists).
+model TaskAssignment {
   id        String      @id @default(cuid())
   taskId    String
   task      MeetingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)

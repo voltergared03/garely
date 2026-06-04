@@ -57,6 +57,7 @@ type TaskAccessFields = {
   meetingId: string | null;
   departmentId: string | null;
   collaborators: { id: string }[];
+  assignees: { id: string }[];
   assignee: { departmentMemberships: { departmentId: string }[] } | null;
 };
 
@@ -65,6 +66,7 @@ const taskAccessSelect = {
   meetingId: true,
   departmentId: true,
   collaborators: { select: { id: true } },
+  assignees: { select: { id: true } },
   assignee: { select: { departmentMemberships: { select: { departmentId: true } } } },
 } as const;
 
@@ -89,10 +91,12 @@ export async function userCanViewTask(
     select: {
       ...taskAccessSelect,
       collaborators: { where: { userId }, select: { id: true } },
+      assignees: { where: { userId }, select: { id: true } },
       parent: {
         select: {
           ...taskAccessSelect,
           collaborators: { where: { userId }, select: { id: true } },
+          assignees: { where: { userId }, select: { id: true } },
         },
       },
     },
@@ -103,6 +107,7 @@ export async function userCanViewTask(
   const grants = (t: TaskAccessFields): boolean => {
     if (t.assigneeId === userId) return true;
     if (t.collaborators.length > 0) return true;
+    if (t.assignees.length > 0) return true;
     if (t.departmentId && myDeptIds.includes(t.departmentId)) return true;
     if (t.assignee?.departmentMemberships.some((dm) => myDeptIds.includes(dm.departmentId))) return true;
     return false;

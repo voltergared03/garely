@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     where: {
       dueDate: { not: null },
       status: { not: "done" },
-      OR: [{ assigneeId: user.id }, { collaborators: { some: { userId: user.id } } }],
+      OR: [{ assigneeId: user.id }, { collaborators: { some: { userId: user.id } } }, { assignees: { some: { userId: user.id } } }],
     },
     select: { id: true, title: true, dueDate: true, createdAt: true },
   });

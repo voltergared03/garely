@@ -31,6 +31,7 @@ export const GET = withRoute("tasks.detail", async (_req: NextRequest, ctx: Ctx)
         orderBy: [{ status: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       },
       collaborators: { include: { user: userSel }, orderBy: { createdAt: "asc" } },
+      assignees: { include: { user: userSel }, orderBy: { createdAt: "asc" } },
       comments: { include: { user: userSel }, orderBy: { createdAt: "asc" } },
       attachments: {
         include: { uploadedBy: { select: { id: true, name: true } } },
