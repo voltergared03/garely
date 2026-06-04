@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import {
   Home, Calendar, ListChecks, Archive, Settings,
-  Plus, Video, LogOut,
+  Plus, Video, LogOut, Database,
 } from 'lucide-react';
 import { Logo } from './ui/logo';
 import { Avatar } from './ui/avatar';
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { id: '/', labelKey: 'sidebar.dashboard', icon: Home, adminOnly: false },
   { id: '/calendar', labelKey: 'nav.calendar', icon: Calendar, adminOnly: false },
   { id: '/tasks', labelKey: 'nav.tasks', icon: ListChecks, adminOnly: false },
+  { id: '/database', labelKey: 'nav.database', icon: Database, adminOnly: false },
   { id: '/archive', labelKey: 'nav.archive', icon: Archive, adminOnly: false },
   { id: '/settings', labelKey: 'nav.settings', icon: Settings, adminOnly: false },
 ] as const;

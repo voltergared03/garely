@@ -528,6 +528,7 @@ model Organization {
   notifications        Notification[]
   registrationRequests RegistrationRequest[]
   emailLogs            EmailLog[]
+  bases                Base[]
 }
 
 model Membership {
@@ -542,4 +543,89 @@ model Membership {
   @@unique([orgId, userId])
   @@index([userId])
   @@index([orgId])
+}
+
+// === Base engine (Phase 2, 2026-06-04) — roadmap §14 ===
+// Generic Airtable/Teable-like data engine: Base → Table → Field → Row → View.
+// `Base` is a tenant aggregate root (carries orgId); Table/Field/Row/View inherit
+// org via Base (the children-inherit rule). Cell values live in `Row.data` — a
+// JSONB bag keyed by fieldId. The record model is named `Row` (NOT `Record`) to
+// avoid shadowing TS's built-in Record<K,V>. `Table` maps to "BaseTable" (the SQL
+// reserved word). `createdById` is a soft user reference (no FK), like MeetingNote.
+model Base {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name        String
+  icon        String?
+  color       String?
+  createdById String?
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tables Table[]
+
+  @@index([orgId])
+}
+
+model Table {
+  id             String   @id @default(cuid())
+  baseId         String
+  base           Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  name           String
+  icon           String?
+  primaryFieldId String? // soft ref → Field.id rendered as the row title
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fields Field[]
+  rows   Row[]
+  views  View[]
+
+  @@index([baseId])
+  @@map("BaseTable")
+}
+
+model Field {
+  id        String   @id @default(cuid())
+  tableId   String
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name      String
+  type      String // text | longText | number | singleSelect | multiSelect | date | person | checkbox
+  options   Json? // select {choices:[{id,name,color}]} | number {precision} | date {includeTime} | person {multiple}
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tableId])
+}
+
+model Row {
+  id          String   @id @default(cuid())
+  tableId     String
+  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  data        Json     @default("{}") // { [fieldId]: value } — value shape per field type
+  createdById String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tableId])
+  @@index([tableId, position])
+}
+
+model View {
+  id        String   @id @default(cuid())
+  tableId   String
+  table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  name      String
+  type      String   @default("grid") // grid | kanban | calendar
+  config    Json     @default("{}") // { visibleFieldIds, fieldOrder, filters[], sorts[], groupByFieldId, kanbanStackFieldId, calendarDateFieldId, rowHeight }
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tableId])
 }

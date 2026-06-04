@@ -4,13 +4,14 @@ import { useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Home, Calendar, ListChecks, Archive, Settings, Plus, Video } from 'lucide-react';
+import { Home, Calendar, ListChecks, Archive, Settings, Plus, Video, Database } from 'lucide-react';
 import { useQuizPending } from '@/hooks/use-quiz-pending';
 
 const NAV = [
   { id: '/', key: 'home', icon: Home },
   { id: '/calendar', key: 'calendar', icon: Calendar },
   { id: '/tasks', key: 'tasks', icon: ListChecks },
+  { id: '/database', key: 'database', icon: Database },
   { id: '/archive', key: 'archive', icon: Archive },
   { id: '/settings', key: 'settings', icon: Settings },
 ] as const;
