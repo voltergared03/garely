@@ -92,11 +92,15 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
   </div>
 </div>`;
     const text = `${heading}: ${meeting.title}\n${when}\n${joinUrl}`;
-    const attachments = [{ filename: "invite.ics", content: ics, contentType: `text/calendar; charset=utf-8; method=${method}` }];
+    // Deliver the .ics as a multipart/alternative (text/calendar; method=…) via
+    // nodemailer's icalEvent — NOT a plain attachment. This is what makes Gmail /
+    // Google Calendar / Outlook render the RSVP card and actually add the event;
+    // a bare attachment shows "failed to load event" and never lands in calendar.
+    const icalEvent = { method, content: ics };
 
     // One email each (don't expose the attendee list in the To header).
     await Promise.all(
-      attendees.map((a) => sendEmail({ to: a.email, subject, html, text, template: `meeting_${kind}`, meetingId: meeting.id, attachments })),
+      attendees.map((a) => sendEmail({ to: a.email, subject, html, text, template: `meeting_${kind}`, meetingId: meeting.id, icalEvent })),
     );
   } catch {
     /* best-effort */

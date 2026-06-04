@@ -77,6 +77,10 @@ export interface SendEmailOptions {
   meetingId?: string;
   template?: string;
   attachments?: { filename: string; content?: string | Buffer; path?: string; contentType?: string }[];
+  // Calendar invite as a multipart/alternative part (text/calendar; method=...).
+  // This is what Gmail/Google Calendar/Outlook need to render the RSVP card and
+  // add the event — a plain .ics attachment shows "failed to load event".
+  icalEvent?: { method?: string; filename?: string; content: string };
 }
 
 /**
@@ -120,6 +124,7 @@ export async function sendEmail(
       text: opts.text,
       html: opts.html,
       attachments: opts.attachments,
+      icalEvent: opts.icalEvent,
     });
     const messageId = (info as any)?.messageId || null;
     await logAll('sent', messageId);
