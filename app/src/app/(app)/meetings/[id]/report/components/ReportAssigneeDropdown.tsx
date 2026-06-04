@@ -3,20 +3,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Check } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import type { AssignOption } from '../lib/types';
 
-/* ─── AssigneeDropdown (report) ─────────────────────────────────── */
+type ItemAssignee = { id: string | null; name: string; image: string | null; registered: boolean };
+
+/* ─── AssigneeDropdown (report) — multi-assignee toggle ─────────── */
 
 export function ReportAssigneeDropdown({
   item,
   options,
-  onAssign,
+  onToggle,
 }: {
-  item: { id: string; assignee: string; assigneeImage?: string | null; assigneeRegistered?: boolean };
+  item: { id: string; assignee: string; assigneeImage?: string | null; assigneeRegistered?: boolean; assignees?: ItemAssignee[] };
   options: AssignOption[];
-  onAssign: (itemId: string, opt: AssignOption) => void;
+  // isSelected reflects the current membership so the parent knows add vs remove.
+  onToggle: (itemId: string, opt: AssignOption, isSelected: boolean) => void;
 }) {
   const tr = useTranslations();
   const [open, setOpen] = useState(false);
@@ -39,6 +42,14 @@ export function ReportAssigneeDropdown({
       window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
+
+  // Full set (виконавці); fall back to the single lead for old/legacy items.
+  const assignees: ItemAssignee[] = item.assignees && item.assignees.length
+    ? item.assignees
+    : (item.assignee ? [{ id: null, name: item.assignee, image: item.assigneeImage || null, registered: !!item.assigneeRegistered }] : []);
+  const isOptSelected = (o: AssignOption) =>
+    o.id ? assignees.some((a) => a.id === o.id) : assignees.some((a) => a.id == null && a.name === o.name);
+  const leadGuest = assignees.length > 0 && !assignees[0].registered;
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -69,9 +80,23 @@ export function ReportAssigneeDropdown({
         onMouseEnter={(e: any) => (e.currentTarget.style.background = 'var(--surface-2)')}
         onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
       >
-        <Avatar name={item.assignee || 'U'} image={item.assigneeImage || null} size="sm" />
-        <span>{item.assignee || tr('report.unassigned')}</span>
-        {item.assignee && !item.assigneeRegistered && (
+        {assignees.length > 0 ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+            {assignees.slice(0, 3).map((a, i) => (
+              <span key={(a.id || a.name) + i} style={{ marginLeft: i === 0 ? 0 : -6, border: '1.5px solid var(--surface)', borderRadius: '50%', display: 'inline-flex' }}>
+                <Avatar name={a.name || 'U'} image={a.image || null} size="sm" />
+              </span>
+            ))}
+          </span>
+        ) : (
+          <Avatar name="U" image={null} size="sm" />
+        )}
+        <span>
+          {assignees.length === 0
+            ? tr('report.unassigned')
+            : (assignees[0].name + (assignees.length > 1 ? ` +${assignees.length - 1}` : ''))}
+        </span>
+        {leadGuest && (
           <span
             style={{
               fontSize: 9,
@@ -111,13 +136,17 @@ export function ReportAssigneeDropdown({
             overflowY: 'auto',
           }}
         >
-          {options.map((o) => (
+          {options.map((o) => {
+            const selected = isOptSelected(o);
+            return (
             <button
               key={o.id || `g-${o.name}`}
               onClick={(e) => {
                 e.stopPropagation();
-                onAssign(item.id, o);
-                setOpen(false);
+                onToggle(item.id, o, selected);
+                // Guests replace the whole set, so close; registered users keep
+                // the panel open for picking several.
+                if (!o.id) setOpen(false);
               }}
               style={{
                 display: 'flex',
@@ -125,7 +154,7 @@ export function ReportAssigneeDropdown({
                 gap: 8,
                 width: '100%',
                 padding: '8px 10px',
-                background: 'transparent',
+                background: selected ? 'var(--surface-2)' : 'transparent',
                 border: 'none',
                 borderRadius: 7,
                 cursor: 'pointer',
@@ -134,7 +163,7 @@ export function ReportAssigneeDropdown({
                 transition: 'background 0.12s',
               }}
               onMouseEnter={(e: any) => (e.currentTarget.style.background = 'var(--surface-2)')}
-              onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
+              onMouseLeave={(e: any) => (e.currentTarget.style.background = selected ? 'var(--surface-2)' : 'transparent')}
             >
               <Avatar name={o.name} image={o.image || null} size="sm" />
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
@@ -143,8 +172,10 @@ export function ReportAssigneeDropdown({
                   {o.guest ? tr('report.notRegistered') : o.email}
                 </div>
               </div>
+              {selected && <Check size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
             </button>
-          ))}
+            );
+          })}
           {options.length === 0 && (
             <div style={{ padding: '12px 10px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
               {tr('report.noUsers')}

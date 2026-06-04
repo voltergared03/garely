@@ -204,24 +204,37 @@ export default function MeetingReportPage() {
     } catch { /* ignore */ } finally { setRecBusy(false); }
   }, [meetingId, recording]);
 
-  const reassignTask = useCallback(async (itemId: string, opt: AssignOption) => {
-    setActionItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? { ...item, assignee: opt.name, assigneeImage: opt.image || null, assigneeRegistered: !opt.guest && !!opt.id }
-          : item
-      )
-    );
-    try {
-      await fetch('/api/tasks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        // Registered user → link by id; guest → store the name, clear the id.
-        body: JSON.stringify(
-          opt.id ? { taskId: itemId, assigneeId: opt.id } : { taskId: itemId, assigneeId: null, assigneeName: opt.name }
-        ),
-      });
-    } catch (e) { console.error(e); }
+  // Toggle one assignee on a report task. Registered users add/remove in the
+  // multi-assignee set (виконавці) via /assignees; a guest (no account) can't
+  // join the set, so it replaces the set as the sole lead (legacy behaviour).
+  const toggleAssignee = useCallback(async (itemId: string, opt: AssignOption, isSelected: boolean) => {
+    if (opt.id) {
+      setActionItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          const cur = item.assignees || [];
+          const next = isSelected
+            ? cur.filter((a) => a.id !== opt.id)
+            : [...cur, { id: opt.id as string, name: opt.name, image: opt.image || null, registered: true }];
+          return { ...item, assignees: next, assignee: next[0]?.name || '', assigneeImage: next[0]?.image ?? null, assigneeRegistered: next[0] ? next[0].registered : false };
+        })
+      );
+      try {
+        if (isSelected) await fetch(`/api/tasks/${itemId}/assignees?userId=${opt.id}`, { method: 'DELETE' });
+        else await fetch(`/api/tasks/${itemId}/assignees`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: opt.id }) });
+      } catch (e) { console.error(e); }
+    } else {
+      setActionItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, assignees: [{ id: null, name: opt.name, image: opt.image || null, registered: false }], assignee: opt.name, assigneeImage: opt.image || null, assigneeRegistered: false }
+            : item
+        )
+      );
+      try {
+        await fetch('/api/tasks', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: itemId, assigneeIds: [] }) });
+      } catch (e) { console.error(e); }
+    }
   }, []);
 
   // Jump from an extended-report citation to the cited moment in the transcript.
@@ -1121,7 +1134,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                           {item.text}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <ReportAssigneeDropdown item={item} options={assignOptions.length ? assignOptions : users} onAssign={reassignTask} />
+                          <ReportAssigneeDropdown item={item} options={assignOptions.length ? assignOptions : users} onToggle={toggleAssignee} />
                           {item.dueDate && (
                             <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
                               {tr('report.due', { date: `${new Date(item.dueDate).getDate()}.${String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}` })}

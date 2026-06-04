@@ -16,16 +16,36 @@ export function transformApiData(data: any): Meeting {
   // Transform reports
   const reports = (data.reports || []).map((r: any) => {
     // Tasks come as r.tasks from the API (Prisma relation), map to actionItems
-    const actionItems = (r.tasks || r.actionItems || []).map((t: any) => ({
-      id: t.id,
-      text: t.title || t.text || '',
-      assignee: t.assigneeName || t.assignee?.name || t.assignee || '',
-      assigneeImage: t.assignee?.image || null,
-      assigneeRegistered: !!(t.assigneeId || t.assignee?.id),
-      dueDate: t.dueDate || null,
-      priority: (t.priority || 'medium') as 'high' | 'medium' | 'low',
-      done: t.status === 'done' || t.done || false,
-    }));
+    const actionItems = (r.tasks || r.actionItems || []).map((t: any) => {
+      // Full assignee set from the TaskAssignment join; fall back to the single
+      // lead (registered or guest) when there are no join rows.
+      const assignees = Array.isArray(t.assignees) && t.assignees.length
+        ? t.assignees.map((a: any) => ({
+            id: a.user?.id ?? a.userId ?? null,
+            name: a.user?.name || '',
+            image: a.user?.image || null,
+            registered: true,
+          }))
+        : (t.assigneeName || t.assignee?.name)
+          ? [{
+              id: t.assigneeId || t.assignee?.id || null,
+              name: t.assigneeName || t.assignee?.name || '',
+              image: t.assignee?.image || null,
+              registered: !!(t.assigneeId || t.assignee?.id),
+            }]
+          : [];
+      return {
+        id: t.id,
+        text: t.title || t.text || '',
+        assignee: assignees[0]?.name || t.assigneeName || t.assignee?.name || t.assignee || '',
+        assigneeImage: assignees[0]?.image ?? t.assignee?.image ?? null,
+        assigneeRegistered: assignees[0] ? assignees[0].registered : !!(t.assigneeId || t.assignee?.id),
+        assignees,
+        dueDate: t.dueDate || null,
+        priority: (t.priority || 'medium') as 'high' | 'medium' | 'low',
+        done: t.status === 'done' || t.done || false,
+      };
+    });
 
     return {
       id: r.id,

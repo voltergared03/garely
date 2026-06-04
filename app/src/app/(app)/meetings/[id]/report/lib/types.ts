@@ -28,9 +28,12 @@ export interface TranscriptSegment {
 export interface ActionItem {
   id: string;
   text: string;
-  assignee: string;
+  assignee: string; // lead (first assignee) — kept for back-compat / PDF export
   assigneeImage?: string | null;
   assigneeRegistered?: boolean;
+  // Full assignee set (виконавці). Registered members have an id; a guest lead
+  // (no account) appears with id null.
+  assignees: { id: string | null; name: string; image: string | null; registered: boolean }[];
   dueDate: string | null;
   priority: 'high' | 'medium' | 'low';
   done: boolean;

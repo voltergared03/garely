@@ -44,6 +44,7 @@ async function getHandler(
             where: { parentId: null },
             include: {
               assignee: { select: { id: true, name: true, image: true } },
+              assignees: { include: { user: { select: { id: true, name: true, image: true } } }, orderBy: { createdAt: 'asc' } },
             },
             orderBy: { createdAt: 'asc' },
           },
