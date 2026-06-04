@@ -76,7 +76,7 @@ describe('GET /api/tasks — scope filter', () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1', role: 'member', orgId: 'org-B' } } as any);
     prismaMock.meetingTask.findMany.mockResolvedValue([] as any);
     await GET(jsonReq('GET', undefined, tasksUrl('?scope=mine')));
-    expect(whereOf().AND).toContainEqual({ OR: [{ orgId: 'org-B' }, { orgId: null }] });
+    expect(whereOf().AND).toContainEqual({ orgId: 'org-B' });
   });
 
   it('an admin scope=all sees everything (no scope filter)', async () => {

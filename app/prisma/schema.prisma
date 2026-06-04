@@ -104,49 +104,49 @@ model PushSubscription {
 // own password up front (hashed); approval just provisions an active User.
 // Requests expire after AUTH_REQUEST_TTL_DAYS (default 3).
 model RegistrationRequest {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String       @id @default(cuid())
+  email        String       @unique
   name         String?
   passwordHash String // scrypt — same format as User.passwordHash
-  status       String        @default("pending") // pending | approved | denied | expired
-  createdAt    DateTime      @default(now())
+  status       String       @default("pending") // pending | approved | denied | expired
+  createdAt    DateTime     @default(now())
   expiresAt    DateTime
   decidedAt    DateTime?
   decidedById  String?
-  orgId        String?
-  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([expiresAt])
 }
 
 model Meeting {
-  id                     String        @id @default(cuid())
+  id                     String       @id @default(cuid())
   title                  String
   description            String?
   createdById            String
-  createdBy              User          @relation("MeetingCreator", fields: [createdById], references: [id])
+  createdBy              User         @relation("MeetingCreator", fields: [createdById], references: [id])
   scheduledAt            DateTime?
-  durationMin            Int           @default(60)
-  status                 String        @default("scheduled") // scheduled | live | ended | cancelled
+  durationMin            Int          @default(60)
+  status                 String       @default("scheduled") // scheduled | live | ended | cancelled
   recurrence             Json? // { type: daily|weekly|biweekly|monthly, seriesId } when recurring
-  recurrenceMaterialized Boolean       @default(false) // true once this occurrence has spawned its successor
-  livekitRoom            String?       @unique
-  joinToken              String?       @unique
-  createdAt              DateTime      @default(now())
+  recurrenceMaterialized Boolean      @default(false) // true once this occurrence has spawned its successor
+  livekitRoom            String?      @unique
+  joinToken              String?      @unique
+  createdAt              DateTime     @default(now())
   endedAt                DateTime?
-  reminderSent           Boolean       @default(false)
+  reminderSent           Boolean      @default(false)
   // Post-meeting AI report lifecycle (null = none yet)
   reportStatus           String? // generating | ready | failed
-  reportError            String?       @db.Text
+  reportError            String?      @db.Text
   // AI options
-  transcriptionEnabled   Boolean       @default(true)
-  aiReportEnabled        Boolean       @default(true)
-  allowGuests            Boolean       @default(true)
+  transcriptionEnabled   Boolean      @default(true)
+  aiReportEnabled        Boolean      @default(true)
+  allowGuests            Boolean      @default(true)
   agenda                 Json?
   departmentId           String?
-  orgId                  String?
-  org                    Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId                  String
+  org                    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   participants  MeetingParticipant[]
   transcripts   TranscriptSegment[]
@@ -163,6 +163,7 @@ model Meeting {
 
   @@index([status, scheduledAt])
   @@index([departmentId])
+  @@index([orgId, status, scheduledAt])
 }
 
 model JoinRequest {
@@ -299,8 +300,8 @@ model MeetingTask {
   lastSyncedAt  DateTime?
   departmentId  String?
   department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  orgId         String?
-  org           Organization?      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId         String
+  org           Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   parentId      String?
   parent        MeetingTask?       @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks      MeetingTask[]      @relation("Subtasks")
@@ -314,38 +315,41 @@ model MeetingTask {
   @@index([meetingId])
   @@index([departmentId])
   @@index([parentId])
+  @@index([orgId, status])
+  @@index([orgId, parentId])
 }
 
 model EmailLog {
-  id           String        @id @default(cuid())
+  id           String       @id @default(cuid())
   meetingId    String?
-  meeting      Meeting?      @relation(fields: [meetingId], references: [id])
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id])
   recipient    String
   template     String
   mailersendId String?
-  status       String        @default("sent")
-  sentAt       DateTime      @default(now())
-  orgId        String?
-  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  status       String       @default("sent")
+  sentAt       DateTime     @default(now())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id        String        @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String // meeting_starting | task_assigned | report_ready | action_item | mention
   title     String
   body      String?
   link      String? // URL to navigate to on click
-  orgId     String?
-  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  read      Boolean       @default(false)
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  read      Boolean      @default(false)
   meetingId String?
-  meeting   Meeting?      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  createdAt DateTime      @default(now())
+  meeting   Meeting?     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
 
   @@index([userId, read])
   @@index([userId, createdAt])
+  @@index([orgId, userId])
 }
 
 model MeetingNote {
@@ -368,19 +372,19 @@ model SystemConfig {
 // the report, edits them, then assigns to participants who must complete a
 // comprehension check. One quiz per meeting.
 model Quiz {
-  id          String        @id @default(cuid())
-  meetingId   String        @unique
-  meeting     Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  meetingId   String       @unique
+  meeting     Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   createdById String
-  createdBy   User          @relation("QuizCreator", fields: [createdById], references: [id])
-  status      String        @default("draft") // draft | assigned
-  openBook    Boolean       @default(false) // may the taker view the report/transcript while taking it
+  createdBy   User         @relation("QuizCreator", fields: [createdById], references: [id])
+  status      String       @default("draft") // draft | assigned
+  openBook    Boolean      @default(false) // may the taker view the report/transcript while taking it
   language    String? // uk | en — workspace language at generation time
   questions   Json // [{ id, prompt, type: single|multi|boolean, options:[{id,text}], correctOptionIds:[], cites:[] }]
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime     @default(now())
   assignedAt  DateTime?
-  orgId       String?
-  org         Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   assignments QuizAssignment[]
 }
@@ -410,17 +414,19 @@ model QuizAssignment {
 // Meetings and tasks belong to at most one department, which drives access
 // gating in Garely and the per-department Teable base routing (option A).
 model Department {
-  id           String        @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
   color        String? // hex accent for UI chips
   teableBaseId String? // Teable base this department's tasks sync to
-  orgId        String?
-  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
 
   members  DepartmentMember[]
   meetings Meeting[]
   tasks    MeetingTask[]
+
+  @@index([orgId])
 }
 
 model DepartmentMember {

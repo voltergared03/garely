@@ -153,10 +153,11 @@ async function generateReportInner(
     where: { id: meetingId },
     select: { departmentId: true, orgId: true },
   });
-  const meetingDeptId = meetingMeta?.departmentId ?? null;
-  const orgId = meetingMeta?.orgId ?? null;
+  if (!meetingMeta) throw new Error('Meeting not found');
+  const meetingDeptId = meetingMeta.departmentId ?? null;
+  const orgId = meetingMeta.orgId; // non-null: every meeting carries its org
   const departments = await prisma.department.findMany({
-    where: orgId ? { OR: [{ orgId }, { orgId: null }] } : {},
+    where: { orgId },
     select: { id: true, name: true, members: { select: { userId: true } } },
   });
   const deptIdByName = new Map<string, string>();

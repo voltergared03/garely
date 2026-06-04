@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { userCanAccessMeeting, userDepartmentIds, userCanViewTask } from "@/lib/access";
-import { getCurrentOrgId } from "@/lib/org";
+import { getCurrentOrgId, requireCurrentOrgId } from "@/lib/org";
 import { setTaskAssignees } from "@/lib/task-assignees";
 import { notifyTaskAssigned, notifyTaskUpdated } from "@/lib/task-notify";
 import { z } from "zod";
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
 
   // Tenant scope: this org's tasks (+ any not-yet-attributed rows during Phase 1).
   const orgId = await getCurrentOrgId(session);
-  if (orgId) where.AND = [...(where.AND || []), { OR: [{ orgId }, { orgId: null }] }];
+  if (orgId) where.AND = [...(where.AND || []), { orgId }];
 
   const tasks = await prisma.meetingTask.findMany({
     where,
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
       status: "open",
       source: "manual",
       departmentId: resolvedDeptId,
-      orgId: await getCurrentOrgId(session),
+      orgId: await requireCurrentOrgId(session),
     },
     include: {
       assignee: { select: { id: true, name: true, image: true } },

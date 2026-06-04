@@ -99,22 +99,24 @@ export async function sendEmail(
 
   const logOrgId = await getSingletonOrgId();
   const logAll = (status: string, messageId: string | null) =>
-    Promise.all(
-      recipients.map((r) =>
-        prisma.emailLog
-          .create({
-            data: {
-              recipient: r,
-              template: opts.template || 'generic',
-              meetingId: opts.meetingId || null,
-              mailersendId: messageId,
-              status,
-              orgId: logOrgId,
-            },
-          })
-          .catch(() => {}),
-      ),
-    );
+    logOrgId
+      ? Promise.all(
+          recipients.map((r) =>
+            prisma.emailLog
+              .create({
+                data: {
+                  recipient: r,
+                  template: opts.template || 'generic',
+                  meetingId: opts.meetingId || null,
+                  mailersendId: messageId,
+                  status,
+                  orgId: logOrgId,
+                },
+              })
+              .catch(() => {}),
+          ),
+        )
+      : Promise.resolve();
 
   try {
     const info = await transporter.sendMail({

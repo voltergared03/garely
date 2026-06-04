@@ -40,3 +40,24 @@ export async function ensureMembership(
     create: { orgId, userId, role },
   });
 }
+
+/**
+ * Like getCurrentOrgId, but throws if no org resolves. Use on WRITE paths that
+ * stamp the (now non-null) orgId column. Every configured install has org #1, so
+ * this only throws on a misconfigured/pre-setup DB — a 500 is the right signal.
+ */
+export async function requireCurrentOrgId(session?: Session | null): Promise<string> {
+  const orgId = await getCurrentOrgId(session);
+  if (!orgId) throw new Error('No active organization (multi-tenancy not initialized)');
+  return orgId;
+}
+
+/**
+ * The singleton org id, throwing if none exists. For no-session write paths
+ * (cron / webhook / public-token / email / notify) that must stamp orgId.
+ */
+export async function requireSingletonOrgId(): Promise<string> {
+  const orgId = await getSingletonOrgId();
+  if (!orgId) throw new Error('No organization configured (multi-tenancy not initialized)');
+  return orgId;
+}

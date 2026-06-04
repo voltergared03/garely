@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, requireAdmin } from '@/lib/api-auth';
-import { getCurrentOrgId } from '@/lib/org';
+import { getCurrentOrgId, requireCurrentOrgId } from '@/lib/org';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
 
@@ -15,7 +15,7 @@ export const GET = withRoute('departments.list', async () => {
   const isAdmin = session.user.role === 'admin';
   const where: any = isAdmin ? {} : { members: { some: { userId: session.user.id } } };
   const orgId = await getCurrentOrgId(session);
-  if (orgId) where.AND = [{ OR: [{ orgId }, { orgId: null }] }];
+  if (orgId) where.orgId = orgId;
 
   const depts = await prisma.department.findMany({
     where,
@@ -60,7 +60,7 @@ export const POST = withRoute('departments.create', async (req: NextRequest) => 
   if (!parsed.success) return jsonError('invalid_body', 400);
 
   const dept = await prisma.department.create({
-    data: { name: parsed.data.name, color: parsed.data.color ?? null, orgId: await getCurrentOrgId(session) },
+    data: { name: parsed.data.name, color: parsed.data.color ?? null, orgId: await requireCurrentOrgId(session) },
   });
   return NextResponse.json(dept, { status: 201 });
 });

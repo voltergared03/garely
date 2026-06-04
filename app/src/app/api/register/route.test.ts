@@ -84,6 +84,7 @@ describe('POST /api/register', () => {
 
   it('creates a pending request for a new email', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null as any);
+    prismaMock.organization.findFirst.mockResolvedValue({ id: 'org-1' } as any);
     prismaMock.registrationRequest.upsert.mockResolvedValue({} as any);
     prismaMock.user.findMany.mockResolvedValue([] as any);
     const r = await POST(reg());

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
 import { generateMeetingSlug } from '@/lib/utils';
 import { readConfig, num } from '@/lib/config';
-import { getCurrentOrgId } from '@/lib/org';
+import { getCurrentOrgId, requireCurrentOrgId } from '@/lib/org';
 import { isInternalAuthed } from '@/lib/internal-auth';
 
 // GET /api/meetings — list meetings
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   // Tenant scope: this org's meetings (+ any not-yet-attributed rows during Phase 1).
   const orgId = await getCurrentOrgId(session);
-  if (orgId) where.AND = [...(where.AND || []), { OR: [{ orgId }, { orgId: null }] }];
+  if (orgId) where.AND = [...(where.AND || []), { orgId }];
 
   const meetings = await prisma.meeting.findMany({
     where,
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         allowGuests: effAllowGuests,
         agenda,
         departmentId: typeof departmentId === 'string' && departmentId ? departmentId : null,
-        orgId: await getCurrentOrgId(session),
+        orgId: await requireCurrentOrgId(session),
         participants: {
           create: [
             // Creator as host

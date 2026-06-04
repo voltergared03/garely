@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { withRoute } from '@/lib/with-route';
 import { workspaceLocale } from '@/lib/i18n-server';
 import { generateQuizQuestions } from '@/lib/quiz';
-import { getCurrentOrgId } from '@/lib/org';
+import { requireCurrentOrgId } from '@/lib/org';
 
 // admin or meeting creator only
 async function requireOwner(
@@ -46,7 +46,7 @@ async function postHandler(req: NextRequest, { params }: { params: Promise<{ id:
     create: {
       meetingId: id,
       createdById: session.user.id,
-      orgId: await getCurrentOrgId(session),
+      orgId: await requireCurrentOrgId(session),
       status: 'draft',
       language: loc,
       openBook: typeof body.openBook === 'boolean' ? body.openBook : false,

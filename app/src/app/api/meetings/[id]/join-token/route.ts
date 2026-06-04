@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { createLivekitToken, createRoom } from '@/lib/livekit';
 import { generateMeetingSlug } from '@/lib/utils';
 import { readConfig } from '@/lib/config';
-import { getCurrentOrgId } from '@/lib/org';
+import { requireCurrentOrgId } from '@/lib/org';
 
 // POST /api/meetings/:id/join-token — get LiveKit JWT to join meeting
 export async function POST(
@@ -35,7 +35,7 @@ export async function POST(
           status: 'live',
           scheduledAt: new Date(),
           durationMin: 60,
-          orgId: await getCurrentOrgId(session),
+          orgId: await requireCurrentOrgId(session),
         },
       });
     } else {
