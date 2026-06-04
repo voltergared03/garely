@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from '@/lib/config';
 import { getTranslator } from '@/lib/i18n-server';
+import { getCurrentOrgId, ensureMembership } from '@/lib/org';
 import { withRoute } from '@/lib/with-route';
 
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,8 @@ async function postHandler(req: NextRequest) {
       } as any,
       select: { id: true, name: true, email: true, image: true, role: true, lastLogin: true, createdAt: true },
     });
+    const orgId = await getCurrentOrgId(session);
+    if (orgId) await ensureMembership(orgId, user.id, 'MEMBER');
     await prisma.registrationRequest.update({
       where: { id: reqRow.id },
       data: { status: 'approved', decidedAt: new Date(), decidedById },

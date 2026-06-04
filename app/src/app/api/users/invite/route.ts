@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email';
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl, getAuthConfig } from '@/lib/config';
 import crypto from 'node:crypto';
 import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
+import { getCurrentOrgId, ensureMembership } from '@/lib/org';
 import { withRoute } from '@/lib/with-route';
 
 // POST /api/users/invite — invite a user by email (admin only).
@@ -47,6 +48,10 @@ async function postHandler(req: NextRequest) {
     });
     created = true;
   }
+
+  // Multi-tenancy: ensure the (new or existing) invited user is in the current org.
+  const orgId = await getCurrentOrgId(session);
+  if (orgId) await ensureMembership(orgId, user.id, role === 'admin' ? 'ADMIN' : 'MEMBER');
 
   const appUrl = await publicBaseUrl();
   const inviterName = session.user.name || t('emails.common.adminFallback');

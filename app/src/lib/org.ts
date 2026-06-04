@@ -27,3 +27,16 @@ export async function getCurrentOrgId(session?: Session | null): Promise<string 
   if (fromSession) return fromSession;
   return getSingletonOrgId();
 }
+
+/** Idempotently enroll a user into an org (used by the onboarding paths). */
+export async function ensureMembership(
+  orgId: string,
+  userId: string,
+  role: 'OWNER' | 'ADMIN' | 'MEMBER' | 'GUEST' = 'MEMBER',
+): Promise<void> {
+  await prisma.membership.upsert({
+    where: { orgId_userId: { orgId, userId } },
+    update: {},
+    create: { orgId, userId, role },
+  });
+}

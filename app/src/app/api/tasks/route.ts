@@ -126,6 +126,10 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // Tenant scope: this org's tasks (+ any not-yet-attributed rows during Phase 1).
+  const orgId = await getCurrentOrgId(session);
+  if (orgId) where.AND = [...(where.AND || []), { OR: [{ orgId }, { orgId: null }] }];
+
   const tasks = await prisma.meetingTask.findMany({
     where,
     include: {

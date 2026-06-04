@@ -13,7 +13,9 @@ export const GET = withRoute('departments.list', async () => {
   const session = await requireAuth();
   if (session instanceof Response) return session;
   const isAdmin = session.user.role === 'admin';
-  const where = isAdmin ? {} : { members: { some: { userId: session.user.id } } };
+  const where: any = isAdmin ? {} : { members: { some: { userId: session.user.id } } };
+  const orgId = await getCurrentOrgId(session);
+  if (orgId) where.AND = [{ OR: [{ orgId }, { orgId: null }] }];
 
   const depts = await prisma.department.findMany({
     where,

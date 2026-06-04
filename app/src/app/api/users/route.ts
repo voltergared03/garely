@@ -5,6 +5,7 @@ import { hashPassword, passwordPolicyError } from "@/lib/password";
 import { sendEmail } from "@/lib/email";
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from "@/lib/config";
 import { getTranslator, workspaceLocale } from "@/lib/i18n-server";
+import { getCurrentOrgId, ensureMembership } from "@/lib/org";
 import { getTranslations } from "next-intl/server";
 
 // GET /api/users — list workspace users (all authenticated users)
@@ -83,6 +84,10 @@ export async function POST(req: NextRequest) {
     } as any,
     select: { id: true, email: true, name: true, role: true },
   });
+
+  // Multi-tenancy: enroll the new user into the current org.
+  const orgId = await getCurrentOrgId(session);
+  if (orgId) await ensureMembership(orgId, user.id, role === "admin" ? "ADMIN" : "MEMBER");
 
   // Best-effort credentials email (no-ops if SMTP isn't configured).
   const wsName = cfg.WS_NAME || CONFIG_DEFAULTS.WS_NAME;
