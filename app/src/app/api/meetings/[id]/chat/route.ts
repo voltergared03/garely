@@ -130,7 +130,7 @@ ${numbered}`;
         model: CHAT_MODEL,
         messages: [{ role: 'system', content: system }, ...history],
         temperature: 0.3,
-        max_tokens: 4000,
+        max_tokens: 8000,
         stream: true,
       }),
     });

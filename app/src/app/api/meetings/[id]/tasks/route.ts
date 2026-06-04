@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting, meetingIdOfTask } from '@/lib/access';
+import { setTaskAssignees } from '@/lib/task-assignees';
 
 // GET /api/meetings/:id/tasks — list tasks for a meeting
 export async function GET(
@@ -20,8 +21,10 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Top-level tasks only — AI-generated subtasks (parentId set) belong under
+  // their parent on the board, not as flat action items in the report.
   const tasks = await prisma.meetingTask.findMany({
-    where: { meetingId: id },
+    where: { meetingId: id, parentId: null },
     include: {
       assignee: { select: { id: true, name: true, image: true } },
     },
@@ -88,6 +91,11 @@ export async function PATCH(
         assignee: { select: { id: true, name: true, image: true } },
       },
     });
+    // Reassigning from the report collapses the multi-assignee set to the chosen
+    // person (keeps MeetingTask.assigneeId and the TaskAssignment join in sync).
+    if (body.assigneeId !== undefined) {
+      await setTaskAssignees(taskId, body.assigneeId ? [body.assigneeId] : []);
+    }
     return NextResponse.json(task);
   } catch {
     return NextResponse.json({ error: t('taskNotFound') }, { status: 404 });

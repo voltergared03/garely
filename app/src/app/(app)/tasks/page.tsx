@@ -33,6 +33,7 @@ interface Task {
   department?: { id: string; name: string; color: string | null } | null;
   parentId?: string | null;
   collaborators?: { userId: string }[];
+  assignees?: { user: TaskAssignee }[];
   subtasks?: Subtask[];
   _count?: { subtasks: number; comments: number; attachments: number };
 }
@@ -717,8 +718,8 @@ const collabLabelStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
 };
 
-function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
-  taskId: string; users: UserItem[]; currentUserId?: string; isAdmin: boolean; onChanged: () => void;
+function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTask }: {
+  taskId: string; users: UserItem[]; currentUserId?: string; isAdmin: boolean; onChanged: () => void; onOpenTask?: (id: string) => void;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -903,7 +904,9 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
           {detail.subtasks.map(s => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
               <StatusCheckbox status={s.status} onClick={(e) => { e.stopPropagation(); toggleSub(s); }} />
-              <span style={{ flex: 1, fontSize: 13, color: s.status === "done" ? "var(--muted)" : "var(--text)", textDecoration: s.status === "done" ? "line-through" : "none" }}>{s.title}</span>
+              <span onClick={onOpenTask ? () => onOpenTask(s.id) : undefined}
+                title={onOpenTask ? tr("tasks.openSubtask") : undefined}
+                style={{ flex: 1, fontSize: 13, color: s.status === "done" ? "var(--muted)" : "var(--text)", textDecoration: s.status === "done" ? "line-through" : "none", cursor: onOpenTask ? "pointer" : "default" }}>{s.title}</span>
               {s.assignee && <Avatar name={s.assignee.name || "?"} image={s.assignee.image} size="sm" />}
               <button onClick={() => delSub(s)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex" }}><Trash2 size={13} /></button>
             </div>
@@ -976,10 +979,10 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged }: {
   );
 }
 
-function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClose, onSaved, onChanged }: {
+function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClose, onSaved, onChanged, onOpenById }: {
   open: boolean; task: Task | null; meetings: MeetingOption[]; users: UserItem[];
   currentUserId?: string; isAdmin: boolean;
-  onClose: () => void; onSaved: () => void; onChanged: () => void;
+  onClose: () => void; onSaved: () => void; onChanged: () => void; onOpenById?: (id: string) => void;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -987,7 +990,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [meetingId, setMeetingId] = useState("");
-  const [assigneeId, setAssigneeId] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState("open");
@@ -1007,12 +1010,17 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
     if (!open) return;
     if (task) {
       setTitle(task.title); setDesc(task.description || "");
-      setMeetingId(task.meetingId); setAssigneeId(task.assigneeId || task.assignee?.id || "");
+      setMeetingId(task.meetingId);
+      // Prefer the full multi-assignee set; fall back to the single lead.
+      const ids = task.assignees?.length
+        ? task.assignees.map(a => a.user.id)
+        : (task.assigneeId || task.assignee?.id ? [task.assigneeId || task.assignee!.id] : []);
+      setAssigneeIds(ids.filter((v): v is string => !!v));
       setPriority(task.priority); setDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
       setStatus(task.status); setDepartmentId(task.departmentId || "");
     } else {
       setTitle(""); setDesc(""); setMeetingId("");
-      setAssigneeId(""); setPriority("medium"); setDueDate(""); setStatus("open"); setDepartmentId("");
+      setAssigneeIds([]); setPriority("medium"); setDueDate(""); setStatus("open"); setDepartmentId("");
     }
     setMeetingOpen(false); setAssigneeOpen(false); setMeetingQ("");
   }, [open, task?.id]);
@@ -1021,7 +1029,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
 
   const valid = title.trim().length >= 3;
   const meeting = meetings.find(m => m.id === meetingId);
-  const assignee = users.find(u => u.id === assigneeId);
+  const assigneeCandidates = users.filter(u => !assigneeIds.includes(u.id));
   const meetingMatches = meetings.filter(m => !meetingQ || m.title.toLowerCase().includes(meetingQ.toLowerCase()));
 
   const generateDesc = async () => {
@@ -1049,13 +1057,13 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
         await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null, departmentId: departmentId || null }),
+          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeIds[0] || null, assigneeIds, priority, dueDate: dueDate || null, departmentId: departmentId || null }),
         });
       } else {
         await fetch("/api/tasks", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskId: task!.id, title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeId || null, priority, dueDate: dueDate || null, status, departmentId: departmentId || null }),
+          body: JSON.stringify({ taskId: task!.id, title, description: desc || null, meetingId: meetingId || null, assigneeIds, priority, dueDate: dueDate || null, status, departmentId: departmentId || null }),
         });
       }
       onSaved();
@@ -1201,59 +1209,49 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
             </div>
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            {/* Assignee */}
-            <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.assignee")}</label>
-              <button onClick={() => setAssigneeOpen(o => !o)} className="btn" style={{
-                width: "100%", justifyContent: "space-between", padding: "8px 12px", borderRadius: 10,
-                background: "var(--surface)", border: "1px solid var(--border)",
-              }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {assignee ? (
-                    <><Avatar name={assignee.name} image={assignee.image} size="sm" /><span style={{ fontSize: 13 }}>{assignee.name}</span></>
-                  ) : (
-                    <><User size={13} style={{ color: "var(--muted)" }} /><span style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.unassigned")}</span></>
-                  )}
-                </span>
-                <ChevronDown size={14} style={{ color: "var(--muted)" }} />
-              </button>
-              {assigneeOpen && (
-                <div style={{ position: "relative" }}>
-                  <div style={{ position: "absolute", top: 6, left: 0, right: 0, background: "var(--card, #181a20)", border: "1px solid var(--border)",
-                    borderRadius: 10, padding: 6, zIndex: 10, maxHeight: 220, overflowY: "auto", boxShadow: "0 12px 30px -8px rgba(0,0,0,.5)" }}>
-                    <button onClick={() => { setAssigneeId(""); setAssigneeOpen(false); }}
-                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent",
-                        border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <User size={13} style={{ color: "var(--muted)" }} />
-                      <span style={{ fontSize: 13, color: "var(--muted)" }}>{tr("tasks.unassigned")}</span>
-                    </button>
-                    {users.map(u => (
-                      <button key={u.id} onClick={() => { setAssigneeId(u.id); setAssigneeOpen(false); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent",
-                          border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+          {/* Assignees (multiple — the first is the lead) */}
+          <div>
+            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.assignees")}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              {assigneeIds.map(id => {
+                const u = users.find(x => x.id === id);
+                const label = u ? (u.name || u.email) : id;
+                return (
+                  <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
+                    {u ? <Avatar name={u.name} image={u.image} size="sm" /> : <User size={13} style={{ color: "var(--muted)", margin: "0 2px" }} />}
+                    <span style={{ fontSize: 12 }}>{(label || "").split(" ")[0] || label}</span>
+                    <button onClick={() => setAssigneeIds(ids => ids.filter(x => x !== id))} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+                  </span>
+                );
+              })}
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setAssigneeOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={assigneeCandidates.length === 0}>
+                  <Plus size={13} /> {assigneeIds.length === 0 ? tr("tasks.assignee") : tr("tasks.addAssignee")}
+                </button>
+                {assigneeOpen && assigneeCandidates.length > 0 && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 220, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px rgba(0,0,0,.5)" }}>
+                    {assigneeCandidates.map(u => (
+                      <button key={u.id} onClick={() => { setAssigneeIds(ids => [...ids, u.id]); setAssigneeOpen(false); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
                         <Avatar name={u.name} image={u.image} size="sm" />
-                        <span style={{ fontSize: 13 }}>{u.name}</span>
-                        {u.id === assigneeId && <Check size={13} style={{ marginLeft: "auto", color: "var(--accent)" }} />}
+                        <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-            {/* Due date */}
-            <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.dueDate")}</label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-                style={{ height: 38, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)",
-                  border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: "100%" }} />
-            </div>
+          </div>
+
+          {/* Due date */}
+          <div>
+            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.dueDate")}</label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+              style={{ height: 38, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)",
+                border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: "100%" }} />
           </div>
 
           {/* Priority */}
@@ -1307,7 +1305,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
           )}
 
           {!isNew && task && (
-            <TaskCollab taskId={task.id} users={users} currentUserId={currentUserId} isAdmin={isAdmin} onChanged={onChanged} />
+            <TaskCollab taskId={task.id} users={users} currentUserId={currentUserId} isAdmin={isAdmin} onChanged={onChanged} onOpenTask={onOpenById} />
           )}
         </div>
 
@@ -1584,7 +1582,7 @@ export default function TasksPage() {
 
       <TaskModal open={!!editing} task={editing === "new" ? null : editing as Task}
         meetings={meetings} users={users} currentUserId={userId} isAdmin={isAdmin}
-        onClose={() => setEditing(null)} onSaved={handleSaved} onChanged={fetchTasks} />
+        onClose={() => setEditing(null)} onSaved={handleSaved} onChanged={fetchTasks} onOpenById={openById} />
       </>
       )}
     </div>

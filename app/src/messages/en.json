@@ -142,6 +142,7 @@
     "assignees": "Assignees",
     "addAssignee": "Add assignee",
     "subtasks": "Subtasks",
+    "openSubtask": "Open subtask",
     "subtaskPlaceholder": "Add a subtask…",
     "noSubtasks": "No subtasks yet",
     "comments": "Comments",

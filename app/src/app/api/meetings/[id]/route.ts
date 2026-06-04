@@ -38,7 +38,10 @@ async function getHandler(
         orderBy: { generatedAt: 'desc' },
         take: 1,
         include: {
+          // Top-level tasks only — AI subtasks (parentId set) belong under their
+          // parent on the board, not as flat action items in the report.
           tasks: {
+            where: { parentId: null },
             include: {
               assignee: { select: { id: true, name: true, image: true } },
             },

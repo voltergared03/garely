@@ -142,6 +142,7 @@
     "assignees": "Виконавці",
     "addAssignee": "Додати виконавця",
     "subtasks": "Підзадачі",
+    "openSubtask": "Відкрити підзадачу",
     "subtaskPlaceholder": "Додати підзадачу…",
     "noSubtasks": "Поки немає підзадач",
     "comments": "Коментарі",

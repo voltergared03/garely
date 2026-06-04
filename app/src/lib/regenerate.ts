@@ -146,6 +146,34 @@ async function generateReportInner(
   const wsLoc = await workspaceLocale();
   const langName = wsLoc === 'uk' ? 'Ukrainian' : 'English';
 
+  // Meeting context for tenant scoping + department auto-routing. Fetched up
+  // front so the prompt can list departments (and which attendee is in which)
+  // and the persistence step can resolve a department NAME → id.
+  const meetingMeta = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { departmentId: true, orgId: true },
+  });
+  const meetingDeptId = meetingMeta?.departmentId ?? null;
+  const orgId = meetingMeta?.orgId ?? null;
+  const departments = await prisma.department.findMany({
+    where: orgId ? { OR: [{ orgId }, { orgId: null }] } : {},
+    select: { id: true, name: true, members: { select: { userId: true } } },
+  });
+  const deptIdByName = new Map<string, string>();
+  for (const d of departments) deptIdByName.set(d.name.trim().toLowerCase(), d.id);
+  // userId → first department id (for fallback routing when the model doesn't
+  // name a department) and → department names (to hint the model in the prompt).
+  const userFirstDeptId = new Map<string, string>();
+  const userDeptNames = new Map<string, string[]>();
+  for (const d of departments) {
+    for (const m of d.members) {
+      if (!userFirstDeptId.has(m.userId)) userFirstDeptId.set(m.userId, d.id);
+      const arr = userDeptNames.get(m.userId) || [];
+      arr.push(d.name);
+      userDeptNames.set(m.userId, arr);
+    }
+  }
+
   // Meeting ATTENDEES = registered users (formal participants + any registered
   // transcript speaker) and guests (people who joined by name, with no account —
   // found as participants or as transcript speakers without a speakerId).
@@ -188,9 +216,24 @@ async function generateReportInner(
     }
     return null;
   };
+  // Registered attendees by id (for notify preferences during persistence).
+  const attendeeById = new Map<string, Attendee>();
+  for (const a of attendees) if (a.id) attendeeById.set(a.id, a);
+  // Attendee list with a [department] hint so the model can route tasks; the
+  // model is told to use the bare name (without the suffix) as the assignee.
+  const attendeeLabels = attendees
+    .map((a) => {
+      if (!a.name) return '';
+      const dn = a.id ? userDeptNames.get(a.id) : null;
+      return dn && dn.length ? `${a.name} [${dn.join('/')}]` : a.name;
+    })
+    .filter(Boolean);
   const participantsLine = attendees.length
-    ? `\nMeeting attendees (use ONLY these exact names for any assignee/owner, otherwise null): ${attendees.map((a) => a.name).filter(Boolean).join(', ')}.\n`
+    ? `\nMeeting attendees (use ONLY these exact names — WITHOUT the [department] suffix — for any assignee/owner, otherwise null): ${attendeeLabels.join(', ')}.\n`
     : '\nNo identifiable attendees — set every assignee and owner to null.\n';
+  const departmentsLine = departments.length
+    ? `Departments — route EACH task to the single most relevant one by exact name (by the nature of the work and the assignees' [department] hints), or null if none fits: ${departments.map((d) => d.name).join(', ')}.\n`
+    : '';
 
   const numbered = segments
     .map((s, i) => `${i + 1}. [${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
@@ -204,7 +247,7 @@ Rules:
 - Write all textual content in ${langName}.
 - Extract ALL decisions, tasks and open questions that were discussed — never omit an item, even when nobody is clearly responsible for it.
 - Be EXHAUSTIVE with tasks: capture every distinct action item, commitment, request or "I will / we need to / let's …" as its OWN separate task. Do not merge different tasks into one.
-- A task's "title" (and a decision's "text") must state ONLY the action or outcome, in imperative form — NEVER include the responsible person's name, because tasks can be reassigned. e.g. write "Develop native apps for Android, iOS, Mac and Windows", NOT "Vitaliy will develop native apps". The person goes ONLY in the separate "assignee" / "owner" field.
+- A task's "title" (and a decision's "text") must state ONLY the action or outcome, in imperative form — NEVER include the responsible person's name, because tasks can be reassigned. e.g. write "Develop native apps for Android, iOS, Mac and Windows", NOT "Vitaliy will develop native apps". The people go ONLY in the separate "assignees" / "owner" field.
 - Be EQUALLY EXHAUSTIVE with DECISIONS: capture every conclusion, choice, agreement or settled direction ("we'll go with X", "let's use Y", "decided to…", "agreed that…", "the plan is…") as its own decision.
 - Be EQUALLY EXHAUSTIVE with OPEN QUESTIONS / follow-ups: capture everything left unresolved, deferred or to revisit ("we still need to figure out…", "to be decided", "let's come back to this", any unanswered question or risk raised).
 - Classify by intent and POPULATE ALL THREE categories — a typical working meeting has SEVERAL tasks, several decisions and a few open questions, so do not leave tasks (or any category) empty when the transcript contains them:
@@ -212,7 +255,9 @@ Rules:
     • DECISION = a settled conclusion, choice, policy or direction (no direct action by itself).
     • OPEN QUESTION = anything unresolved, deferred or to revisit.
 - Write rich, SPECIFIC content: include concrete details, names, numbers, examples and reasoning from the transcript — not vague generalities. The result should read like thorough, well-organised minutes.
-- For a task's "assignee" or a decision's "owner": use an attendee's exact name (from the list below — it includes guests who joined by name) ONLY when the transcript clearly attributes it to that person; otherwise set it to null. Never invent a name, never use a name that is not a listed attendee, and never drop an item just because its owner is unknown.
+- A task's "assignees" is an ARRAY of attendee names: include EVERY person the transcript makes responsible for it — when work is shared ("Anna and Boris will…", "the design team will…") list ALL of them, not just one. Use attendees' exact names (from the list below — it includes guests who joined by name) ONLY when the transcript attributes the work to them; use [] when nobody is clearly responsible. A decision's "owner" stays a single name or null. Never invent a name, never use a name that is not a listed attendee, and never drop an item just because its owner is unknown.
+- Break a task into "subtasks" when it has clearly distinct steps or deliverables that different people/teams own (e.g. "Launch the landing page" → "Write the copy" (Anna), "Build the page" (Boris), "Set up analytics" (Carol)). Each subtask is itself { title (imperative, no name), assignees (array), priority, due }. Only create subtasks that are genuinely separable sub-steps — do NOT split atomic tasks, and do NOT duplicate the parent as its own subtask. Most tasks have no subtasks; use them where they add real structure.
+- "department": route EACH task (and its subtasks inherit it) to the single most relevant department by EXACT name from the Departments list below — infer it from the nature of the work and from the assignees' [department] hints. Use null when no department clearly fits or none are defined.
 - Respond with valid JSON only, in exactly this shape:
 {
   "summary": "2-3 paragraph TL;DR of the whole meeting in ${langName}",
@@ -221,13 +266,13 @@ Rules:
       "title": "short topic title in ${langName}",
       "discussion": "a thorough multi-sentence narrative of this topic in ${langName} — the context, the main points raised, who said what, and the reasoning / outcome",
       "decisions": [ { "text": "decision in ${langName}", "owner": "person name or null", "cites": [1, 2] } ],
-      "tasks": [ { "title": "the action only, imperative, in ${langName} — NO person name", "assignee": "person name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3] } ],
+      "tasks": [ { "title": "the action only, imperative, in ${langName} — NO person name", "assignees": ["attendee name", "..."], "department": "department name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3], "subtasks": [ { "title": "sub-step, imperative, in ${langName} — NO person name", "assignees": ["attendee name"], "priority": "high|medium|low", "due": "timeframe or null" } ] } ],
       "open_questions": [ { "text": "open question in ${langName}", "cites": [4] } ],
       "cites": [1, 2, 3, 4]
     }
   ]
 }
-${participantsLine}
+${participantsLine}${departmentsLine}
 TRANSCRIPT:
 ${numbered}`;
 
@@ -279,6 +324,45 @@ ${numbered}`;
     return out;
   };
 
+  // Collect attendee NAMES from a model "assignees" array (falling back to a
+  // legacy single "assignee" string), keeping only listed attendees and de-duping.
+  const normalizeNames = (arr: any, single?: any): string[] => {
+    const raw = Array.isArray(arr) ? arr.slice() : [];
+    if (raw.length === 0 && single != null) raw.push(single);
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const v of raw) {
+      const m = matchParticipant(v);
+      if (!m || !m.name) continue;
+      const key = m.id || `g:${m.name.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m.name);
+    }
+    return out;
+  };
+  // Resolve attendee names → { lead, registered ids }. The lead (denormalised
+  // MeetingTask.assigneeId) is the first REGISTERED attendee if any, else the
+  // first named (guest); registered ids drive the TaskAssignment join rows.
+  const resolveSet = (names: string[]): { leadId: string | null; leadName: string | null; regIds: string[] } => {
+    const all = names.map((n) => matchParticipant(n)).filter((a): a is Attendee => !!a);
+    const lead = all.find((a) => a.id) ?? all[0] ?? null;
+    const regIds = [
+      ...(lead?.id ? [lead.id] : []),
+      ...all.filter((a) => a.id && a.id !== lead?.id).map((a) => a.id as string),
+    ];
+    return { leadId: lead?.id ?? null, leadName: lead?.name ?? null, regIds: [...new Set(regIds)] };
+  };
+  // Route a task to a department: explicit model name → lead's department → meeting's.
+  const resolveDept = (deptName: any, leadId: string | null): string | null => {
+    if (typeof deptName === 'string' && deptName.trim()) {
+      const id = deptIdByName.get(deptName.trim().toLowerCase());
+      if (id) return id;
+    }
+    if (leadId && userFirstDeptId.has(leadId)) return userFirstDeptId.get(leadId) as string;
+    return meetingDeptId;
+  };
+
   const rawTopics = Array.isArray(rep.topics) ? rep.topics : [];
   const topics = rawTopics.map((t: any) => ({
     title: String(t.title || '').trim(),
@@ -288,13 +372,27 @@ ${numbered}`;
       owner: matchParticipant(d.owner)?.name ?? null,
       cites: citeTimes(d.cites),
     })),
-    tasks: (Array.isArray(t.tasks) ? t.tasks : []).map((k: any) => ({
-      title: String(k.title || '').trim(),
-      assignee: matchParticipant(k.assignee)?.name ?? null,
-      priority: ['high', 'medium', 'low'].includes(k.priority) ? k.priority : 'medium',
-      due: k.due || null,
-      cites: citeTimes(k.cites),
-    })),
+    tasks: (Array.isArray(t.tasks) ? t.tasks : []).map((k: any) => {
+      const assignees = normalizeNames(k.assignees, k.assignee);
+      const priority = ['high', 'medium', 'low'].includes(k.priority) ? k.priority : 'medium';
+      return {
+        title: String(k.title || '').trim(),
+        // `assignee` (singular, the lead) kept for the report UI / back-compat;
+        // `assignees` (the full set) + `department` + `subtasks` are additive.
+        assignee: assignees[0] ?? null,
+        assignees,
+        department: typeof k.department === 'string' && k.department.trim() ? k.department.trim() : null,
+        priority,
+        due: k.due || null,
+        cites: citeTimes(k.cites),
+        subtasks: (Array.isArray(k.subtasks) ? k.subtasks : []).map((s: any) => ({
+          title: String(s.title || '').trim(),
+          assignees: normalizeNames(s.assignees, s.assignee),
+          priority: ['high', 'medium', 'low'].includes(s.priority) ? s.priority : priority,
+          due: s.due || null,
+        })).filter((s: any) => s.title),
+      };
+    }),
     openQuestions: (Array.isArray(t.open_questions) ? t.open_questions : []).map((q: any) => ({
       text: String(q.text || '').trim(),
       cites: citeTimes(q.cites),
@@ -306,18 +404,35 @@ ${numbered}`;
   const decisions = topics.flatMap((t: any) => t.decisions.map((d: any) => d.text)).filter(Boolean);
   const followUps = topics.flatMap((t: any) => t.openQuestions.map((q: any) => q.text)).filter(Boolean);
 
-  const flatTasks = topics.flatMap((t: any) => t.tasks);
-  // Task assignees were already normalised to a participant name (or null) when
-  // building topics, so this only resolves the name → participant id.
-  const resolvedTasks = flatTasks.map((k: any) => {
-    const m = matchParticipant(k.assignee);
+  // Whether a registered assignee wants action-item notifications (default yes).
+  const notifyOn = (uid: string): boolean => {
+    const prefs = attendeeById.get(uid)?.preferences as any;
+    return !prefs || prefs.actionItemNotif !== false;
+  };
+  // Resolve each topic task into a persistable shape: a lead (the denormalised
+  // MeetingTask.assigneeId), the full registered-assignee id set (→ TaskAssignment
+  // join rows), an auto-routed department, and likewise-resolved subtasks.
+  const resolvedTasks = topics.flatMap((t: any) => t.tasks).map((k: any) => {
+    const { leadId, leadName, regIds } = resolveSet(k.assignees || []);
     return {
       title: k.title || '(untitled)',
-      assigneeId: m?.id || null,
-      assigneeName: m?.name || null,
+      leadId,
+      leadName,
+      regIds,
       priority: k.priority,
       dueDate: k.due ? parseDueDate(String(k.due)) : null,
-      notifyAssignee: m && m.id ? (m.preferences as any)?.actionItemNotif !== false : false,
+      departmentId: resolveDept(k.department, leadId),
+      subtasks: (k.subtasks || []).map((s: any) => {
+        const r = resolveSet(s.assignees || []);
+        return {
+          title: s.title || '(untitled)',
+          leadId: r.leadId,
+          leadName: r.leadName,
+          regIds: r.regIds,
+          priority: s.priority,
+          dueDate: s.due ? parseDueDate(String(s.due)) : null,
+        };
+      }),
     };
   });
 
@@ -339,40 +454,84 @@ ${numbered}`;
         rawResponse: content,
       },
     });
-    const meetingMeta = await tx.meeting.findUnique({ where: { id: meetingId }, select: { departmentId: true, orgId: true } });
-    const meetingDeptId = meetingMeta?.departmentId ?? null;
     for (const r of resolvedTasks) {
-      await tx.meetingTask.create({
+      const parent = await tx.meetingTask.create({
         data: {
           meetingId,
           reportId: created.id,
-          departmentId: meetingDeptId,
-          orgId: meetingMeta?.orgId ?? null,
+          departmentId: r.departmentId,
+          orgId,
           title: r.title,
-          assigneeId: r.assigneeId,
-          assigneeName: r.assigneeName,
+          assigneeId: r.leadId,
+          assigneeName: r.leadName,
           priority: r.priority,
           status: 'open',
           dueDate: r.dueDate,
           source: 'ai',
         },
       });
+      // Multi-assignee join rows (the lead is included in regIds).
+      for (const uid of r.regIds) {
+        await tx.taskAssignment.create({ data: { taskId: parent.id, userId: uid } });
+      }
+      // Subtasks: child rows under the parent, inheriting its department.
+      for (const s of r.subtasks) {
+        const sub = await tx.meetingTask.create({
+          data: {
+            meetingId,
+            reportId: created.id,
+            parentId: parent.id,
+            departmentId: r.departmentId,
+            orgId,
+            title: s.title,
+            assigneeId: s.leadId,
+            assigneeName: s.leadName,
+            priority: s.priority,
+            status: 'open',
+            dueDate: s.dueDate,
+            source: 'ai',
+          },
+        });
+        for (const uid of s.regIds) {
+          await tx.taskAssignment.create({ data: { taskId: sub.id, userId: uid } });
+        }
+      }
     }
+  }, {
+    // Multi-assignee + subtasks mean many more sequential writes than before —
+    // give the interactive transaction generous headroom (default is 5s).
+    timeout: 30000,
+    maxWait: 10000,
   });
 
   if (opts.notify) {
     try {
-      for (const r of resolvedTasks) {
-        if (r.assigneeId && r.notifyAssignee) {
-          await notify({
-            userIds: [r.assigneeId],
-            type: 'task_assigned',
-            titleKey: 'taskAssignedTitle',
-            body: r.title,
-            link: '/tasks',
-            meetingId,
-          });
+      // Notify every registered assignee (parent + subtask) who hasn't opted out,
+      // deduped to one notification per (user, task title).
+      const seen = new Set<string>();
+      const targets: { userId: string; title: string }[] = [];
+      const queue = (title: string, regIds: string[]) => {
+        for (const uid of regIds) {
+          if (!notifyOn(uid)) continue;
+          const key = `${uid}::${title}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          targets.push({ userId: uid, title });
         }
+      };
+      for (const r of resolvedTasks) {
+        queue(r.title, r.regIds);
+        for (const s of r.subtasks) queue(s.title, s.regIds);
+      }
+      for (const tg of targets) {
+        await notify({
+          userIds: [tg.userId],
+          type: 'task_assigned',
+          titleKey: 'taskAssignedTitle',
+          body: tg.title,
+          link: '/tasks',
+          meetingId,
+        });
       }
       const meeting = await prisma.meeting.findUnique({
         where: { id: meetingId },

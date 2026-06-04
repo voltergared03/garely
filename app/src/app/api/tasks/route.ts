@@ -32,6 +32,7 @@ const taskUpdateSchema = z.object({
   priority: z.string().optional(),
   dueDate: z.string().nullish(),
   assigneeId: z.string().nullish(),
+  assigneeIds: z.array(z.string()).optional(),
   departmentId: z.string().nullish(),
   sortOrder: z.number().int().optional(),
 });
@@ -247,6 +248,23 @@ export async function PATCH(req: NextRequest) {
   // Snapshot status/dueDate so we only notify on a real change (not no-op saves).
   const before = await prisma.meetingTask.findUnique({ where: { id: taskId }, select: { status: true, dueDate: true } });
 
+  // Resolve the next assignee SET: an explicit `assigneeIds` array wins, else a
+  // single `assigneeId` (back-compat). undefined = "leave assignees untouched".
+  const nextAssignees: string[] | undefined =
+    fields.assigneeIds !== undefined
+      ? [...new Set(fields.assigneeIds.filter(Boolean))]
+      : fields.assigneeId !== undefined
+        ? (fields.assigneeId ? [fields.assigneeId] : [])
+        : undefined;
+  const prevAssigneeIds = nextAssignees !== undefined
+    ? (await prisma.taskAssignment.findMany({ where: { taskId }, select: { userId: true } })).map((a) => a.userId)
+    : [];
+  // The lead (first id) is denormalised onto MeetingTask.assigneeId/assigneeName.
+  let leadName: string | null = null;
+  if (nextAssignees && nextAssignees[0]) {
+    leadName = (await prisma.user.findUnique({ where: { id: nextAssignees[0] }, select: { name: true } }))?.name ?? null;
+  }
+
   // Build the update from whitelisted fields only — never spread the raw body.
   const data: Prisma.MeetingTaskUncheckedUpdateInput = {};
   if (fields.title !== undefined) data.title = fields.title;
@@ -254,17 +272,9 @@ export async function PATCH(req: NextRequest) {
   if (fields.priority !== undefined) data.priority = fields.priority;
   if (fields.sortOrder !== undefined) data.sortOrder = fields.sortOrder;
   if (fields.dueDate !== undefined) data.dueDate = fields.dueDate ? new Date(fields.dueDate) : null;
-  if (fields.assigneeId !== undefined) {
-    data.assigneeId = fields.assigneeId || null;
-    if (fields.assigneeId) {
-      const assigneeUser = await prisma.user.findUnique({
-        where: { id: fields.assigneeId },
-        select: { name: true },
-      });
-      data.assigneeName = assigneeUser?.name ?? null;
-    } else {
-      data.assigneeName = null;
-    }
+  if (nextAssignees !== undefined) {
+    data.assigneeId = nextAssignees[0] ?? null;
+    data.assigneeName = leadName;
   }
   if (fields.departmentId !== undefined) data.departmentId = fields.departmentId || null;
   if (fields.status !== undefined) {
@@ -284,9 +294,12 @@ export async function PATCH(req: NextRequest) {
 
     // Best-effort task notifications (in-app + email), only on a real change.
     const actor = { id: session.user.id, name: session.user.name };
-    const newAssignee = fields.assigneeId || null;
-    if (fields.assigneeId !== undefined && newAssignee && newAssignee !== (authz.assigneeId || null)) {
-      void notifyTaskAssigned(taskId, newAssignee, actor);
+    // Sync the multi-assignee join set, then notify only the newly-added people.
+    if (nextAssignees !== undefined) {
+      await setTaskAssignees(taskId, nextAssignees);
+      for (const uid of nextAssignees) {
+        if (uid !== session.user.id && !prevAssigneeIds.includes(uid)) void notifyTaskAssigned(taskId, uid, actor);
+      }
     }
     const statusChanged = fields.status !== undefined && before != null && fields.status !== before.status;
     const newDue = fields.dueDate !== undefined ? (fields.dueDate ? new Date(fields.dueDate) : null) : undefined;
@@ -294,9 +307,6 @@ export async function PATCH(req: NextRequest) {
     if (statusChanged || dueChanged) {
       void notifyTaskUpdated(taskId, { status: statusChanged ? fields.status : undefined, dueDate: dueChanged ? newDue : undefined }, actor);
     }
-
-    // Keep the multi-assignee set in sync when the single assignee is set here.
-    if (fields.assigneeId !== undefined) await setTaskAssignees(taskId, fields.assigneeId ? [fields.assigneeId] : []);
 
     return NextResponse.json(task);
   } catch {
