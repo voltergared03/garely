@@ -5,7 +5,7 @@
  * Goes to the creator + all participants/guests with an email. Best-effort.
  */
 import { prisma } from "./prisma";
-import { sendEmail } from "./email";
+import { sendEmail, getSmtpConfig } from "./email";
 import { getTranslator, workspaceLocale } from "./i18n-server";
 import { publicBaseUrl } from "./config";
 import { esc } from "./email/html";
@@ -42,6 +42,13 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
     const locale = await workspaceLocale();
     const t = getTranslator(locale);
 
+    // The ORGANIZER email MUST equal the authenticated From address (the SMTP
+    // sender), or Gmail/Google Calendar reject the REQUEST (DKIM/DMARC) and never
+    // add the event — even with a valid calendar part. We keep the meeting
+    // creator's NAME as the display CN but use the sending address as the email.
+    const smtp = await getSmtpConfig();
+    const organizerEmail = smtp?.from || meeting.createdBy?.email || null;
+
     const method = kind === "cancel" ? "CANCEL" : "REQUEST";
     const event: IcsEvent = {
       uid: `meeting-${meeting.id}@ezmeet`,
@@ -54,7 +61,7 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
       // invite=0; later changes use a monotonically increasing unix-second SEQUENCE
       sequence: kind === "invite" ? 0 : Math.floor(Date.now() / 1000),
       status: kind === "cancel" ? "CANCELLED" : "CONFIRMED",
-      organizer: meeting.createdBy?.email ? { email: meeting.createdBy.email, name: meeting.createdBy.name } : undefined,
+      organizer: organizerEmail ? { email: organizerEmail, name: meeting.createdBy?.name } : undefined,
       attendees,
     };
     const ics = buildCalendar({ name: meeting.title, method, events: [event] });

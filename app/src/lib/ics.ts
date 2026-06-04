@@ -97,7 +97,7 @@ export function buildCalendar(opts: { name: string; events: IcsEvent[]; prodId?:
     if (e.status) L.push(`STATUS:${e.status}`);
     if (e.organizer) L.push(fold(`ORGANIZER${e.organizer.name ? `;CN="${cn(e.organizer.name)}"` : ""}:mailto:${e.organizer.email}`));
     for (const a of e.attendees || []) {
-      L.push(fold(`ATTENDEE${a.name ? `;CN="${cn(a.name)}"` : ""};RSVP=TRUE:mailto:${a.email}`));
+      L.push(fold(`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE${a.name ? `;CN="${cn(a.name)}"` : ""}:mailto:${a.email}`));
     }
     L.push("END:VEVENT");
   }

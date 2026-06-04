@@ -62,8 +62,11 @@ describe('buildCalendar — invites + google url', () => {
     expect(ics).toContain('SEQUENCE:0');
     expect(ics).toContain('STATUS:CONFIRMED');
     expect(ics).toContain('ORGANIZER;CN="Host":mailto:host@x');
-    expect(ics).toContain('ATTENDEE;CN="Aa";RSVP=TRUE:mailto:a@x');
-    expect(ics).toContain('ATTENDEE;RSVP=TRUE:mailto:b@x');
+    // ATTENDEE lines exceed 75 octets with the standard params → they fold
+    // (RFC5545, valid); unfold (CRLF + leading space) before matching.
+    const unfolded = ics.replace(/\r\n /g, '');
+    expect(unfolded).toContain('ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN="Aa":mailto:a@x');
+    expect(unfolded).toContain('ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:b@x');
   });
 
   it('googleCalendarUrl builds a render link with UTC dates', () => {
