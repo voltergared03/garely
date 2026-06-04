@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildCalendar, type IcsEvent } from "@/lib/ics";
+import { publicBaseUrl } from "@/lib/config";
 
 // Public feed: the secret token in the URL is the only credential (standard
 // ICS-subscription model). No session — calendar apps fetch this server-side.
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const DAY = 86_400_000;
   const from = new Date(now.getTime() - 30 * DAY);
   const to = new Date(now.getTime() + 180 * DAY);
-  const origin = new URL(req.url).origin;
+  // Public base (WS_DOMAIN/PUBLIC_URL), not the request origin — behind a proxy
+  // that resolves to the internal bind (0.0.0.0:3000), which breaks event links.
+  const origin = await publicBaseUrl();
 
   // The user's own meetings (created or participating) within a bounded window.
   const meetings = await prisma.meeting.findMany({
