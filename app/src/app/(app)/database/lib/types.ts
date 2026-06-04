@@ -14,7 +14,16 @@ export type FieldType =
   | 'checkbox'
   | 'url'
   | 'email'
-  | 'phone';
+  | 'phone'
+  | 'file';
+
+export interface FileRef {
+  id: string;
+  name: string;
+  path: string;
+  mime?: string | null;
+  size?: number | null;
+}
 
 export interface SelectChoice {
   id: string;

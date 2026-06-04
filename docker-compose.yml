@@ -67,10 +67,12 @@ services:
       - NODE_ENV=production
       - SPEAKER_AUDIO_DIR=/speaker-audio
       - TASK_FILES_DIR=/task-files
+      - BASE_FILES_DIR=/base-files
     volumes:
       - eam-meet-recordings:/recordings   # read recordings written by egress
       - eam-meet-speaker-audio:/speaker-audio   # read per-speaker audio for re-transcription
       - eam-meet-task-files:/task-files   # task attachment uploads
+      - eam-meet-base-files:/base-files   # database (base) cell attachments
     depends_on:
       eam-meet-db:
         condition: service_healthy
@@ -199,6 +201,7 @@ volumes:
   eam-meet-recordings:
   eam-meet-speaker-audio:
   eam-meet-task-files:
+  eam-meet-base-files:
   eam-meet-backups:
 
 networks:

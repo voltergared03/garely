@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { CHOICE_COLORS, type FieldT, type FieldType, type SelectChoice } from '../lib/types';
 
-const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone'];
+const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone', 'file'];
 
 type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number };
 

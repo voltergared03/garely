@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ExternalLink, Mail, Phone, Star } from 'lucide-react';
 import type { FieldT, OrgMember, SelectChoice } from '../lib/types';
 import { PersonPicker } from './PersonPicker';
+import { FileCell } from './FileCell';
 
 const cellInput: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -27,11 +28,15 @@ export function FieldCell({
   field,
   value,
   members,
+  baseId,
+  rowId,
   onCommit,
 }: {
   field: FieldT;
   value: unknown;
   members: OrgMember[];
+  baseId?: string;
+  rowId?: string;
   onCommit: (value: unknown) => void;
 }) {
   switch (field.type) {
@@ -118,6 +123,8 @@ export function FieldCell({
     case 'email':
     case 'phone':
       return <LinkCell kind={field.type} value={value} onCommit={onCommit} />;
+    case 'file':
+      return <FileCell value={value} baseId={baseId} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
     default:
       return null;
   }

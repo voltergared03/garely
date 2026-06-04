@@ -125,6 +125,10 @@
     "untitled": "Untitled",
     "currencySymbol": "Symbol",
     "ratingMax": "Max stars",
+    "attachFile": "Attach file",
+    "removeFile": "Remove file",
+    "download": "Download",
+    "fileTooLarge": "File too large (max 25 MB)",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",
@@ -139,7 +143,8 @@
       "checkbox": "Checkbox",
       "url": "URL",
       "email": "Email",
-      "phone": "Phone"
+      "phone": "Phone",
+      "file": "Attachment"
     }
   },
   "sidebar": {

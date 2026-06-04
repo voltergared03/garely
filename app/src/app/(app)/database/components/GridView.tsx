@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
   Plus, Trash2, MoreHorizontal, Pencil, Type, AlignLeft, Hash, List, Tags,
-  Calendar, User, CheckSquare, Star, Banknote, Percent, Link2, AtSign, Phone,
+  Calendar, User, CheckSquare, Star, Banknote, Percent, Link2, AtSign, Phone, Paperclip,
 } from 'lucide-react';
 import { FieldCell } from './FieldCell';
 import { FieldEditor } from './FieldEditor';
@@ -15,7 +15,7 @@ const TYPE_ICONS: Record<FieldType, ElementType> = {
   text: Type, longText: AlignLeft, number: Hash, singleSelect: List,
   multiSelect: Tags, date: Calendar, person: User, checkbox: CheckSquare,
   currency: Banknote, percent: Percent, rating: Star,
-  url: Link2, email: AtSign, phone: Phone,
+  url: Link2, email: AtSign, phone: Phone, file: Paperclip,
 };
 
 export function GridView({
@@ -86,7 +86,7 @@ export function GridView({
             <RowNumCell n={ri + 1} style={bodyCell} onDelete={() => onDeleteRow(row.id)} />
             {fields.map((f) => (
               <div key={f.id} style={bodyCell}>
-                <FieldCell field={f} value={row.data[f.id]} members={members} onCommit={(v) => onCellChange(row.id, f.id, v)} />
+                <FieldCell field={f} value={row.data[f.id]} members={members} baseId={table.baseId} rowId={row.id} onCommit={(v) => onCellChange(row.id, f.id, v)} />
               </div>
             ))}
             <div style={bodyCell} />

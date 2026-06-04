@@ -125,6 +125,10 @@
     "untitled": "Без назви",
     "currencySymbol": "Символ",
     "ratingMax": "Макс. зірок",
+    "attachFile": "Прикріпити файл",
+    "removeFile": "Видалити файл",
+    "download": "Завантажити",
+    "fileTooLarge": "Файл завеликий (макс. 25 МБ)",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",
@@ -139,7 +143,8 @@
       "checkbox": "Прапорець",
       "url": "Посилання",
       "email": "Email",
-      "phone": "Телефон"
+      "phone": "Телефон",
+      "file": "Вкладення"
     }
   },
   "sidebar": {

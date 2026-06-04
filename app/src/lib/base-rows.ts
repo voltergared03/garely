@@ -63,6 +63,24 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
       const r = Math.round(Math.min(Math.max(n, 0), max));
       return r > 0 ? r : undefined;
     }
+    case 'file': {
+      const arr = Array.isArray(value) ? value : [];
+      const valid = arr
+        .filter(
+          (f: any) =>
+            f && typeof f === 'object' &&
+            typeof f.id === 'string' && typeof f.name === 'string' && typeof f.path === 'string',
+        )
+        .slice(0, 50)
+        .map((f: any) => ({
+          id: f.id,
+          name: String(f.name).slice(0, 255),
+          path: f.path,
+          mime: typeof f.mime === 'string' ? f.mime : null,
+          size: Number.isFinite(f.size) ? f.size : null,
+        }));
+      return valid.length ? (valid as unknown as Prisma.InputJsonValue) : undefined;
+    }
     case 'date': {
       const d = new Date(value as string | number);
       return isNaN(d.getTime()) ? undefined : d.toISOString();
