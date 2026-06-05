@@ -1,0 +1,51 @@
+{
+  "_comment": "Single source of truth for the per-org system Tasks table (Phase 3, roadmap §15). Consumed by BOTH src/lib/system-tasks-table.ts (app runtime) and scripts/migrate-tasks-to-rows.mjs (the 3.1 backfill), so the field shapes + pinned choice ids can never drift between them. choice.id values are PINNED to the literal MeetingTask.status / .priority strings — DO NOT rename them.",
+  "baseName": "Tasks",
+  "tableName": "Tasks",
+  "icon": "check-square",
+  "fieldNames": {
+    "title": "Title",
+    "description": "Description",
+    "status": "Status",
+    "priority": "Priority",
+    "dueDate": "Due date",
+    "assignee": "Assignee"
+  },
+  "statusChoiceIds": ["open", "in_progress", "done"],
+  "priorityChoiceIds": ["high", "medium", "low"],
+  "fields": [
+    { "key": "title", "name": "Title", "type": "text", "options": null },
+    { "key": "description", "name": "Description", "type": "longText", "options": null },
+    {
+      "key": "status",
+      "name": "Status",
+      "type": "singleSelect",
+      "options": {
+        "choices": [
+          { "id": "open", "name": "Open", "color": "#6b7280" },
+          { "id": "in_progress", "name": "In progress", "color": "#f59e0b" },
+          { "id": "done", "name": "Done", "color": "#16a34a" }
+        ]
+      }
+    },
+    {
+      "key": "priority",
+      "name": "Priority",
+      "type": "singleSelect",
+      "options": {
+        "choices": [
+          { "id": "high", "name": "High", "color": "#dc2626" },
+          { "id": "medium", "name": "Medium", "color": "#f59e0b" },
+          { "id": "low", "name": "Low", "color": "#6b7280" }
+        ]
+      }
+    },
+    { "key": "dueDate", "name": "Due date", "type": "date", "options": { "includeTime": false } },
+    { "key": "assignee", "name": "Assignee", "type": "person", "options": { "multiple": true } }
+  ],
+  "views": [
+    { "key": "grid", "name": "Grid", "type": "grid" },
+    { "key": "board", "name": "Board", "type": "kanban" },
+    { "key": "calendar", "name": "Calendar", "type": "calendar" }
+  ]
+}

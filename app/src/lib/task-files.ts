@@ -1,14 +1,22 @@
 /**
- * Storage for task file attachments. Files live on disk under TASK_FILES_DIR
- * (a Docker volume in production: `eam-meet-task-files` mounted at /task-files;
- * a local folder in dev). The DB stores only a relative path
- * (`<taskId>/<random>.<ext>`); bytes never touch Postgres. NODE-ONLY (fs).
+ * Storage for record (Row) file attachments — generalized from task files
+ * (Phase 3.0, roadmap §15). Files live on disk under ROW_FILES_DIR (a Docker
+ * volume in production: `eam-meet-task-files` mounted at /task-files; a local
+ * folder in dev). The DB stores only a relative path (`<rowId>/<random>.<ext>`);
+ * bytes never touch Postgres. NODE-ONLY (fs).
+ *
+ * The volume is REUSED (ROW_FILES_DIR falls back to TASK_FILES_DIR), so no
+ * files move: after the 3.1 same-id migration, `rowId === old taskId`, so an
+ * existing `<taskId>/…` file is already addressable as `<rowId>/…`. The
+ * `saveTaskFile`/`resolveTaskFile`/`deleteTaskFile` names are kept as aliases
+ * (see bottom) so the pre-cutover Task* routes keep working until 3.4 cleanup.
  */
 import { promises as fs } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
-const TASK_FILES_DIR = process.env.TASK_FILES_DIR || path.join(process.cwd(), '.task-files');
+const ROW_FILES_DIR =
+  process.env.ROW_FILES_DIR || process.env.TASK_FILES_DIR || path.join(process.cwd(), '.task-files');
 
 /** Hard cap on a single upload. Mirror this in the client for a friendly error. */
 export const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -34,34 +42,34 @@ function safeExt(name: string): string {
   return ext.length > 1 && ext.length <= 12 ? ext : '';
 }
 
-/** Persist an uploaded File under the task's folder. Returns the relative path + size. */
-export async function saveTaskFile(
-  taskId: string,
+/** Persist an uploaded File under the row's folder. Returns the relative path + size. */
+export async function saveRowFile(
+  rowId: string,
   file: File,
 ): Promise<{ filePath: string; fileSize: number }> {
   const buf = Buffer.from(await file.arrayBuffer());
-  const dir = path.join(TASK_FILES_DIR, taskId);
+  const dir = path.join(ROW_FILES_DIR, rowId);
   await fs.mkdir(dir, { recursive: true });
   const stored = `${randomUUID()}${safeExt(file.name)}`;
   await fs.writeFile(path.join(dir, stored), buf);
-  return { filePath: path.join(taskId, stored), fileSize: buf.byteLength };
+  return { filePath: path.join(rowId, stored), fileSize: buf.byteLength };
 }
 
 /**
  * Resolve a stored relative path to an absolute one, refusing anything that
  * escapes the storage root (path-traversal guard). Returns null if invalid.
  */
-export function resolveTaskFile(filePath: string): string | null {
+export function resolveRowFile(filePath: string): string | null {
   if (!filePath) return null;
-  const root = path.resolve(TASK_FILES_DIR);
+  const root = path.resolve(ROW_FILES_DIR);
   const abs = path.resolve(root, filePath);
   if (abs !== root && !abs.startsWith(root + path.sep)) return null;
   return abs;
 }
 
 /** Best-effort delete of a stored file (never throws). */
-export async function deleteTaskFile(filePath: string): Promise<void> {
-  const abs = resolveTaskFile(filePath);
+export async function deleteRowFile(filePath: string): Promise<void> {
+  const abs = resolveRowFile(filePath);
   if (!abs) return;
   await fs.rm(abs, { force: true }).catch(() => {});
 }
@@ -70,3 +78,14 @@ export async function deleteTaskFile(filePath: string): Promise<void> {
 export function downloadContentType(mimeType: string | null | undefined): string {
   return mimeType && SAFE_CONTENT_TYPES.has(mimeType) ? mimeType : 'application/octet-stream';
 }
+
+// ---- Back-compat aliases (pre-3.2 cutover) --------------------------------
+// The disk layout is unchanged, so task-keyed paths and row-keyed paths are the
+// same folder. Existing Task* attachment routes import these names; remove the
+// aliases in the 3.4 cleanup once nothing references them.
+/** @deprecated use {@link saveRowFile} — identical behavior. */
+export const saveTaskFile = saveRowFile;
+/** @deprecated use {@link resolveRowFile} — identical behavior. */
+export const resolveTaskFile = resolveRowFile;
+/** @deprecated use {@link deleteRowFile} — identical behavior. */
+export const deleteTaskFile = deleteRowFile;
