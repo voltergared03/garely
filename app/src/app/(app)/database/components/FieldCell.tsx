@@ -226,13 +226,14 @@ function Chip({ choice }: { choice: SelectChoice }) {
   return (
     <span
       style={{
-        display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '2px 9px', fontSize: 12,
-        background: `color-mix(in oklab, ${c} 22%, transparent)`,
-        color: 'var(--text)', border: `1px solid color-mix(in oklab, ${c} 40%, transparent)`,
-        maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 5, borderRadius: 999, padding: '2px 9px', fontSize: 12,
+        background: `color-mix(in oklab, ${c} 18%, transparent)`,
+        color: 'var(--text)', border: `1px solid color-mix(in oklab, ${c} 38%, transparent)`,
+        maxWidth: 150,
       }}
     >
-      {choice.name}
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{choice.name}</span>
     </span>
   );
 }

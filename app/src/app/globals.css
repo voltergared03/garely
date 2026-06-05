@@ -554,6 +554,13 @@ select.field option:checked {
   .db-bento { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+/* ── Database grid rows — row hover + reveal the expand button on hover ── */
+.db-grid-row { background: var(--bg); transition: background .1s ease; }
+.db-grid-row:hover { background: var(--surface-2); }
+.db-grid-row .row-expand { opacity: 0; }
+.db-grid-row:hover .row-expand,
+.db-grid-row:focus-within .row-expand { opacity: 1; }
+
 /* ── Mobile top bar — logo + notification bell (mobile only) ── */
 .mobile-topbar {
   display: flex;

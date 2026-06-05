@@ -129,6 +129,7 @@
     "removeFile": "Remove file",
     "download": "Download",
     "fileTooLarge": "File too large (max 25 MB)",
+    "openRecord": "Open record",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",

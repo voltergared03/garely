@@ -129,6 +129,7 @@
     "removeFile": "Видалити файл",
     "download": "Завантажити",
     "fileTooLarge": "Файл завеликий (макс. 25 МБ)",
+    "openRecord": "Відкрити запис",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",
