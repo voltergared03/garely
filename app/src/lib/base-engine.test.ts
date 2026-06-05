@@ -102,4 +102,9 @@ describe('org access guards (cross-tenant isolation)', () => {
     prismaMock.base.findUnique.mockResolvedValue(null as any);
     expect(await baseForOrg('missing', 'org-A', { user: { id: 'u1', role: 'member' } } as any)).toBeNull();
   });
+
+  it('tableForOrg REFUSES system tables — even for admins (never via the generic engine)', async () => {
+    prismaMock.table.findUnique.mockResolvedValue({ id: 't1', system: true, base: { orgId: 'org-A', visibility: 'org', createdById: null } } as any);
+    expect(await tableForOrg('t1', 'org-A', { user: { id: 'u1', role: 'admin' } } as any)).toBeNull();
+  });
 });

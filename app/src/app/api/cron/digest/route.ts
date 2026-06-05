@@ -5,6 +5,8 @@ import { getTranslator, workspaceLocale } from '@/lib/i18n-server';
 import { publicBaseUrl } from '@/lib/config';
 import { esc } from '@/lib/email/html';
 import { withRoute } from '@/lib/with-route';
+import { getSingletonOrgId } from '@/lib/org';
+import { digestTaskTitlesForUser } from '@/lib/tasks';
 
 // GET /api/cron/digest?secret=XXX — weekly digest for users who enabled it.
 async function getHandler(req: NextRequest) {
@@ -29,14 +31,11 @@ async function getHandler(req: NextRequest) {
   // Digest emails go out in the workspace (admin-chosen) language.
   const locale = await workspaceLocale();
   const t = getTranslator(locale);
+  const orgId = (await getSingletonOrgId()) || '';
   for (const u of users) {
     if (!u.email) continue;
     const [tasks, meetingCount] = await Promise.all([
-      prisma.meetingTask.findMany({
-        where: { assigneeId: u.id, status: { not: 'done' } },
-        select: { title: true },
-        take: 25,
-      }),
+      digestTaskTitlesForUser(orgId, u.id, 25),
       prisma.meetingParticipant.count({
         where: { userId: u.id, meeting: { endedAt: { gte: weekStart } } },
       }),

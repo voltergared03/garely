@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildCalendar, type IcsEvent } from "@/lib/ics";
 import { publicBaseUrl } from "@/lib/config";
+import { getSingletonOrgId } from "@/lib/org";
+import { icsTasksForUser } from "@/lib/tasks";
 
 // Public feed: the secret token in the URL is the only credential (standard
 // ICS-subscription model). No session — calendar apps fetch this server-side.
@@ -38,15 +40,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     select: { id: true, title: true, scheduledAt: true, durationMin: true },
   });
 
-  // The user's own open tasks (assignee or collaborator) that have a deadline.
-  const tasks = await prisma.meetingTask.findMany({
-    where: {
-      dueDate: { not: null },
-      status: { not: "done" },
-      OR: [{ assigneeId: user.id }, { collaborators: { some: { userId: user.id } } }, { assignees: { some: { userId: user.id } } }],
-    },
-    select: { id: true, title: true, dueDate: true, createdAt: true },
-  });
+  // The user's own open tasks (assignee or collaborator) that have a deadline —
+  // now base-engine Rows in the user's org system Tasks table.
+  const membership = await prisma.membership.findFirst({ where: { userId: user.id }, select: { orgId: true } });
+  const orgId = membership?.orgId ?? (await getSingletonOrgId());
+  const tasks = orgId ? await icsTasksForUser(orgId, user.id) : [];
 
   const events: IcsEvent[] = [];
   for (const m of meetings) {

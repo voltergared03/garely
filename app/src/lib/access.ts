@@ -25,8 +25,9 @@ export async function userCanAccessMeeting(
 /** Resolve the meetingId a task belongs to (for task-level authorization). */
 export async function meetingIdOfTask(taskId: string): Promise<string | null> {
   if (!taskId) return null;
-  const t = await prisma.meetingTask.findUnique({
-    where: { id: taskId },
+  // Tasks are base-engine Rows (Phase 3); structural FKs live in the TaskRow sidecar.
+  const t = await prisma.taskRow.findUnique({
+    where: { rowId: taskId },
     select: { meetingId: true },
   });
   return t?.meetingId ?? null;
@@ -52,31 +53,41 @@ export async function userLeadDepartmentIds(userId: string | null | undefined): 
   return rows.map((r) => r.departmentId);
 }
 
-type TaskAccessFields = {
-  assigneeId: string | null;
-  meetingId: string | null;
-  departmentId: string | null;
-  collaborators: { id: string }[];
-  assignees: { id: string }[];
-  assignee: { departmentMemberships: { departmentId: string }[] } | null;
-};
-
-const taskAccessSelect = {
-  assigneeId: true,
-  meetingId: true,
-  departmentId: true,
-  collaborators: { select: { id: true } },
-  assignees: { select: { id: true } },
-  assignee: { select: { departmentMemberships: { select: { departmentId: true } } } },
-} as const;
+type RowTaskMeta = { meetingId: string | null; departmentId: string | null; parentRowId: string | null };
 
 /**
- * May this user VIEW a task and its collaboration sub-resources (subtasks,
- * comments, attachments, collaborators)? Mirrors the gating in GET /api/tasks:
- * admins see all; otherwise a user sees a task if they are its assignee, a
- * collaborator, it belongs to one of their departments, its assignee shares a
- * department with them (team lens), or — for meeting-tied tasks — they can
- * access the meeting. Subtasks inherit their parent's visibility.
+ * Does `userId` get a non-meeting grant on the task Row `rowId` with the given
+ * sidecar `meta`? Paths (mirror the legacy MeetingTask gating, now over Row*):
+ *   P1 the user is one of the row's assignees (RowAssignment — lead OR co-assignee,
+ *      collapses legacy assigneeId + assignees);
+ *   P2 the user is a collaborator (RowCollaborator);
+ *   P3 the row's department is one of the user's departments;
+ *   P5 the row has an assignee who belongs to one of the user's departments (team lens).
+ * Meeting-tied access (P6) is handled by the caller. `deptUserIds` = the set of
+ * users in `myDeptIds`, precomputed once by the caller for the team lens.
+ */
+async function rowTaskGrants(
+  rowId: string,
+  meta: RowTaskMeta,
+  userId: string,
+  myDeptIds: string[],
+  deptUserIds: string[],
+): Promise<boolean> {
+  if (await prisma.rowAssignment.count({ where: { rowId, userId } })) return true; // P1
+  if (await prisma.rowCollaborator.count({ where: { rowId, userId } })) return true; // P2
+  if (meta.departmentId && myDeptIds.includes(meta.departmentId)) return true; // P3
+  if (deptUserIds.length && (await prisma.rowAssignment.count({ where: { rowId, userId: { in: deptUserIds } } }))) {
+    return true; // P5 team lens
+  }
+  return false;
+}
+
+/**
+ * May this user VIEW a task (now a base-engine Row) and its collaboration
+ * sub-resources? Admins see all; otherwise grant if any rowTaskGrants path holds
+ * for the task or its parent, or — for meeting-tied tasks — they can access the
+ * meeting. Subtasks inherit their parent's visibility (via TaskRow.parentRowId).
+ * Signature unchanged so the task routes that import it need no edit.
  */
 export async function userCanViewTask(
   taskId: string,
@@ -86,37 +97,40 @@ export async function userCanViewTask(
   if (!taskId || !userId) return false;
   if (role === 'admin') return true;
 
-  const task = await prisma.meetingTask.findUnique({
-    where: { id: taskId },
-    select: {
-      ...taskAccessSelect,
-      collaborators: { where: { userId }, select: { id: true } },
-      assignees: { where: { userId }, select: { id: true } },
-      parent: {
-        select: {
-          ...taskAccessSelect,
-          collaborators: { where: { userId }, select: { id: true } },
-          assignees: { where: { userId }, select: { id: true } },
-        },
-      },
-    },
+  const meta = await prisma.taskRow.findUnique({
+    where: { rowId: taskId },
+    select: { meetingId: true, departmentId: true, parentRowId: true },
   });
-  if (!task) return false;
+  if (!meta) return false;
 
   const myDeptIds = await userDepartmentIds(userId);
-  const grants = (t: TaskAccessFields): boolean => {
-    if (t.assigneeId === userId) return true;
-    if (t.collaborators.length > 0) return true;
-    if (t.assignees.length > 0) return true;
-    if (t.departmentId && myDeptIds.includes(t.departmentId)) return true;
-    if (t.assignee?.departmentMemberships.some((dm) => myDeptIds.includes(dm.departmentId))) return true;
-    return false;
-  };
+  const deptUserIds = myDeptIds.length
+    ? [
+        ...new Set(
+          (
+            await prisma.departmentMember.findMany({
+              where: { departmentId: { in: myDeptIds } },
+              select: { userId: true },
+            })
+          ).map((m) => m.userId),
+        ),
+      ]
+    : [];
 
-  if (grants(task)) return true;
-  if (task.parent && grants(task.parent)) return true;
+  if (await rowTaskGrants(taskId, meta, userId, myDeptIds, deptUserIds)) return true;
 
-  const meetingId = task.meetingId ?? task.parent?.meetingId ?? null;
+  let parentMeta: RowTaskMeta | null = null;
+  if (meta.parentRowId) {
+    parentMeta = await prisma.taskRow.findUnique({
+      where: { rowId: meta.parentRowId },
+      select: { meetingId: true, departmentId: true, parentRowId: true },
+    });
+    if (parentMeta && (await rowTaskGrants(meta.parentRowId, parentMeta, userId, myDeptIds, deptUserIds))) {
+      return true;
+    }
+  }
+
+  const meetingId = meta.meetingId ?? parentMeta?.meetingId ?? null;
   if (meetingId && (await userCanAccessMeeting(meetingId, userId, role))) return true;
 
   return false;

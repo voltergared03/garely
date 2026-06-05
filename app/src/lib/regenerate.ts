@@ -13,6 +13,8 @@ import { sseJsonChunks, chunkDelta } from './sse';
 import { workspaceLocale } from './i18n-server';
 import { notify } from './notify';
 import { sendReportEmail } from './report-email';
+import { provisionSystemTasksTable } from './system-tasks-table';
+import { createTaskFromAI } from './tasks';
 
 export interface ReTranscribedSegment {
   content: string;
@@ -437,8 +439,16 @@ ${numbered}`;
     };
   });
 
+  // Tasks are base-engine Rows (Phase 3): provision the org's system Tasks table
+  // up front, then create Rows + TaskRow + RowAssignment inside the transaction.
+  const prov = await provisionSystemTasksTable(orgId);
+  const taskFields = await prisma.field.findMany({ where: { tableId: prov.table.id }, select: { id: true, type: true, options: true } });
+  const leadFirst = (lead: string | null, ids: string[]) => (lead ? [lead, ...ids.filter((x) => x !== lead)] : ids);
+
   await prisma.$transaction(async (tx) => {
-    await tx.meetingTask.deleteMany({ where: { meetingId, source: 'ai' } });
+    // Re-derive AI tasks: delete the meeting's AI Rows (cascades TaskRow + Row*).
+    const aiRows = await tx.taskRow.findMany({ where: { meetingId, source: 'ai' }, select: { rowId: true } });
+    if (aiRows.length) await tx.row.deleteMany({ where: { id: { in: aiRows.map((x) => x.rowId) } } });
     await tx.meetingReport.deleteMany({ where: { meetingId } });
     const created = await tx.meetingReport.create({
       data: {
@@ -456,46 +466,34 @@ ${numbered}`;
       },
     });
     for (const r of resolvedTasks) {
-      const parent = await tx.meetingTask.create({
-        data: {
+      const { rowId: parentRowId } = await createTaskFromAI(tx, {
+        tableId: prov.table.id,
+        fieldIds: prov.fieldIds,
+        fields: taskFields,
+        meetingId,
+        reportId: created.id,
+        departmentId: r.departmentId,
+        parentRowId: null,
+        title: r.title,
+        priority: r.priority,
+        dueDate: r.dueDate,
+        regIds: leadFirst(r.leadId, r.regIds),
+      });
+      // Subtasks: child rows under the parent, inheriting its department.
+      for (const s of r.subtasks) {
+        await createTaskFromAI(tx, {
+          tableId: prov.table.id,
+          fieldIds: prov.fieldIds,
+          fields: taskFields,
           meetingId,
           reportId: created.id,
           departmentId: r.departmentId,
-          orgId,
-          title: r.title,
-          assigneeId: r.leadId,
-          assigneeName: r.leadName,
-          priority: r.priority,
-          status: 'open',
-          dueDate: r.dueDate,
-          source: 'ai',
-        },
-      });
-      // Multi-assignee join rows (the lead is included in regIds).
-      for (const uid of r.regIds) {
-        await tx.taskAssignment.create({ data: { taskId: parent.id, userId: uid } });
-      }
-      // Subtasks: child rows under the parent, inheriting its department.
-      for (const s of r.subtasks) {
-        const sub = await tx.meetingTask.create({
-          data: {
-            meetingId,
-            reportId: created.id,
-            parentId: parent.id,
-            departmentId: r.departmentId,
-            orgId,
-            title: s.title,
-            assigneeId: s.leadId,
-            assigneeName: s.leadName,
-            priority: s.priority,
-            status: 'open',
-            dueDate: s.dueDate,
-            source: 'ai',
-          },
+          parentRowId,
+          title: s.title,
+          priority: s.priority,
+          dueDate: s.dueDate,
+          regIds: leadFirst(s.leadId, s.regIds),
         });
-        for (const uid of s.regIds) {
-          await tx.taskAssignment.create({ data: { taskId: sub.id, userId: uid } });
-        }
       }
     }
   }, {

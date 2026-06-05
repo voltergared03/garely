@@ -168,34 +168,39 @@ export async function baseForOrg(baseId: string, orgId: string, session: Session
   return base && (await canAccessBase(base, orgId, session)) ? base : null;
 }
 
+// `system` tables (e.g. the per-org Tasks table) are app-managed and must NEVER
+// be reachable through the GENERIC base/row/table API — their rows carry their
+// own per-resource authorization (tasks: userCanViewTask, via /api/tasks). The
+// generic engine grants org-visible bases 'editor' to every member, which would
+// bypass that, so these guards refuse system tables outright (→ 404).
 export async function tableForOrg(tableId: string, orgId: string, session: Session) {
   const t = await prisma.table.findUnique({
     where: { id: tableId },
     include: { base: { select: baseSel } },
   });
-  return t && (await canAccessBase(t.base, orgId, session)) ? t : null;
+  return t && !t.system && (await canAccessBase(t.base, orgId, session)) ? t : null;
 }
 
 export async function fieldForOrg(fieldId: string, orgId: string, session: Session) {
   const f = await prisma.field.findUnique({
     where: { id: fieldId },
-    include: { table: { select: { id: true, primaryFieldId: true, base: { select: baseSel } } } },
+    include: { table: { select: { id: true, system: true, primaryFieldId: true, base: { select: baseSel } } } },
   });
-  return f && (await canAccessBase(f.table.base, orgId, session)) ? f : null;
+  return f && !f.table.system && (await canAccessBase(f.table.base, orgId, session)) ? f : null;
 }
 
 export async function rowForOrg(rowId: string, orgId: string, session: Session) {
   const row = await prisma.row.findUnique({
     where: { id: rowId },
-    include: { table: { select: { id: true, base: { select: baseSel } } } },
+    include: { table: { select: { id: true, system: true, base: { select: baseSel } } } },
   });
-  return row && (await canAccessBase(row.table.base, orgId, session)) ? row : null;
+  return row && !row.table.system && (await canAccessBase(row.table.base, orgId, session)) ? row : null;
 }
 
 export async function viewForOrg(viewId: string, orgId: string, session: Session) {
   const v = await prisma.view.findUnique({
     where: { id: viewId },
-    include: { table: { select: { id: true, base: { select: baseSel } } } },
+    include: { table: { select: { id: true, system: true, base: { select: baseSel } } } },
   });
-  return v && (await canAccessBase(v.table.base, orgId, session)) ? v : null;
+  return v && !v.table.system && (await canAccessBase(v.table.base, orgId, session)) ? v : null;
 }

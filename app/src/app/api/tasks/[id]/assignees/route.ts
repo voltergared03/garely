@@ -5,18 +5,20 @@ import { requireAuth } from "@/lib/api-auth";
 import { withRoute } from "@/lib/with-route";
 import { userCanViewTask } from "@/lib/access";
 import { jsonError } from "@/lib/http";
-import { setTaskAssignees } from "@/lib/task-assignees";
+import { setRowAssignees, usersByIds } from "@/lib/tasks";
 import { notifyTaskAssigned } from "@/lib/task-notify";
 
-// Manage a task's (or subtask's) set of assignees. Mirrors the collaborators
-// route, but writes go through setTaskAssignees so MeetingTask.assigneeId (the
-// denormalized lead) stays in sync.
+// Manage a task's (or subtask's) set of assignees. Tasks are base-engine Rows;
+// writes go through setRowAssignees, which keeps RowAssignment + the person cell
+// in sync (lead = first id). RowAssignment.userId is a soft ref → resolve users.
 type Ctx = { params: Promise<{ id: string }> };
-const userSel = { select: { id: true, name: true, image: true } };
 const postSchema = z.object({ userId: z.string().trim().min(1) });
 
-const listAssignees = (taskId: string) =>
-  prisma.taskAssignment.findMany({ where: { taskId }, include: { user: userSel }, orderBy: { createdAt: "asc" } });
+async function listAssignees(rowId: string) {
+  const rows = await prisma.rowAssignment.findMany({ where: { rowId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  const users = await usersByIds(rows.map((r) => r.userId));
+  return rows.map((r) => ({ id: r.id, taskId: rowId, userId: r.userId, createdAt: r.createdAt, user: users.get(r.userId) ?? null }));
+}
 
 // GET /api/tasks/[id]/assignees — list (view-gated).
 export const GET = withRoute("tasks.assignees.list", async (_req: NextRequest, ctx: Ctx) => {
@@ -39,10 +41,10 @@ export const POST = withRoute("tasks.assignees.add", async (req: NextRequest, ct
   const u = await prisma.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true } });
   if (!u) return jsonError("user_not_found", 404);
 
-  const existing = await prisma.taskAssignment.findMany({ where: { taskId: id }, orderBy: { createdAt: "asc" }, select: { userId: true } });
+  const existing = await prisma.rowAssignment.findMany({ where: { rowId: id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { userId: true } });
   const ids = existing.map((r) => r.userId);
   if (!ids.includes(parsed.data.userId)) {
-    await setTaskAssignees(id, [...ids, parsed.data.userId]);
+    await setRowAssignees(id, [...ids, parsed.data.userId]);
     void notifyTaskAssigned(id, parsed.data.userId, { id: session.user.id, name: session.user.name });
   }
   return NextResponse.json(await listAssignees(id), { status: 201 });
@@ -57,7 +59,7 @@ export const DELETE = withRoute("tasks.assignees.remove", async (req: NextReques
 
   const userId = new URL(req.url).searchParams.get("userId");
   if (!userId) return jsonError("userId required", 400);
-  const existing = await prisma.taskAssignment.findMany({ where: { taskId: id }, orderBy: { createdAt: "asc" }, select: { userId: true } });
-  await setTaskAssignees(id, existing.map((r) => r.userId).filter((x) => x !== userId));
+  const existing = await prisma.rowAssignment.findMany({ where: { rowId: id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { userId: true } });
+  await setRowAssignees(id, existing.map((r) => r.userId).filter((x) => x !== userId));
   return NextResponse.json({ ok: true });
 });

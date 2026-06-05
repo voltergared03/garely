@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
+import { myOpenTasks } from '@/lib/tasks';
 import { DashboardClient } from './dashboard-client';
 
 export default async function DashboardPage() {
@@ -56,18 +57,7 @@ export default async function DashboardPage() {
       orderBy: { endedAt: 'desc' },
       take: 6,
     }),
-    prisma.meetingTask.findMany({
-      where: {
-        assigneeId: userId,
-        status: { not: 'done' },
-      },
-      include: {
-        assignee: { select: { id: true, name: true, image: true } },
-        meeting: { select: { id: true, title: true, scheduledAt: true } },
-      },
-      orderBy: [{ priority: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
-      take: 8,
-    }),
+    myOpenTasks(session, 8),
   ]);
 
   return (

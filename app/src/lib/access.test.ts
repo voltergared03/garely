@@ -56,12 +56,12 @@ describe('meetingIdOfTask', () => {
   });
 
   it('resolves the meeting id of a task', async () => {
-    prismaMock.meetingTask.findUnique.mockResolvedValue({ meetingId: 'm9' } as any);
+    prismaMock.taskRow.findUnique.mockResolvedValue({ meetingId: 'm9' } as any);
     expect(await meetingIdOfTask('t1')).toBe('m9');
   });
 
   it('returns null when the task is missing', async () => {
-    prismaMock.meetingTask.findUnique.mockResolvedValue(null as any);
+    prismaMock.taskRow.findUnique.mockResolvedValue(null as any);
     expect(await meetingIdOfTask('t1')).toBe(null);
   });
 });

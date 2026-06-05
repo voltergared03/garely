@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
-import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 import { userCanAccessMeeting, meetingIdOfTask } from '@/lib/access';
-import { setTaskAssignees } from '@/lib/task-assignees';
+import { listMeetingTasks, updateTask } from '@/lib/tasks';
 
-// GET /api/meetings/:id/tasks — list tasks for a meeting
+// GET /api/meetings/:id/tasks — list tasks for a meeting (top-level action items).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,20 +19,11 @@ export async function GET(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Top-level tasks only — AI-generated subtasks (parentId set) belong under
-  // their parent on the board, not as flat action items in the report.
-  const tasks = await prisma.meetingTask.findMany({
-    where: { meetingId: id, parentId: null },
-    include: {
-      assignee: { select: { id: true, name: true, image: true } },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  return NextResponse.json(tasks);
+  // Top-level tasks only — AI-generated subtasks belong under their parent.
+  return NextResponse.json(await listMeetingTasks(id));
 }
 
-// PATCH /api/meetings/:id/tasks — update a task status
+// PATCH /api/meetings/:id/tasks — update a task (status/title/assignee/…).
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -62,42 +51,18 @@ export async function PATCH(
     return NextResponse.json({ error: t('taskNotInMeeting') }, { status: 404 });
   }
 
-  // Whitelist updatable fields — never spread the raw body.
-  const data: Prisma.MeetingTaskUncheckedUpdateInput = {};
-  if (typeof body.status === 'string') {
-    data.status = body.status;
-    data.completedAt = body.status === 'done' ? new Date() : null;
-  }
-  if (typeof body.title === 'string' && body.title.trim()) data.title = body.title.trim();
-  if (body.description !== undefined) data.description = body.description ?? null;
-  if (typeof body.priority === 'string') data.priority = body.priority;
-  if (body.dueDate !== undefined) data.dueDate = body.dueDate ? new Date(body.dueDate) : null;
-  if (typeof body.sortOrder === 'number') data.sortOrder = body.sortOrder;
-  if (body.assigneeId !== undefined) {
-    data.assigneeId = body.assigneeId || null;
-    if (body.assigneeId) {
-      const u = await prisma.user.findUnique({ where: { id: body.assigneeId }, select: { name: true } });
-      data.assigneeName = u?.name ?? null;
-    } else {
-      data.assigneeName = null;
-    }
-  }
+  // Whitelist updatable fields — never spread the raw body. Reassigning from the
+  // report collapses the assignee set to the chosen person (updateTask handles it).
+  const fields: Parameters<typeof updateTask>[1] = {};
+  if (typeof body.status === 'string') fields.status = body.status;
+  if (typeof body.title === 'string' && body.title.trim()) fields.title = body.title.trim();
+  if (body.description !== undefined) fields.description = body.description ?? null;
+  if (typeof body.priority === 'string') fields.priority = body.priority;
+  if (body.dueDate !== undefined) fields.dueDate = body.dueDate ?? null;
+  if (typeof body.sortOrder === 'number') fields.sortOrder = body.sortOrder;
+  if (body.assigneeId !== undefined) fields.assigneeId = body.assigneeId || null;
 
-  try {
-    const task = await prisma.meetingTask.update({
-      where: { id: taskId },
-      data,
-      include: {
-        assignee: { select: { id: true, name: true, image: true } },
-      },
-    });
-    // Reassigning from the report collapses the multi-assignee set to the chosen
-    // person (keeps MeetingTask.assigneeId and the TaskAssignment join in sync).
-    if (body.assigneeId !== undefined) {
-      await setTaskAssignees(taskId, body.assigneeId ? [body.assigneeId] : []);
-    }
-    return NextResponse.json(task);
-  } catch {
-    return NextResponse.json({ error: t('taskNotFound') }, { status: 404 });
-  }
+  const result = await updateTask(taskId, fields);
+  if (!result) return NextResponse.json({ error: t('taskNotFound') }, { status: 404 });
+  return NextResponse.json(result.task);
 }

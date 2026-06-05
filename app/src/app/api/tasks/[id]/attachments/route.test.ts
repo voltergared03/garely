@@ -7,9 +7,11 @@ import { mockSession, jsonReq, ctx } from '@/test/helpers';
 import { GET, POST } from '@/app/api/tasks/[id]/attachments/route';
 import { GET as DOWNLOAD, DELETE } from '@/app/api/tasks/[id]/attachments/[attachmentId]/route';
 
+// Tasks are base-engine Rows: attachments are RowAttachment, keyed by rowId.
 vi.mock('@/lib/prisma');
 vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/access', () => ({ userCanViewTask: vi.fn(), userCanAccessMeeting: vi.fn() }));
+vi.mock('@/lib/tasks', () => ({ usersByIds: vi.fn(async () => new Map()) }));
 vi.mock('@/lib/task-files', () => ({
   saveTaskFile: vi.fn(),
   resolveTaskFile: vi.fn(() => null),
@@ -40,8 +42,8 @@ describe('GET /api/tasks/[id]/attachments', () => {
 
   it('lists attachments and coerces BigInt fileSize to a number', async () => {
     mockAuth.mockResolvedValue(mockSession());
-    prismaMock.taskAttachment.findMany.mockResolvedValue([
-      { id: 'a1', fileName: 'x.pdf', fileSize: 2048n },
+    prismaMock.rowAttachment.findMany.mockResolvedValue([
+      { id: 'a1', fileName: 'x.pdf', filePath: 't1/x', mimeType: 'application/pdf', fileSize: 2048n, uploadedById: null, createdAt: new Date() },
     ] as any);
     const r = await GET(jsonReq('GET', undefined, listUrl), ctx({ id: 't1' }));
     expect(r.status).toBe(200);
@@ -66,9 +68,9 @@ describe('GET (download) /api/tasks/[id]/attachments/[attachmentId]', () => {
     expect((await DOWNLOAD(jsonReq('GET', undefined, fileUrl), ctx({ id: 't1', attachmentId: 'a1' }))).status).toBe(403);
   });
 
-  it('404 when the attachment belongs to a different task', async () => {
+  it('404 when the attachment belongs to a different row', async () => {
     mockAuth.mockResolvedValue(mockSession());
-    prismaMock.taskAttachment.findUnique.mockResolvedValue({ id: 'a1', taskId: 'other', filePath: 'x' } as any);
+    prismaMock.rowAttachment.findUnique.mockResolvedValue({ id: 'a1', rowId: 'other', filePath: 'x' } as any);
     expect((await DOWNLOAD(jsonReq('GET', undefined, fileUrl), ctx({ id: 't1', attachmentId: 'a1' }))).status).toBe(404);
   });
 });
@@ -76,23 +78,23 @@ describe('GET (download) /api/tasks/[id]/attachments/[attachmentId]', () => {
 describe('DELETE /api/tasks/[id]/attachments/[attachmentId]', () => {
   it('403 when the caller is neither the uploader nor an admin', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    prismaMock.taskAttachment.findUnique.mockResolvedValue({ taskId: 't1', uploadedById: 'someone', filePath: 'p' } as any);
+    prismaMock.rowAttachment.findUnique.mockResolvedValue({ rowId: 't1', uploadedById: 'someone', filePath: 'p' } as any);
     const r = await DELETE(jsonReq('DELETE', undefined, fileUrl), ctx({ id: 't1', attachmentId: 'a1' }));
     expect(r.status).toBe(403);
-    expect(prismaMock.taskAttachment.delete).not.toHaveBeenCalled();
+    expect(prismaMock.rowAttachment.delete).not.toHaveBeenCalled();
   });
 
   it('lets the uploader delete their attachment', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
-    prismaMock.taskAttachment.findUnique.mockResolvedValue({ taskId: 't1', uploadedById: 'u1', filePath: 'p' } as any);
-    prismaMock.taskAttachment.delete.mockResolvedValue({ id: 'a1' } as any);
+    prismaMock.rowAttachment.findUnique.mockResolvedValue({ rowId: 't1', uploadedById: 'u1', filePath: 'p' } as any);
+    prismaMock.rowAttachment.delete.mockResolvedValue({ id: 'a1' } as any);
     expect((await DELETE(jsonReq('DELETE', undefined, fileUrl), ctx({ id: 't1', attachmentId: 'a1' }))).status).toBe(200);
   });
 
   it('lets an admin delete any attachment', async () => {
     mockAuth.mockResolvedValue(mockSession({ id: 'a1', role: 'admin' }));
-    prismaMock.taskAttachment.findUnique.mockResolvedValue({ taskId: 't1', uploadedById: 'someone', filePath: 'p' } as any);
-    prismaMock.taskAttachment.delete.mockResolvedValue({ id: 'a1' } as any);
+    prismaMock.rowAttachment.findUnique.mockResolvedValue({ rowId: 't1', uploadedById: 'someone', filePath: 'p' } as any);
+    prismaMock.rowAttachment.delete.mockResolvedValue({ id: 'a1' } as any);
     expect((await DELETE(jsonReq('DELETE', undefined, fileUrl), ctx({ id: 't1', attachmentId: 'a1' }))).status).toBe(200);
   });
 });

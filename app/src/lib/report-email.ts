@@ -3,6 +3,7 @@ import { sendEmail } from './email';
 import { getTranslator, workspaceLocale } from './i18n-server';
 import { publicBaseUrl } from './config';
 import { esc } from './email/html';
+import { tasksForReport } from './tasks';
 
 /**
  * Build and send the latest meeting report to participants.
@@ -20,7 +21,6 @@ export async function sendReportEmail(
       reports: {
         orderBy: { generatedAt: 'desc' },
         take: 1,
-        include: { tasks: { include: { assignee: { select: { name: true } } } } },
       },
     },
   });
@@ -49,7 +49,7 @@ export async function sendReportEmail(
 
   const decisions = (Array.isArray(report.decisions) ? report.decisions : []) as any[];
   const followUps = (Array.isArray(report.followUps) ? report.followUps : []) as any[];
-  const tasks = report.tasks || [];
+  const tasks = await tasksForReport(report.id);
   const appUrl = await publicBaseUrl();
   const reportUrl = `${appUrl}/meetings/${meetingId}/report`;
 
@@ -59,7 +59,7 @@ export async function sendReportEmail(
     items.length ? `<ul style="margin:0;padding-left:18px;color:#c4c9d4;font-size:14px;line-height:1.6">${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
   const tasksHtml = tasks.length
     ? `<ul style="margin:0;padding-left:18px;color:#c4c9d4;font-size:14px;line-height:1.6">${tasks
-        .map((tk: any) => `<li>${esc(tk.title)}${tk.assignee?.name || tk.assigneeName ? ` — <b style="color:#e8eaed">${esc(tk.assignee?.name || tk.assigneeName)}</b>` : ''}</li>`)
+        .map((tk) => `<li>${esc(tk.title)}${tk.assigneeName ? ` — <b style="color:#e8eaed">${esc(tk.assigneeName)}</b>` : ''}</li>`)
         .join('')}</ul>`
     : '';
 
@@ -77,7 +77,7 @@ export async function sendReportEmail(
     `${t('emails.report.subject', { title: meeting.title })}`,
     report.summary ? `\n${report.summary}` : '',
     decisions.length ? `\n${t('emails.report.sections.decisions')}:\n${decisions.map((d) => `- ${typeof d === 'string' ? d : d?.text || ''}`).join('\n')}` : '',
-    tasks.length ? `\n${t('emails.report.sections.actionItems')}:\n${tasks.map((tk: any) => `- ${tk.title}${tk.assignee?.name || tk.assigneeName ? ` (${tk.assignee?.name || tk.assigneeName})` : ''}`).join('\n')}` : '',
+    tasks.length ? `\n${t('emails.report.sections.actionItems')}:\n${tasks.map((tk) => `- ${tk.title}${tk.assigneeName ? ` (${tk.assigneeName})` : ''}`).join('\n')}` : '',
     followUps.length ? `\n${t('emails.report.sections.followUps')}:\n${followUps.map((f) => `- ${typeof f === 'string' ? f : f?.text || ''}`).join('\n')}` : '',
     appUrl ? `\n\n${t('emails.report.fullReport')}: ${reportUrl}` : '',
   ].filter(Boolean).join('\n');

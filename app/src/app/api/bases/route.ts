@@ -22,6 +22,9 @@ export const GET = withRoute('bases.list', async () => {
             { members: { some: { userId: uid } } },
           ],
         };
+  // Hide app-managed system bases (the per-org Tasks table) from the generic
+  // Database UI — tasks are reached via /api/tasks, not the generic base engine.
+  where.NOT = { tables: { some: { system: true } } };
   const bases = await prisma.base.findMany({
     where,
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],

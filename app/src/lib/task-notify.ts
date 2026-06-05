@@ -9,6 +9,33 @@ import { notify } from "./notify";
 import { getTranslator, workspaceLocale } from "./i18n-server";
 import { publicBaseUrl } from "./config";
 import { esc } from "./email/html";
+import { getSystemTasksTable } from "./system-tasks-table";
+
+/** Load a task Row's notify essentials (it's a base-engine Row now). */
+async function loadTaskForNotify(taskId: string) {
+  const row = await prisma.row.findUnique({
+    where: { id: taskId },
+    select: {
+      data: true,
+      taskMeta: { select: { meetingId: true } },
+      assignments: { select: { userId: true } },
+      collaborators: { select: { userId: true } },
+      table: { select: { base: { select: { orgId: true } } } },
+    },
+  });
+  if (!row) return null;
+  const prov = await getSystemTasksTable(row.table.base.orgId);
+  if (!prov) return null;
+  const data = (row.data ?? {}) as Record<string, unknown>;
+  const dueRaw = data[prov.fieldIds.dueDate];
+  return {
+    title: String(data[prov.fieldIds.title] ?? ""),
+    dueDate: typeof dueRaw === "string" && dueRaw ? new Date(dueRaw) : null,
+    meetingId: row.taskMeta?.meetingId ?? null,
+    assigneeIds: row.assignments.map((a) => a.userId),
+    collaboratorIds: row.collaborators.map((c) => c.userId),
+  };
+}
 
 export interface Actor {
   id: string;
@@ -58,11 +85,11 @@ function statusLabel(t: T, s: string): string {
 export async function notifyTaskAssigned(taskId: string, assigneeId: string | null | undefined, actor: Actor): Promise<void> {
   try {
     if (!assigneeId || assigneeId === actor.id) return;
-    const task = await prisma.meetingTask.findUnique({
-      where: { id: taskId },
-      select: { id: true, title: true, dueDate: true, meeting: { select: { title: true } } },
-    });
+    const task = await loadTaskForNotify(taskId);
     if (!task) return;
+    const meetingTitle = task.meetingId
+      ? (await prisma.meeting.findUnique({ where: { id: task.meetingId }, select: { title: true } }))?.title ?? null
+      : null;
 
     await notify({
       userIds: [assigneeId],
@@ -81,7 +108,7 @@ export async function notifyTaskAssigned(taskId: string, assigneeId: string | nu
     const rows = [
       `<strong style="color:#e8eaed">${esc(task.title)}</strong>`,
       task.dueDate ? `${esc(t("emails.task.dueLabel"))}: ${esc(fmtDate(task.dueDate, locale))}` : "",
-      task.meeting?.title ? `${esc(t("emails.task.meetingLabel"))}: ${esc(task.meeting.title)}` : "",
+      meetingTitle ? `${esc(t("emails.task.meetingLabel"))}: ${esc(meetingTitle)}` : "",
     ];
     await sendEmail({
       to: u.email,
@@ -103,15 +130,13 @@ export async function notifyTaskUpdated(
 ): Promise<void> {
   try {
     if (changes.status === undefined && changes.dueDate === undefined) return;
-    const task = await prisma.meetingTask.findUnique({
-      where: { id: taskId },
-      select: { id: true, title: true, assigneeId: true, collaborators: { select: { userId: true } } },
-    });
+    const task = await loadTaskForNotify(taskId);
     if (!task) return;
 
+    // Recipients = ALL assignees (multi-assignee) + collaborators, minus the actor.
     const ids = new Set<string>();
-    if (task.assigneeId) ids.add(task.assigneeId);
-    for (const c of task.collaborators) ids.add(c.userId);
+    for (const uid of task.assigneeIds) ids.add(uid);
+    for (const uid of task.collaboratorIds) ids.add(uid);
     ids.delete(actor.id);
     if (ids.size === 0) return;
 

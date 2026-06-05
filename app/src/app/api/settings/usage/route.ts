@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { readConfig, num } from '@/lib/config';
 import { withRoute } from '@/lib/with-route';
+import { getCurrentOrgId } from '@/lib/org';
+import { countTasks } from '@/lib/tasks';
 
 async function getHandler() {
   const session = await auth();
@@ -39,13 +41,10 @@ async function getHandler() {
   }
   const hoursRecorded = Math.round(totalMinutes / 6) / 10; // 1 decimal
 
-  // Action items this month
-  const actionItems = await prisma.meetingTask.count({
-    where: { createdAt: { gte: monthStart } },
-  });
-
-  // Total action items
-  const actionItemsTotal = await prisma.meetingTask.count();
+  // Action items (base-engine Rows in the org's system Tasks table).
+  const orgId = await getCurrentOrgId(session);
+  const actionItems = await countTasks(orgId, monthStart);
+  const actionItemsTotal = await countTasks(orgId);
 
   // Emails this month
   const emailsSent = await prisma.emailLog.count({
