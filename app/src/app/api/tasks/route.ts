@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { requireAuth } from "@/lib/api-auth";
 import { userCanViewTask } from "@/lib/access";
 import { notifyTaskAssigned, notifyTaskUpdated } from "@/lib/task-notify";
-import { listTasks, createTask, updateTask, deleteTask, authorizeTaskMutation } from "@/lib/tasks";
+import { listTasks, createTask, updateTask, deleteTask, authorizeTaskMutation, listTaskFields } from "@/lib/tasks";
 import { z } from "zod";
 import { validateBody } from "@/lib/validate";
 
@@ -32,6 +32,8 @@ const taskUpdateSchema = z.object({
   assigneeIds: z.array(z.string()).optional(),
   departmentId: z.string().nullish(),
   sortOrder: z.number().int().optional(),
+  // Custom-field cells (P3.3); the adapter rejects the 6 system/assignee ids.
+  cells: z.record(z.string(), z.unknown()).optional(),
 });
 
 // GET /api/tasks — list tasks with filters (now base-engine Rows via the adapter).
@@ -50,6 +52,12 @@ export async function GET(req: NextRequest) {
     parentId: url.searchParams.get("parentId"),
     includeSubtasks: !!url.searchParams.get("includeSubtasks"),
   });
+  // P3.3: the board passes ?withFields=1 to also get the system Tasks table's
+  // Field schema (for rendering CUSTOM columns). Bare callers (dashboard widget,
+  // myOpenTasks consumers) still receive a plain array — back-compatible.
+  if (url.searchParams.get("withFields")) {
+    return NextResponse.json({ tasks, fields: await listTaskFields(session) });
+  }
   return NextResponse.json(tasks);
 }
 

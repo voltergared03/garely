@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client';
 import type { Session } from 'next-auth';
 import { prisma } from './prisma';
-import { coerceRowData, mergeRowData, type FieldLike } from './base-rows';
+import { coerceRowData, mergeRowData, presentRowData, type FieldLike } from './base-rows';
+import { normalizeFieldOptions, type FieldType } from './base-engine';
 import {
   getSystemTasksTable,
   provisionSystemTasksTable,
@@ -65,7 +66,31 @@ export type MeetingTaskDTO = {
   subtasks?: SubtaskDTO[];
   comments?: CommentRow[];
   attachments?: AttachmentRow[];
+  /**
+   * The task Row's full cell bag (P3.3): `row.data` keyed by Field id, run
+   * through `presentRowData` so `totp`/`password` custom-field cells never leak
+   * their encrypted secret. Present only on board-facing reads (listTasks /
+   * getTaskById / create/update responses). The 6 system fields are also keyed
+   * here, but the board renders only CUSTOM fields from it (the fixed ones use
+   * their projected DTO props). Pair with `listTaskFields()` for the schema.
+   */
+  cells?: Record<string, unknown>;
   _count: { subtasks: number; comments: number; attachments: number };
+};
+
+/**
+ * Client-facing Field metadata for the system Tasks table (P3.3). Structurally
+ * compatible with the Database UI's `FieldT` so the board can reuse `FieldCell`
+ * to render/edit custom task fields. Returned by `listTaskFields`.
+ */
+export type TaskFieldDTO = {
+  id: string;
+  tableId: string;
+  name: string;
+  type: string;
+  options: Prisma.JsonValue | null;
+  position: number;
+  width: number | null;
 };
 
 const STATUS_ORDER: Record<string, number> = { open: 0, in_progress: 1, done: 2 };
@@ -90,6 +115,27 @@ async function loadFields(tableId: string): Promise<FieldLike[]> {
   return prisma.field.findMany({ where: { tableId }, select: { id: true, type: true, options: true } });
 }
 
+/**
+ * Merge custom-field cells into a task update patch, REJECTING the reserved ids
+ * (the 6 system fields + the assignee field). Those each have exactly one write
+ * path — the typed `updateTask` args / `setRowAssignees` — so a `cells` write
+ * can never clobber them (and the assignee person cell can't drift from
+ * RowAssignment). Mutates and returns `patch`. Pure (no I/O) → unit-testable.
+ */
+export function applyCustomCells(
+  patch: Record<string, unknown>,
+  cells: Record<string, unknown> | undefined,
+  reservedIds: string[],
+): Record<string, unknown> {
+  if (!cells) return patch;
+  const reserved = new Set(reservedIds);
+  for (const [fid, val] of Object.entries(cells)) {
+    if (reserved.has(fid)) continue;
+    patch[fid] = val;
+  }
+  return patch;
+}
+
 /** Resolve the org's system Tasks scaffold for a READ (null if unprovisioned — never creates). */
 async function resolveRead(orgId: string | null | undefined): Promise<SystemTasksProvision | null> {
   return orgId ? getSystemTasksTable(orgId) : null;
@@ -97,6 +143,23 @@ async function resolveRead(orgId: string | null | undefined): Promise<SystemTask
 /** Resolve (provisioning if needed) for a WRITE. */
 async function resolveWrite(orgId: string): Promise<SystemTasksProvision> {
   return provisionSystemTasksTable(orgId);
+}
+
+/**
+ * The system Tasks table's full Field metadata (P3.3) in the client `FieldT`
+ * shape, so the board can render/edit CUSTOM task fields with the engine's
+ * `FieldCell`. Read-only resolve → `[]` if the org hasn't been provisioned yet.
+ */
+export async function listTaskFields(session: Session): Promise<TaskFieldDTO[]> {
+  const orgId = await getCurrentOrgId(session);
+  const prov = await resolveRead(orgId);
+  if (!prov) return [];
+  const fields = await prisma.field.findMany({
+    where: { tableId: prov.table.id },
+    select: { id: true, tableId: true, name: true, type: true, options: true, position: true, width: true },
+    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+  });
+  return fields.map((f) => ({ ...f, width: f.width ?? null }));
 }
 
 // Shapes Prisma returns when we eager-load a task Row + its relations.
@@ -135,6 +198,8 @@ function assembleTaskDTO(
     subtaskCount?: number;
     comments?: CommentRow[];
     attachments?: AttachmentRow[];
+    /** When provided, attach a client-safe `cells` bag (custom-field payoff). */
+    fields?: FieldLike[];
     detail?: boolean;
   } = {},
 ): MeetingTaskDTO {
@@ -179,6 +244,7 @@ function assembleTaskDTO(
     subtasks: extras.subtasks,
     comments: extras.comments,
     attachments: extras.attachments,
+    cells: extras.fields ? presentRowData(data as Record<string, unknown>, extras.fields) : undefined,
     _count: {
       subtasks: extras.subtaskCount ?? 0,
       comments: row._count?.comments ?? 0,
@@ -322,6 +388,7 @@ export async function listTasks(session: Session, params: ListTaskParams): Promi
   const depts = deptIds.length
     ? new Map((await prisma.department.findMany({ where: { id: { in: deptIds } }, select: { id: true, name: true, color: true } })).map((d) => [d.id, d]))
     : new Map();
+  const flds = await loadFields(prov.table.id);
 
   return rows.map((r) => {
     const subs = (subsByParent.get(r.id) ?? []).map((s) => buildSubtaskDTO(s, f, users));
@@ -330,6 +397,7 @@ export async function listTasks(session: Session, params: ListTaskParams): Promi
       department: r.taskMeta?.departmentId ? depts.get(r.taskMeta.departmentId) ?? null : null,
       subtasks: subs,
       subtaskCount: subs.length,
+      fields: flds,
     });
   });
 }
@@ -510,6 +578,7 @@ export async function getTaskById(id: string, opts: { detail?: boolean } = {}): 
     subtaskCount: subRows.length,
     comments,
     attachments,
+    fields: await loadFields(prov.table.id),
     detail,
   });
 }
@@ -590,6 +659,9 @@ export async function createTaskFromAI(
 export type UpdateTaskFields = {
   title?: string; description?: string | null; status?: string; priority?: string; dueDate?: string | null;
   assigneeId?: string | null; assigneeIds?: string[]; departmentId?: string | null; sortOrder?: number;
+  /** Arbitrary CUSTOM-field cells (P3.3), keyed by Field id. The 6 system field
+   *  ids + the assignee field id are REJECTED here so each has one write path. */
+  cells?: Record<string, unknown>;
 };
 
 export async function updateTask(
@@ -621,6 +693,7 @@ export async function updateTask(
   if (fields.priority !== undefined) patch[f.priority] = fields.priority;
   if (fields.status !== undefined) patch[f.status] = fields.status;
   if (fields.dueDate !== undefined) patch[f.dueDate] = fields.dueDate ?? '';
+  applyCustomCells(patch, fields.cells, [f.title, f.description, f.status, f.priority, f.dueDate, f.assignee]);
   const mergedData = mergeRowData(flds, before, patch);
 
   await prisma.$transaction(async (tx) => {
@@ -674,4 +747,66 @@ export async function authorizeTaskMutation(
     if (!(await userCanViewTask(taskId, userId, role))) return { error: 'Forbidden', status: 403 };
   }
   return { meetingId: meta.meetingId, assigneeId };
+}
+
+// ---- custom task fields (P3.3) ---------------------------------------------
+/**
+ * Field-schema management for the system Tasks table. The generic /api/fields
+ * routes refuse system tables (the 3.2 guard), so these are the ONLY way to add
+ * custom columns to tasks — admin-gated at the route, scoped here to the org's
+ * own system table (the table id is resolved from orgId, never from the client).
+ * Field schema is org-wide and carries NO row-level data, so it adds no
+ * task-authz surface. `link` is rejected in v1 (its cross-table reverse pairing
+ * would target a hidden system table).
+ */
+const TASK_FIELD_DENY_TYPES = new Set<string>(['link']);
+
+type TaskFieldRow = { id: string; tableId: string; name: string; type: string; options: Prisma.JsonValue | null; position: number; width: number | null };
+const toTaskFieldDTO = (f: TaskFieldRow): TaskFieldDTO => ({ id: f.id, tableId: f.tableId, name: f.name, type: f.type, options: f.options, position: f.position, width: f.width ?? null });
+const taskFieldSelect = { id: true, tableId: true, name: true, type: true, options: true, position: true, width: true } as const;
+
+export async function createTaskField(orgId: string, input: { name: string; type: FieldType; options?: unknown }): Promise<{ field: TaskFieldDTO } | { error: string; status: number }> {
+  if (TASK_FIELD_DENY_TYPES.has(input.type)) return { error: 'unsupported_field_type', status: 400 };
+  const prov = await resolveWrite(orgId);
+  const position = await prisma.field.count({ where: { tableId: prov.table.id } });
+  const field = await prisma.field.create({
+    data: { tableId: prov.table.id, name: input.name, type: input.type, options: normalizeFieldOptions(input.type, input.options), position },
+    select: taskFieldSelect,
+  });
+  return { field: toTaskFieldDTO(field) };
+}
+
+/** Resolve a field that MUST belong to the org's system Tasks table AND be a custom (non-system) field. */
+async function resolveCustomTaskField(orgId: string, fieldId: string): Promise<{ prov: SystemTasksProvision; field: { type: string; options: Prisma.JsonValue | null } } | { error: string; status: number }> {
+  const prov = await getSystemTasksTable(orgId);
+  if (!prov) return { error: 'not_found', status: 404 };
+  const field = await prisma.field.findUnique({ where: { id: fieldId }, select: { tableId: true, type: true, options: true } });
+  if (!field || field.tableId !== prov.table.id) return { error: 'not_found', status: 404 };
+  if ((Object.values(prov.fieldIds) as string[]).includes(fieldId)) return { error: 'system_field', status: 403 };
+  return { prov, field: { type: field.type, options: field.options } };
+}
+
+export async function updateTaskField(orgId: string, fieldId: string, patch: { name?: string; type?: FieldType; options?: unknown; width?: number | null; position?: number }): Promise<{ field: TaskFieldDTO } | { error: string; status: number }> {
+  const r = await resolveCustomTaskField(orgId, fieldId);
+  if ('error' in r) return r;
+  const nextType = (patch.type ?? r.field.type) as FieldType;
+  if (TASK_FIELD_DENY_TYPES.has(nextType)) return { error: 'unsupported_field_type', status: 400 };
+  const data: Record<string, unknown> = {};
+  if (patch.name !== undefined) data.name = patch.name;
+  if (patch.type !== undefined) data.type = patch.type;
+  if (patch.position !== undefined) data.position = patch.position;
+  if (patch.width !== undefined) data.width = patch.width;
+  if (patch.options !== undefined || patch.type !== undefined) {
+    const opts = normalizeFieldOptions(nextType, patch.options ?? r.field.options);
+    if (opts !== undefined) data.options = opts;
+  }
+  const field = await prisma.field.update({ where: { id: fieldId }, data, select: taskFieldSelect });
+  return { field: toTaskFieldDTO(field) };
+}
+
+export async function deleteTaskField(orgId: string, fieldId: string): Promise<{ ok: true } | { error: string; status: number }> {
+  const r = await resolveCustomTaskField(orgId, fieldId);
+  if ('error' in r) return r;
+  await prisma.field.delete({ where: { id: fieldId } });
+  return { ok: true };
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { auth } from '@/lib/auth';
-import { listTasks, createTask, updateTask, deleteTask, authorizeTaskMutation } from '@/lib/tasks';
+import { listTasks, createTask, updateTask, deleteTask, authorizeTaskMutation, listTaskFields } from '@/lib/tasks';
 import { userCanViewTask } from '@/lib/access';
 import { mockSession, jsonReq } from '@/test/helpers';
 import { GET, POST, PATCH, DELETE } from '@/app/api/tasks/route';
@@ -16,6 +16,7 @@ vi.mock('@/lib/tasks', () => ({
   updateTask: vi.fn(),
   deleteTask: vi.fn(async () => undefined),
   authorizeTaskMutation: vi.fn(),
+  listTaskFields: vi.fn(async () => []),
 }));
 vi.mock('@/lib/access', () => ({ userCanViewTask: vi.fn(async () => true) }));
 vi.mock('@/lib/task-notify', () => ({ notifyTaskAssigned: vi.fn(), notifyTaskUpdated: vi.fn() }));
@@ -27,6 +28,7 @@ const mockCreate = vi.mocked(createTask);
 const mockUpdate = vi.mocked(updateTask);
 const mockDelete = vi.mocked(deleteTask);
 const mockAuthz = vi.mocked(authorizeTaskMutation);
+const mockFields = vi.mocked(listTaskFields);
 
 beforeEach(() => {
   mockAuth.mockReset();
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockUpdate.mockReset();
   mockDelete.mockReset().mockResolvedValue(undefined);
   mockAuthz.mockReset();
+  mockFields.mockReset().mockResolvedValue([]);
 });
 
 const tasksUrl = (qs = '') => `http://localhost/api/tasks${qs}`;
@@ -61,6 +64,24 @@ describe('GET /api/tasks', () => {
     expect(r.status).toBe(200);
     expect(mockList.mock.calls[0][1].scope).toBe('mine');
     expect(await r.json()).toEqual([{ id: 't1' }]);
+  });
+
+  it('?withFields=1 returns { tasks, fields } (P3.3 custom-field payoff)', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    mockList.mockResolvedValue([{ id: 't1' }] as any);
+    mockFields.mockResolvedValue([{ id: 'fX', name: 'Cost', type: 'currency' }] as any);
+    const r = await GET(jsonReq('GET', undefined, tasksUrl('?scope=all&withFields=1')));
+    expect(r.status).toBe(200);
+    expect(mockFields).toHaveBeenCalled();
+    expect(await r.json()).toEqual({ tasks: [{ id: 't1' }], fields: [{ id: 'fX', name: 'Cost', type: 'currency' }] });
+  });
+
+  it('bare GET stays a plain array (back-compat for dashboard/myOpenTasks)', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    mockList.mockResolvedValue([{ id: 't1' }] as any);
+    const r = await GET(jsonReq('GET', undefined, tasksUrl()));
+    expect(Array.isArray(await r.json())).toBe(true);
+    expect(mockFields).not.toHaveBeenCalled();
   });
 });
 
@@ -124,6 +145,15 @@ describe('PATCH /api/tasks — authorization + whitelist', () => {
     mockAuthz.mockResolvedValue({ meetingId: null, assigneeId: 'u1' });
     mockUpdate.mockResolvedValue(null);
     expect((await PATCH(jsonReq('PATCH', { taskId: 't1', status: 'done' }))).status).toBe(404);
+  });
+
+  it('forwards custom-field cells to the adapter (P3.3)', async () => {
+    mockAuth.mockResolvedValue(mockSession({ id: 'u1', role: 'member' }));
+    mockAuthz.mockResolvedValue({ meetingId: null, assigneeId: 'u1' });
+    mockUpdate.mockResolvedValue({ task: { id: 't1' } as any, before: { status: 'open', dueDate: null }, addedAssignees: [], statusChanged: false, dueChanged: false });
+    await PATCH(jsonReq('PATCH', { taskId: 't1', cells: { fX: 42 } }));
+    const fields = mockUpdate.mock.calls[0][1] as any;
+    expect(fields.cells).toEqual({ fX: 42 });
   });
 });
 
