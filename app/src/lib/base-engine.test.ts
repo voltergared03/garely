@@ -49,8 +49,14 @@ describe('normalizeFieldOptions', () => {
     expect([...FIELD_TYPES]).toEqual([
       'text', 'longText', 'number', 'currency', 'percent', 'rating',
       'singleSelect', 'multiSelect', 'date', 'person', 'checkbox',
-      'url', 'email', 'phone', 'file', 'totp',
+      'url', 'email', 'phone', 'file', 'totp', 'link',
     ]);
+  });
+
+  it('link options shape: targetTableId + multiple (+ optional displayFieldId)', () => {
+    expect(normalizeFieldOptions('link', { targetTableId: 'tbl1', multiple: true })).toEqual({ targetTableId: 'tbl1', multiple: true });
+    expect(normalizeFieldOptions('link', { targetTableId: 'tbl1', displayFieldId: 'f9' })).toEqual({ targetTableId: 'tbl1', multiple: false, displayFieldId: 'f9' });
+    expect(normalizeFieldOptions('link', {})).toEqual({ targetTableId: '', multiple: false });
   });
 
   it('currency defaults symbol + precision; percent/rating shape', () => {

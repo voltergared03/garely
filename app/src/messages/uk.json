@@ -134,6 +134,13 @@
     "totpCopy": "Копіювати код",
     "totpReplaceKey": "Замінити ключ",
     "resizeColumn": "Змінити ширину",
+    "linkTable": "Звʼязана таблиця",
+    "linkPickTable": "Оберіть таблицю",
+    "linkDisplayField": "Яке поле показувати",
+    "linkDisplayDefault": "Первинне поле (за замовч.)",
+    "multipleRecords": "Дозволити кілька записів",
+    "linkSearch": "Пошук записів",
+    "linkNoRecords": "Немає записів",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",
@@ -150,7 +157,8 @@
       "email": "Email",
       "phone": "Телефон",
       "file": "Вкладення",
-      "totp": "2FA-код"
+      "totp": "2FA-код",
+      "link": "Звʼязок із таблицею"
     }
   },
   "sidebar": {

@@ -5,11 +5,11 @@ import { useTranslations } from 'next-intl';
 import { Trash2, Plus } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
-import { CHOICE_COLORS, type FieldT, type FieldType, type SelectChoice } from '../lib/types';
+import { CHOICE_COLORS, type FieldT, type FieldType, type SelectChoice, type OrgTable } from '../lib/types';
 
-const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone', 'file', 'totp'];
+const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone', 'file', 'totp', 'link'];
 
-type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number };
+type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number; targetTableId?: string; displayFieldId?: string };
 
 function defaultsFor(type: FieldType, prev: Opts): Opts {
   switch (type) {
@@ -28,6 +28,8 @@ function defaultsFor(type: FieldType, prev: Opts): Opts {
       return { includeTime: prev.includeTime ?? false };
     case 'person':
       return { multiple: prev.multiple ?? false };
+    case 'link':
+      return { targetTableId: prev.targetTableId ?? '', displayFieldId: prev.displayFieldId, multiple: prev.multiple ?? true };
     default:
       return {};
   }
@@ -55,6 +57,8 @@ export function FieldEditor({
   const [name, setName] = useState('');
   const [type, setType] = useState<FieldType>('text');
   const [opts, setOpts] = useState<Opts>({});
+  const [tables, setTables] = useState<OrgTable[]>([]);
+  const [targetFields, setTargetFields] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -63,6 +67,22 @@ export function FieldEditor({
       setOpts((initial?.options as Opts) ?? {});
     }
   }, [open, initial]);
+
+  // Link field: load the org's tables (for the target picker) + the chosen target's fields.
+  useEffect(() => {
+    if (open && type === 'link' && tables.length === 0) {
+      fetch('/api/tables').then((r) => (r.ok ? r.json() : [])).then(setTables).catch(() => {});
+    }
+  }, [open, type, tables.length]);
+
+  useEffect(() => {
+    const tid = opts.targetTableId;
+    if (type !== 'link' || !tid) { setTargetFields([]); return; }
+    fetch(`/api/tables/${tid}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setTargetFields(Array.isArray(d?.fields) ? d.fields.map((f: { id: string; name: string }) => ({ id: f.id, name: f.name })) : []))
+      .catch(() => setTargetFields([]));
+  }, [type, opts.targetTableId]);
 
   const changeType = (ty: FieldType) => {
     setType(ty);
@@ -83,6 +103,7 @@ export function FieldEditor({
     else if (type === 'rating') draft.options = { max: opts.max ?? 5 };
     else if (type === 'date') draft.options = { includeTime: !!opts.includeTime };
     else if (type === 'person') draft.options = { multiple: !!opts.multiple };
+    else if (type === 'link') draft.options = { targetTableId: opts.targetTableId || '', displayFieldId: opts.displayFieldId, multiple: !!opts.multiple };
     onSave(draft);
     onClose();
   };
@@ -168,6 +189,35 @@ export function FieldEditor({
         </div>
       )}
 
+      {type === 'link' && (
+        <div style={{ marginBottom: 14 }}>
+          <label className="field-label">{t('linkTable')}</label>
+          <Select
+            value={opts.targetTableId ?? ''}
+            onChange={(v) => setOpts((p) => ({ ...p, targetTableId: v, displayFieldId: undefined }))}
+            options={tables.map((tb) => ({ value: tb.id, label: `${tb.baseName} · ${tb.name}` }))}
+            placeholder={t('linkPickTable')}
+            style={{ width: '100%', marginBottom: 10 }}
+          />
+          {opts.targetTableId && (
+            <>
+              <label className="field-label">{t('linkDisplayField')}</label>
+              <Select
+                value={opts.displayFieldId ?? ''}
+                onChange={(v) => setOpts((p) => ({ ...p, displayFieldId: v || undefined }))}
+                options={targetFields.map((f) => ({ value: f.id, label: f.name }))}
+                placeholder={t('linkDisplayDefault')}
+                style={{ width: '100%', marginBottom: 10 }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={!!opts.multiple} onChange={(e) => setOpts((p) => ({ ...p, multiple: e.target.checked }))} />
+                {t('multipleRecords')}
+              </label>
+            </>
+          )}
+        </div>
+      )}
+
       {type === 'percent' && (
         <div style={{ marginBottom: 14 }}>
           <label className="field-label">{t('precision')}</label>
@@ -214,7 +264,7 @@ export function FieldEditor({
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
         <button className="btn btn-ghost" onClick={onClose}>{tc('cancel')}</button>
-        <button className="btn btn-primary" onClick={save} disabled={!name.trim()}>{tc('save')}</button>
+        <button className="btn btn-primary" onClick={save} disabled={!name.trim() || (type === 'link' && !opts.targetTableId)}>{tc('save')}</button>
       </div>
     </Modal>
   );

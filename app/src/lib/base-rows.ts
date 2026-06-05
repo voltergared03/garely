@@ -88,6 +88,15 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
       const secret = normalizeTotpSecret(value);
       return secret ? (totpCellFromSecret(secret) as unknown as Prisma.InputJsonValue) : undefined;
     }
+    case 'link': {
+      // Cell stores an array of target ROW ids; labels are resolved server-side on read.
+      const multiple = !!(field.options as any)?.multiple;
+      const arr = (Array.isArray(value) ? value : [value]).filter(
+        (v): v is string => typeof v === 'string' && v.length > 0,
+      );
+      const capped = multiple ? arr.slice(0, 50) : arr.slice(0, 1);
+      return capped.length ? (capped as unknown as Prisma.InputJsonValue) : undefined;
+    }
     case 'date': {
       const d = new Date(value as string | number);
       return isNaN(d.getTime()) ? undefined : d.toISOString();

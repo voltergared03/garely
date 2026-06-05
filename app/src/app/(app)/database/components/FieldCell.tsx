@@ -7,6 +7,7 @@ import type { FieldT, OrgMember, SelectChoice } from '../lib/types';
 import { PersonPicker } from './PersonPicker';
 import { FileCell } from './FileCell';
 import { TotpCell } from './TotpCell';
+import { RelationCell } from './RelationCell';
 
 const cellInput: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -128,6 +129,8 @@ export function FieldCell({
       return <FileCell value={value} baseId={baseId} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
     case 'totp':
       return <TotpCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
+    case 'link':
+      return <RelationCell value={value} field={field} onCommit={onCommit} />;
     default:
       return null;
   }

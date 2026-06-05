@@ -75,6 +75,14 @@ describe('coerceCell', () => {
     expect(coerceCell(tot, '')).toBeUndefined();
     expect(coerceCell(tot, 'short')).toBeUndefined();
   });
+  it('link: array of target ids; single caps to 1, multiple keeps the set', () => {
+    const single: FieldLike = { id: 'l', type: 'link', options: { targetTableId: 't', multiple: false } as never };
+    const multi: FieldLike = { id: 'l', type: 'link', options: { targetTableId: 't', multiple: true } as never };
+    expect(coerceCell(single, ['r1', 'r2'])).toEqual(['r1']);
+    expect(coerceCell(multi, ['r1', 'r2', 5, ''])).toEqual(['r1', 'r2']);
+    expect(coerceCell(multi, [])).toBeUndefined();
+    expect(coerceCell(single, 'r9')).toEqual(['r9']);
+  });
 });
 
 describe('presentRowData', () => {

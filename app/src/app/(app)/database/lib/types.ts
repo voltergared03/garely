@@ -16,7 +16,8 @@ export type FieldType =
   | 'email'
   | 'phone'
   | 'file'
-  | 'totp';
+  | 'totp'
+  | 'link';
 
 export interface FileRef {
   id: string;
@@ -32,6 +33,20 @@ export interface TotpView {
   code?: string;
   period?: number;
   remainingSec?: number;
+}
+
+/** A resolved link in a `link` cell: target row id + its display-field label. */
+export interface LinkRef {
+  id: string;
+  label: string;
+}
+
+/** A table in the org (for the link-field target picker). */
+export interface OrgTable {
+  id: string;
+  name: string;
+  baseId: string;
+  baseName: string;
 }
 
 export interface SelectChoice {
@@ -52,6 +67,8 @@ export interface FieldT {
     multiple?: boolean;
     symbol?: string;
     max?: number;
+    targetTableId?: string;
+    displayFieldId?: string;
   } | null;
   position: number;
   width?: number | null;

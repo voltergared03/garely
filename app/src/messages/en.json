@@ -134,6 +134,13 @@
     "totpCopy": "Copy code",
     "totpReplaceKey": "Replace key",
     "resizeColumn": "Resize column",
+    "linkTable": "Linked table",
+    "linkPickTable": "Pick a table",
+    "linkDisplayField": "Field to show",
+    "linkDisplayDefault": "Primary field (default)",
+    "multipleRecords": "Allow multiple records",
+    "linkSearch": "Search records",
+    "linkNoRecords": "No records",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",
@@ -150,7 +157,8 @@
       "email": "Email",
       "phone": "Phone",
       "file": "Attachment",
-      "totp": "2FA code"
+      "totp": "2FA code",
+      "link": "Link to table"
     }
   },
   "sidebar": {

@@ -14,6 +14,7 @@ import {
   type FilterCond,
   type SortCond,
 } from '@/lib/base-rows';
+import { enrichLinks } from '@/lib/base-links';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,9 +46,10 @@ export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => 
   rows = rows.filter((row) => rowMatchesFilters(row.data, fieldLikes, cfg.filters));
   rows = sortRows(rows, fieldLikes, cfg.sorts);
   const total = rows.length;
-  const page = rows
+  const presented = rows
     .slice(offset, offset + limit)
     .map((row) => ({ ...row, data: presentRowData(stripHidden(row.data, perm.hiddenFields), fieldLikes) }));
+  const page = await enrichLinks(presented, fieldLikes, r.orgId, r.session);
   return NextResponse.json({ rows: page, total, limit, offset });
 });
 
@@ -70,5 +72,6 @@ export const POST = withRoute('rows.create', async (req: NextRequest, ctx: Ctx) 
   const rowData = coerceRowData(fields, input);
   const count = await prisma.row.count({ where: { tableId } });
   const row = await prisma.row.create({ data: { tableId, data: rowData, createdById: r.session.user.id, position: count } });
-  return NextResponse.json({ ...row, data: presentRowData((row.data ?? {}) as Record<string, unknown>, fields) }, { status: 201 });
+  const [enriched] = await enrichLinks([{ ...row, data: presentRowData((row.data ?? {}) as Record<string, unknown>, fields) }], fields, r.orgId, r.session);
+  return NextResponse.json(enriched, { status: 201 });
 });

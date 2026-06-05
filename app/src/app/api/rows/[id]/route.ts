@@ -7,6 +7,7 @@ import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
 import { rowForOrg, basePermission, atLeast, gate, stripHidden } from '@/lib/base-engine';
 import { mergeRowData, presentRowData } from '@/lib/base-rows';
+import { enrichLinks } from '@/lib/base-links';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,7 +38,8 @@ export const PATCH = withRoute('rows.update', async (req: NextRequest, ctx: Ctx)
     fieldsToSet.data = mergeRowData(fields, (row.data ?? {}) as Record<string, unknown>, patch);
   }
   const updated = await prisma.row.update({ where: { id }, data: fieldsToSet });
-  return NextResponse.json({ ...updated, data: presentRowData((updated.data ?? {}) as Record<string, unknown>, fields) });
+  const [enriched] = await enrichLinks([{ ...updated, data: presentRowData((updated.data ?? {}) as Record<string, unknown>, fields) }], fields, r.orgId, r.session);
+  return NextResponse.json(enriched);
 });
 
 // DELETE — editor+.

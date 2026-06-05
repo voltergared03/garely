@@ -32,6 +32,7 @@ export const fieldTypeSchema = z.enum([
   'phone',
   'file',
   'totp',
+  'link',
 ]);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 export const FIELD_TYPES = fieldTypeSchema.options;
@@ -84,8 +85,16 @@ export function normalizeFieldOptions(
       return { includeTime: !!o.includeTime };
     case 'person':
       return { multiple: !!o.multiple };
+    case 'link': {
+      const out: Record<string, unknown> = {
+        targetTableId: typeof o.targetTableId === 'string' ? o.targetTableId : '',
+        multiple: !!o.multiple,
+      };
+      if (typeof o.displayFieldId === 'string' && o.displayFieldId) out.displayFieldId = o.displayFieldId;
+      return out as Prisma.InputJsonValue;
+    }
     default:
-      return undefined; // text | longText | checkbox | url | email | phone have no options
+      return undefined; // text | longText | checkbox | url | email | phone | totp have no options
   }
 }
 
