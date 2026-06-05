@@ -181,6 +181,8 @@
     "passwordCopy": "Copy password",
     "passwordReplace": "Replace password",
     "resizeColumn": "Resize column",
+    "dragRow": "Drag to reorder",
+    "dragColumn": "Drag to reorder column",
     "linkTable": "Linked table",
     "linkPickTable": "Pick a table",
     "linkDisplayField": "Field to show",

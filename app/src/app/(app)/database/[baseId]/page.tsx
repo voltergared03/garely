@@ -173,6 +173,17 @@ export default function BaseDetailPage() {
   async function deleteField(fieldId: string) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.filter((f) => f.id !== fieldId) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'DELETE' }); reloadSchema(); }
   async function setPrimary(fieldId: string) { if (!activeTableId) return; setTable((t0) => (t0 ? { ...t0, primaryFieldId: fieldId } : t0)); await fetch(`/api/tables/${activeTableId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ primaryFieldId: fieldId }) }); }
   async function resizeField(fieldId: string, width: number) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.map((f) => (f.id === fieldId ? { ...f, width } : f)) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ width }) }); }
+  async function reorderFields(orderedIds: string[]) {
+    if (!activeTableId) return;
+    const rank = new Map(orderedIds.map((id, i) => [id, i]));
+    setTable((t0) => (t0 ? { ...t0, fields: t0.fields.map((f) => (rank.has(f.id) ? { ...f, position: rank.get(f.id)! } : f)) } : t0));
+    await fetch(`/api/tables/${activeTableId}/fields/reorder`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ order: orderedIds }) });
+  }
+  async function reorderRows(orderedIds: string[]) {
+    if (!activeTableId) return;
+    setRows((rs) => { const by = new Map(rs.map((r) => [r.id, r])); return orderedIds.map((id) => by.get(id)).filter((r): r is RowT => !!r); });
+    await fetch(`/api/tables/${activeTableId}/rows/reorder`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ order: orderedIds }) });
+  }
   async function patchViewConfig(patch: Partial<ViewConfig>, reload = false) {
     if (!table || !activeTableId) return;
     const view = table.views.find((v) => v.id === activeViewId) ?? table.views[0];
@@ -326,7 +337,7 @@ export default function BaseDetailPage() {
           ) : activeView.type === 'calendar' ? (
             <CalendarView table={table} rows={rows} members={members} dateFieldId={activeView.config?.calendarDateFieldId} onSetDateField={(fid) => patchViewConfig({ calendarDateFieldId: fid })} onAddRow={addRow} onOpenRecord={setDetailRowId} />
           ) : (
-            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} />
+            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} onReorderFields={reorderFields} onReorderRows={reorderRows} canReorderRows={!(activeView.config?.sorts?.length)} />
           )}
         </>
       )}

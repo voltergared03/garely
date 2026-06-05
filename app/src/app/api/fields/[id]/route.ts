@@ -5,7 +5,7 @@ import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
 import { fieldForOrg, gate, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
-import { unpairReverseLink } from '@/lib/base-link-sync';
+import { ensureReverseLink, unpairReverseLink } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -47,7 +47,17 @@ export const PATCH = withRoute('fields.update', async (req: NextRequest, ctx: Ct
     const opts = normalizeFieldOptions(nextType, raw);
     if (opts !== undefined) data.options = opts;
   }
-  const updated = await prisma.field.update({ where: { id }, data });
+  let updated = await prisma.field.update({ where: { id }, data });
+  // Changing a field TO link (or setting its target later) should pair it two-way,
+  // same as creating a link field — adopt a reciprocal field or create the reverse.
+  if (updated.type === 'link' && !(updated.options as { reverseFieldId?: string } | null)?.reverseFieldId) {
+    const src = await prisma.table.findUnique({ where: { id: updated.tableId }, select: { name: true, primaryFieldId: true } });
+    if (src) {
+      await ensureReverseLink({ id: updated.id, tableId: updated.tableId, options: updated.options }, src);
+      const refreshed = await prisma.field.findUnique({ where: { id: updated.id } });
+      if (refreshed) updated = refreshed;
+    }
+  }
   return NextResponse.json(updated);
 });
 
