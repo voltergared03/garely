@@ -95,6 +95,7 @@ export function normalizeFieldOptions(
         multiple: !!o.multiple,
       };
       if (typeof o.displayFieldId === 'string' && o.displayFieldId) out.displayFieldId = o.displayFieldId;
+      if (typeof o.reverseFieldId === 'string' && o.reverseFieldId) out.reverseFieldId = o.reverseFieldId;
       return out as Prisma.InputJsonValue;
     }
     default:

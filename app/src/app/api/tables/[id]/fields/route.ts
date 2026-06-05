@@ -5,6 +5,7 @@ import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
 import { tableForOrg, gate, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
+import { ensureReverseLink } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -30,5 +31,14 @@ export const POST = withRoute('fields.create', async (req: NextRequest, ctx: Ctx
   const field = await prisma.field.create({
     data: { tableId, name: parsed.data.name, type: parsed.data.type, options: normalizeFieldOptions(parsed.data.type, parsed.data.options), position: count },
   });
+  // Two-way links: pair with (or create) a reverse link field in the target table.
+  if (field.type === 'link') {
+    const src = await prisma.table.findUnique({ where: { id: tableId }, select: { name: true, primaryFieldId: true } });
+    if (src) {
+      await ensureReverseLink({ id: field.id, tableId, options: field.options }, src);
+      const refreshed = await prisma.field.findUnique({ where: { id: field.id } });
+      if (refreshed) return NextResponse.json(refreshed, { status: 201 });
+    }
+  }
   return NextResponse.json(field, { status: 201 });
 });

@@ -75,6 +75,7 @@ export interface FieldT {
     max?: number;
     targetTableId?: string;
     displayFieldId?: string;
+    reverseFieldId?: string;
     reminderDays?: number | null;
   } | null;
   position: number;

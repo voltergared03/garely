@@ -15,6 +15,7 @@ import {
   type SortCond,
 } from '@/lib/base-rows';
 import { enrichLinks } from '@/lib/base-links';
+import { syncRowReverseLinks } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -72,6 +73,7 @@ export const POST = withRoute('rows.create', async (req: NextRequest, ctx: Ctx) 
   const rowData = coerceRowData(fields, input);
   const count = await prisma.row.count({ where: { tableId } });
   const row = await prisma.row.create({ data: { tableId, data: rowData, createdById: r.session.user.id, position: count } });
+  await syncRowReverseLinks(fields, row.id, {}, (row.data ?? {}) as Record<string, unknown>);
   const [enriched] = await enrichLinks([{ ...row, data: presentRowData((row.data ?? {}) as Record<string, unknown>, fields) }], fields, r.orgId, r.session);
   return NextResponse.json(enriched, { status: 201 });
 });

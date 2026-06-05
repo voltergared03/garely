@@ -5,6 +5,7 @@ import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
 import { fieldForOrg, gate, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
+import { unpairReverseLink } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,7 +38,13 @@ export const PATCH = withRoute('fields.update', async (req: NextRequest, ctx: Ct
   if (parsed.data.position !== undefined) data.position = parsed.data.position;
   if (parsed.data.width !== undefined) data.width = parsed.data.width;
   if (parsed.data.options !== undefined || parsed.data.type !== undefined) {
-    const opts = normalizeFieldOptions(nextType, parsed.data.options ?? field.options);
+    let raw = parsed.data.options ?? field.options;
+    // Keep the two-way pairing: client option edits don't carry reverseFieldId.
+    if (nextType === 'link' && raw && typeof raw === 'object') {
+      const existingReverse = (field.options as { reverseFieldId?: string } | null)?.reverseFieldId;
+      if (existingReverse && !(raw as { reverseFieldId?: string }).reverseFieldId) raw = { ...(raw as object), reverseFieldId: existingReverse };
+    }
+    const opts = normalizeFieldOptions(nextType, raw);
     if (opts !== undefined) data.options = opts;
   }
   const updated = await prisma.field.update({ where: { id }, data });
@@ -54,6 +61,7 @@ export const DELETE = withRoute('fields.delete', async (_req: NextRequest, ctx: 
   const g = await gate(field.table.base, r.orgId, r.session, 'editor');
   if (g) return g;
 
+  await unpairReverseLink({ id: field.id, type: field.type, options: field.options });
   await prisma.$transaction(async (tx) => {
     if (field.table.primaryFieldId === id) {
       const next = await tx.field.findFirst({

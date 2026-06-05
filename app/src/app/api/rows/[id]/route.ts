@@ -8,6 +8,7 @@ import { jsonError, jsonOk } from '@/lib/http';
 import { rowForOrg, basePermission, atLeast, gate, stripHidden } from '@/lib/base-engine';
 import { mergeRowData, presentRowData } from '@/lib/base-rows';
 import { enrichLinks } from '@/lib/base-links';
+import { syncRowReverseLinks } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -38,6 +39,9 @@ export const PATCH = withRoute('rows.update', async (req: NextRequest, ctx: Ctx)
     fieldsToSet.data = mergeRowData(fields, (row.data ?? {}) as Record<string, unknown>, patch);
   }
   const updated = await prisma.row.update({ where: { id }, data: fieldsToSet });
+  if (parsed.data.data !== undefined) {
+    await syncRowReverseLinks(fields, id, (row.data ?? {}) as Record<string, unknown>, (updated.data ?? {}) as Record<string, unknown>);
+  }
   const [enriched] = await enrichLinks([{ ...updated, data: presentRowData((updated.data ?? {}) as Record<string, unknown>, fields) }], fields, r.orgId, r.session);
   return NextResponse.json(enriched);
 });
@@ -51,6 +55,8 @@ export const DELETE = withRoute('rows.delete', async (_req: NextRequest, ctx: Ct
   if (!row) return jsonError('not_found', 404);
   const g = await gate(row.table.base, r.orgId, r.session, 'editor');
   if (g) return g;
+  const fields = await prisma.field.findMany({ where: { tableId: row.tableId }, select: { id: true, type: true, options: true } });
+  await syncRowReverseLinks(fields, id, (row.data ?? {}) as Record<string, unknown>, {});
   await prisma.row.delete({ where: { id } });
   return jsonOk();
 });
