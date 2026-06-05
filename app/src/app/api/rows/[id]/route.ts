@@ -6,7 +6,7 @@ import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
 import { rowForOrg, basePermission, atLeast, gate, stripHidden } from '@/lib/base-engine';
-import { mergeRowData } from '@/lib/base-rows';
+import { mergeRowData, presentRowData } from '@/lib/base-rows';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -29,15 +29,15 @@ export const PATCH = withRoute('rows.update', async (req: NextRequest, ctx: Ctx)
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
 
+  const fields = await prisma.field.findMany({ where: { tableId: row.tableId }, select: { id: true, type: true, options: true } });
   const fieldsToSet: Prisma.RowUpdateInput = {};
   if (parsed.data.position !== undefined) fieldsToSet.position = parsed.data.position;
   if (parsed.data.data !== undefined) {
-    const fields = await prisma.field.findMany({ where: { tableId: row.tableId }, select: { id: true, type: true, options: true } });
     const patch = stripHidden(parsed.data.data as Record<string, unknown>, perm.hiddenFields);
     fieldsToSet.data = mergeRowData(fields, (row.data ?? {}) as Record<string, unknown>, patch);
   }
   const updated = await prisma.row.update({ where: { id }, data: fieldsToSet });
-  return NextResponse.json(updated);
+  return NextResponse.json({ ...updated, data: presentRowData((updated.data ?? {}) as Record<string, unknown>, fields) });
 });
 
 // DELETE — editor+.

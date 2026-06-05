@@ -15,7 +15,8 @@ export type FieldType =
   | 'url'
   | 'email'
   | 'phone'
-  | 'file';
+  | 'file'
+  | 'totp';
 
 export interface FileRef {
   id: string;
@@ -23,6 +24,14 @@ export interface FileRef {
   path: string;
   mime?: string | null;
   size?: number | null;
+}
+
+/** Client-safe view of a `totp` cell — the live code + countdown, never the secret. */
+export interface TotpView {
+  set: boolean;
+  code?: string;
+  period?: number;
+  remainingSec?: number;
 }
 
 export interface SelectChoice {

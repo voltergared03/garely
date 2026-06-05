@@ -6,6 +6,7 @@ import { Check, ChevronDown, ExternalLink, Mail, Phone, Star } from 'lucide-reac
 import type { FieldT, OrgMember, SelectChoice } from '../lib/types';
 import { PersonPicker } from './PersonPicker';
 import { FileCell } from './FileCell';
+import { TotpCell } from './TotpCell';
 
 const cellInput: CSSProperties = {
   width: '100%', height: '100%', border: 'none', background: 'transparent',
@@ -125,6 +126,8 @@ export function FieldCell({
       return <LinkCell kind={field.type} value={value} onCommit={onCommit} />;
     case 'file':
       return <FileCell value={value} baseId={baseId} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
+    case 'totp':
+      return <TotpCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
     default:
       return null;
   }

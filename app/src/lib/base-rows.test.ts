@@ -5,6 +5,7 @@ import {
   mergeRowData,
   rowMatchesFilters,
   sortRows,
+  presentRowData,
   type FieldLike,
 } from '@/lib/base-rows';
 
@@ -65,6 +66,35 @@ describe('coerceCell', () => {
   it('url/email/phone: trim non-empty strings', () => {
     expect(coerceCell({ id: 'u', type: 'url', options: null }, '  example.com ')).toBe('example.com');
     expect(coerceCell({ id: 'e', type: 'email', options: null }, '')).toBeUndefined();
+  });
+  it('totp: stores an ENCRYPTED secret (never plaintext); clears/rejects junk', () => {
+    const tot: FieldLike = { id: 'tot', type: 'totp', options: null };
+    const out = coerceCell(tot, 'JBSWY3DPEHPK3PXP') as { enc?: string };
+    expect(typeof out.enc).toBe('string');
+    expect(JSON.stringify(out)).not.toContain('JBSWY3DPEHPK3PXP');
+    expect(coerceCell(tot, '')).toBeUndefined();
+    expect(coerceCell(tot, 'short')).toBeUndefined();
+  });
+});
+
+describe('presentRowData', () => {
+  it('replaces a totp cell with a live code view, leaking no secret', () => {
+    const fields: FieldLike[] = [
+      { id: 'tot', type: 'totp', options: null },
+      { id: 'txt', type: 'text', options: null },
+    ];
+    const stored = coerceRowData(fields, { tot: 'JBSWY3DPEHPK3PXP', txt: 'hi' });
+    const view = presentRowData(stored, fields);
+    expect((view.tot as { set: boolean }).set).toBe(true);
+    expect((view.tot as { code: string }).code).toMatch(/^\d{6}$/);
+    expect((view.tot as { enc?: string }).enc).toBeUndefined();
+    expect(JSON.stringify(view)).not.toContain('JBSWY3DPEHPK3PXP');
+    expect(view.txt).toBe('hi'); // non-totp cells untouched
+  });
+  it('is a no-op when there are no totp fields', () => {
+    const fields: FieldLike[] = [{ id: 'txt', type: 'text', options: null }];
+    const data = { txt: 'x' };
+    expect(presentRowData(data, fields)).toBe(data);
   });
 });
 

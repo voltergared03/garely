@@ -130,6 +130,9 @@
     "download": "Завантажити",
     "fileTooLarge": "Файл завеликий (макс. 25 МБ)",
     "openRecord": "Відкрити запис",
+    "totpPlaceholder": "Вставте секретний ключ",
+    "totpCopy": "Копіювати код",
+    "totpReplaceKey": "Замінити ключ",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",
@@ -145,7 +148,8 @@
       "url": "Посилання",
       "email": "Email",
       "phone": "Телефон",
-      "file": "Вкладення"
+      "file": "Вкладення",
+      "totp": "2FA-код"
     }
   },
   "sidebar": {

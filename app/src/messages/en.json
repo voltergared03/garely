@@ -130,6 +130,9 @@
     "download": "Download",
     "fileTooLarge": "File too large (max 25 MB)",
     "openRecord": "Open record",
+    "totpPlaceholder": "Paste secret key",
+    "totpCopy": "Copy code",
+    "totpReplaceKey": "Replace key",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",
@@ -145,7 +148,8 @@
       "url": "URL",
       "email": "Email",
       "phone": "Phone",
-      "file": "Attachment"
+      "file": "Attachment",
+      "totp": "2FA code"
     }
   },
   "sidebar": {

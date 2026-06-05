@@ -49,7 +49,7 @@ describe('normalizeFieldOptions', () => {
     expect([...FIELD_TYPES]).toEqual([
       'text', 'longText', 'number', 'currency', 'percent', 'rating',
       'singleSelect', 'multiSelect', 'date', 'person', 'checkbox',
-      'url', 'email', 'phone', 'file',
+      'url', 'email', 'phone', 'file', 'totp',
     ]);
   });
 

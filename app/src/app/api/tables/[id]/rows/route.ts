@@ -9,6 +9,7 @@ import {
   coerceRowData,
   rowMatchesFilters,
   sortRows,
+  presentRowData,
   type FieldLike,
   type FilterCond,
   type SortCond,
@@ -46,7 +47,7 @@ export const GET = withRoute('rows.list', async (req: NextRequest, ctx: Ctx) => 
   const total = rows.length;
   const page = rows
     .slice(offset, offset + limit)
-    .map((row) => ({ ...row, data: stripHidden(row.data, perm.hiddenFields) }));
+    .map((row) => ({ ...row, data: presentRowData(stripHidden(row.data, perm.hiddenFields), fieldLikes) }));
   return NextResponse.json({ rows: page, total, limit, offset });
 });
 
@@ -69,5 +70,5 @@ export const POST = withRoute('rows.create', async (req: NextRequest, ctx: Ctx) 
   const rowData = coerceRowData(fields, input);
   const count = await prisma.row.count({ where: { tableId } });
   const row = await prisma.row.create({ data: { tableId, data: rowData, createdById: r.session.user.id, position: count } });
-  return NextResponse.json(row, { status: 201 });
+  return NextResponse.json({ ...row, data: presentRowData((row.data ?? {}) as Record<string, unknown>, fields) }, { status: 201 });
 });

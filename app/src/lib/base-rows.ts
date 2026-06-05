@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import type { FieldType } from './base-engine';
+import { normalizeTotpSecret, totpCellFromSecret, totpCellView } from './base-totp';
 
 /**
  * Base engine — Row data layer (Phase 2, roadmap §14).
@@ -81,6 +82,12 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
         }));
       return valid.length ? (valid as unknown as Prisma.InputJsonValue) : undefined;
     }
+    case 'totp': {
+      // Incoming value is a freshly pasted base32 secret; store it ENCRYPTED.
+      // (Reads never return the secret, so the client never round-trips it.)
+      const secret = normalizeTotpSecret(value);
+      return secret ? (totpCellFromSecret(secret) as unknown as Prisma.InputJsonValue) : undefined;
+    }
     case 'date': {
       const d = new Date(value as string | number);
       return isNaN(d.getTime()) ? undefined : d.toISOString();
@@ -106,6 +113,21 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
     default:
       return undefined;
   }
+}
+
+/**
+ * Transform stored row data into a CLIENT-SAFE shape before it leaves the server.
+ * Currently: replaces each `totp` cell's encrypted secret with the live code +
+ * countdown (never the secret). Apply on EVERY path that returns row.data.
+ */
+export function presentRowData(data: RowData, fields: FieldLike[]): RowData {
+  const totpIds = fields.filter((f) => f.type === 'totp').map((f) => f.id);
+  if (totpIds.length === 0) return data;
+  const out: RowData = { ...data };
+  for (const fid of totpIds) {
+    if (fid in out) out[fid] = totpCellView(out[fid]) as unknown as RowData[string];
+  }
+  return out;
 }
 
 /** Coerce a whole incoming data object: drop unknown field keys, validate each. */

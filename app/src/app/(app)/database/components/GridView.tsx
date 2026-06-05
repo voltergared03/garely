@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import {
   Plus, Trash2, MoreHorizontal, Pencil, Type, AlignLeft, Hash, List, Tags,
-  Calendar, User, CheckSquare, Star, Banknote, Percent, Link2, AtSign, Phone, Paperclip, Maximize2,
+  Calendar, User, CheckSquare, Star, Banknote, Percent, Link2, AtSign, Phone, Paperclip, Maximize2, KeyRound,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { FieldCell } from './FieldCell';
@@ -16,7 +16,7 @@ const TYPE_ICONS: Record<FieldType, ElementType> = {
   text: Type, longText: AlignLeft, number: Hash, singleSelect: List,
   multiSelect: Tags, date: Calendar, person: User, checkbox: CheckSquare,
   currency: Banknote, percent: Percent, rating: Star,
-  url: Link2, email: AtSign, phone: Phone, file: Paperclip,
+  url: Link2, email: AtSign, phone: Phone, file: Paperclip, totp: KeyRound,
 };
 
 export function GridView({
