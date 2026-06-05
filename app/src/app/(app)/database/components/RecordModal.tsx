@@ -4,18 +4,20 @@ import { useTranslations } from 'next-intl';
 import { Star, Type } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { FieldCell } from './FieldCell';
+import { RecordComments } from './RecordComments';
 import { TYPE_ICONS } from './field-icons';
 import type { TableT, RowT, OrgMember } from '../lib/types';
 
 /** Expanded single-record view — every field stacked with its editor (the same
  *  FieldCell as the grid, so edits persist through the same onCellChange path).
  *  Shared by GridView, KanbanView and CalendarView. */
-export function RecordModal({ table, row, members, onCellChange, onClose }: {
+export function RecordModal({ table, row, members, onCellChange, onClose, initialFocus }: {
   table: TableT;
   row: RowT;
   members: OrgMember[];
   onCellChange: (rowId: string, fieldId: string, value: unknown) => void;
   onClose: () => void;
+  initialFocus?: 'comments';
 }) {
   const t = useTranslations('database');
   const fields = [...table.fields].sort((a, b) => a.position - b.position);
@@ -48,6 +50,7 @@ export function RecordModal({ table, row, members, onCellChange, onClose }: {
             </div>
           );
         })}
+        <RecordComments rowId={row.id} autoFocus={initialFocus === 'comments'} />
       </div>
     </Modal>
   );

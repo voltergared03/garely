@@ -3,12 +3,15 @@
 import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
-import { Plus, Trash2, MoreHorizontal, Pencil, Star, Type, Maximize2, GripVertical } from 'lucide-react';
+import { Plus, Trash2, MoreHorizontal, Pencil, Star, Type, Maximize2, GripVertical, Check, Minus, CopyPlus, X } from 'lucide-react';
 import { FieldCell } from './FieldCell';
 import { FieldEditor } from './FieldEditor';
 import { RecordModal } from './RecordModal';
+import { RowContextMenu } from './RowContextMenu';
 import { TYPE_ICONS } from './field-icons';
 import type { TableT, RowT, OrgMember, FieldT, FieldType } from '../lib/types';
+
+const GUTTER = 60; // row-number / drag / checkbox column width
 
 /** Move `dragId` to before/after `overId` within `ids`. Returns the new order, or null if it's a no-op. */
 function moveWithin(ids: string[], dragId: string, overId: string, after: boolean): string[] | null {
@@ -37,6 +40,10 @@ export function GridView({
   onReorderFields,
   onReorderRows,
   canReorderRows = true,
+  onInsertRow,
+  onDuplicateRows,
+  onBulkDelete,
+  onCopyRowLink,
 }: {
   table: TableT;
   rows: RowT[];
@@ -53,22 +60,41 @@ export function GridView({
   onReorderRows?: (orderedIds: string[]) => void;
   /** Manual row drag is disabled while a view sort is active (sort overrides position). */
   canReorderRows?: boolean;
+  onInsertRow?: (anchorId: string, position: 'above' | 'below', count: number) => void;
+  onDuplicateRows?: (ids: string[]) => void;
+  onBulkDelete?: (ids: string[]) => void;
+  onCopyRowLink?: (rowId: string) => void;
 }) {
   const t = useTranslations('database');
   const [editor, setEditor] = useState<{ field: FieldT | null } | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{ id: string; focus?: 'comments' } | null>(null);
   const [widths, setWidths] = useState<Record<string, number>>({}); // in-session drag overrides
   // Drag-to-reorder state
   const [dragField, setDragField] = useState<string | null>(null);
   const [overField, setOverField] = useState<{ id: string; after: boolean } | null>(null);
   const [dragRow, setDragRow] = useState<string | null>(null);
   const [overRow, setOverRow] = useState<{ id: string; after: boolean } | null>(null);
+  // Multi-select + context menu
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [headerHover, setHeaderHover] = useState(false);
+  const [ctx, setCtx] = useState<{ rowId: string; x: number; y: number } | null>(null);
+
+  // Reset selection when the table changes.
+  useEffect(() => { setSelected(new Set()); }, [table.id]);
 
   const fields = [...table.fields].sort((a, b) => a.position - b.position);
   const widthOf = (f: FieldT) => widths[f.id] ?? f.width ?? (f.id === table.primaryFieldId ? 240 : 180);
-  const template = `48px ${fields.map((f) => `${widthOf(f)}px`).join(' ')} 160px`;
-  const detailRow = detailId ? rows.find((r) => r.id === detailId) ?? null : null;
+  const template = `${GUTTER}px ${fields.map((f) => `${widthOf(f)}px`).join(' ')} 160px`;
+  const detailRow = detail ? rows.find((r) => r.id === detail.id) ?? null : null;
   const rowsDraggable = canReorderRows && !!onReorderRows && rows.length > 1;
+  const anySelected = selected.size > 0;
+  const allSelected = rows.length > 0 && selected.size === rows.length;
+
+  const toggleRow = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)));
+  const clearSelection = () => setSelected(new Set());
+  // Right-clicking a selected row targets the whole selection; otherwise just that row.
+  const targetIds = (rowId: string) => (selected.has(rowId) && selected.size > 0 ? Array.from(selected) : [rowId]);
 
   const headerCell: CSSProperties = {
     background: 'var(--surface)',
@@ -98,12 +124,23 @@ export function GridView({
     setOverRow(null);
   };
 
+  const bulkDelete = () => { if (onBulkDelete && selected.size) { onBulkDelete(Array.from(selected)); clearSelection(); } };
+  const bulkDuplicate = () => { if (onDuplicateRows && selected.size) { onDuplicateRows(Array.from(selected)); clearSelection(); } };
+
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ overflow: 'auto', maxHeight: '74vh' }}>
       <div style={{ minWidth: 'max-content' }}>
         <div style={{ display: 'grid', gridTemplateColumns: template, position: 'sticky', top: 0, zIndex: 2 }}>
-          <div style={{ ...headerCell, justifyContent: 'center', color: 'var(--muted)', position: 'sticky', left: 0, zIndex: 3 }}>#</div>
+          <div
+            style={{ ...headerCell, justifyContent: 'center', color: 'var(--muted)', position: 'sticky', left: 0, zIndex: 3 }}
+            onMouseEnter={() => setHeaderHover(true)}
+            onMouseLeave={() => setHeaderHover(false)}
+          >
+            {headerHover || anySelected
+              ? <Checkbox checked={allSelected} indeterminate={anySelected && !allSelected} onToggle={toggleAll} ariaLabel={t('selectAll')} />
+              : <span>#</span>}
+          </div>
           {fields.map((f, ci) => (
             <FieldHeaderCell
               key={f.id}
@@ -112,7 +149,7 @@ export function GridView({
               style={headerCell}
               width={widthOf(f)}
               frozen={ci === 0}
-              leftOffset={48}
+              leftOffset={GUTTER}
               onEdit={() => setEditor({ field: f })}
               onDelete={() => onDeleteField(f.id)}
               onSetPrimary={() => onSetPrimary(f.id)}
@@ -153,11 +190,13 @@ export function GridView({
 
         {rows.map((row, ri) => {
           const isOver = dragRow && dragRow !== row.id && overRow?.id === row.id;
+          const isSelected = selected.has(row.id);
           return (
           <div
             key={row.id}
             className="db-grid-row"
-            style={{ display: 'grid', gridTemplateColumns: template, position: 'relative', opacity: dragRow === row.id ? 0.4 : 1 }}
+            style={{ display: 'grid', gridTemplateColumns: template, position: 'relative', opacity: dragRow === row.id ? 0.4 : 1, background: isSelected ? 'color-mix(in oklab, var(--accent) 10%, var(--bg))' : undefined }}
+            onContextMenu={(e) => { e.preventDefault(); setCtx({ rowId: row.id, x: e.clientX, y: e.clientY }); }}
             onDragOver={dragRow ? (e) => {
               if (dragRow === row.id) return;
               e.preventDefault();
@@ -171,10 +210,12 @@ export function GridView({
               commitRowDrop(row.id, e.clientY - r.top > r.height / 2);
             } : undefined}
           >
-            <RowNumCell
+            <RowGutter
               n={ri + 1}
               style={bodyCell}
-              onDelete={() => onDeleteRow(row.id)}
+              selected={isSelected}
+              anySelected={anySelected}
+              onToggle={() => toggleRow(row.id)}
               draggable={rowsDraggable}
               onDragStartRow={(e) => {
                 setDragRow(row.id);
@@ -184,14 +225,14 @@ export function GridView({
               onDragEndRow={() => { setDragRow(null); setOverRow(null); }}
             />
             {fields.map((f, ci) => (
-              <div key={f.id} style={ci === 0 ? { ...bodyCell, position: 'sticky', left: 48, zIndex: 1, background: 'inherit', boxShadow: '2px 0 5px -2px rgba(0,0,0,.35)' } : bodyCell}>
+              <div key={f.id} style={ci === 0 ? { ...bodyCell, position: 'sticky', left: GUTTER, zIndex: 1, background: 'inherit', boxShadow: '2px 0 5px -2px rgba(0,0,0,.35)' } : bodyCell}>
                 <FieldCell field={f} value={row.data[f.id]} members={members} baseId={table.baseId} rowId={row.id} onCommit={(v) => onCellChange(row.id, f.id, v)} />
               </div>
             ))}
             <div style={{ ...bodyCell, justifyContent: 'flex-end', paddingRight: 6 }}>
               <button
                 className="row-expand"
-                onClick={() => setDetailId(row.id)}
+                onClick={() => setDetail({ id: row.id })}
                 aria-label={t('openRecord')}
                 title={t('openRecord')}
                 style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', padding: 4, borderRadius: 6, transition: 'opacity .12s' }}
@@ -226,6 +267,36 @@ export function GridView({
         <Plus size={15} /> {t('addRow')}
       </button>
 
+      {anySelected && (
+        <BulkBar
+          count={selected.size}
+          label={t('selectedCount', { count: selected.size })}
+          onDuplicate={onDuplicateRows ? bulkDuplicate : undefined}
+          onDelete={onBulkDelete ? bulkDelete : undefined}
+          onClear={clearSelection}
+          duplicateLabel={t('duplicate')}
+          deleteLabel={t('delete')}
+          clearLabel={t('clearSelection')}
+        />
+      )}
+
+      {ctx && (
+        <RowContextMenu
+          x={ctx.x}
+          y={ctx.y}
+          onClose={() => setCtx(null)}
+          onInsert={(position, count) => onInsertRow?.(ctx.rowId, position, count)}
+          onDuplicate={() => onDuplicateRows?.(targetIds(ctx.rowId))}
+          onCopyLink={() => onCopyRowLink?.(ctx.rowId)}
+          onComment={() => setDetail({ id: ctx.rowId, focus: 'comments' })}
+          onDelete={() => {
+            const ids = targetIds(ctx.rowId);
+            if (ids.length > 1 && onBulkDelete) { onBulkDelete(ids); clearSelection(); }
+            else onDeleteRow(ctx.rowId);
+          }}
+        />
+      )}
+
       <FieldEditor
         open={!!editor}
         initial={editor?.field ?? null}
@@ -242,58 +313,103 @@ export function GridView({
           row={detailRow}
           members={members}
           onCellChange={onCellChange}
-          onClose={() => setDetailId(null)}
+          onClose={() => setDetail(null)}
+          initialFocus={detail?.focus}
         />
       )}
     </div>
   );
 }
 
-function RowNumCell({
+function Checkbox({ checked, indeterminate, onToggle, ariaLabel }: { checked: boolean; indeterminate?: boolean; onToggle: () => void; ariaLabel: string }) {
+  const on = checked || indeterminate;
+  return (
+    <button
+      role="checkbox"
+      aria-checked={indeterminate ? 'mixed' : checked}
+      aria-label={ariaLabel}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      style={{ width: 16, height: 16, padding: 0, flexShrink: 0, borderRadius: 4, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--muted)'}`, background: on ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+    >
+      {checked ? <Check size={11} color="#fff" /> : indeterminate ? <Minus size={11} color="#fff" /> : null}
+    </button>
+  );
+}
+
+function RowGutter({
   n,
   style,
-  onDelete,
+  selected,
+  anySelected,
+  onToggle,
   draggable,
   onDragStartRow,
   onDragEndRow,
 }: {
   n: number;
   style: CSSProperties;
-  onDelete: () => void;
+  selected: boolean;
+  anySelected: boolean;
+  onToggle: () => void;
   draggable: boolean;
   onDragStartRow: (e: React.DragEvent) => void;
   onDragEndRow: () => void;
 }) {
   const t = useTranslations('database');
   const [hover, setHover] = useState(false);
+  const showControls = hover || selected || anySelected;
   return (
     <div
-      style={{ ...style, justifyContent: 'center', gap: 2, color: 'var(--muted)', fontSize: 12, position: 'sticky', left: 0, zIndex: 1, background: 'inherit' }}
+      style={{ ...style, gap: 4, padding: '0 8px', color: 'var(--muted)', fontSize: 12, position: 'sticky', left: 0, zIndex: 1, background: 'inherit' }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {hover ? (
-        <>
-          {draggable && (
-            <span
-              draggable
-              onDragStart={onDragStartRow}
-              onDragEnd={onDragEndRow}
-              title={t('dragRow')}
-              aria-label={t('dragRow')}
-              style={{ cursor: 'grab', display: 'flex', color: 'var(--muted)' }}
-            >
-              <GripVertical size={13} />
-            </span>
-          )}
-          <button onClick={onDelete} title={t('deleteRow')} aria-label={t('deleteRow')} style={{ border: 'none', background: 'transparent', color: 'var(--red, #ef4444)', cursor: 'pointer', display: 'flex' }}>
-            <Trash2 size={13} />
-          </button>
-        </>
-      ) : (
-        <span className="mono">{n}</span>
-      )}
+      <span
+        draggable={draggable}
+        onDragStart={draggable ? onDragStartRow : undefined}
+        onDragEnd={draggable ? onDragEndRow : undefined}
+        title={draggable ? t('dragRow') : undefined}
+        aria-label={draggable ? t('dragRow') : undefined}
+        style={{ width: 13, display: 'flex', flexShrink: 0, color: 'var(--muted)', cursor: draggable ? 'grab' : 'default', opacity: hover && draggable ? 1 : 0 }}
+      >
+        <GripVertical size={13} />
+      </span>
+      {showControls
+        ? <Checkbox checked={selected} onToggle={onToggle} ariaLabel={t('selectRow')} />
+        : <span className="mono" style={{ flex: 1, textAlign: 'center' }}>{n}</span>}
     </div>
+  );
+}
+
+function BulkBar({ count, label, onDuplicate, onDelete, onClear, duplicateLabel, deleteLabel, clearLabel }: {
+  count: number;
+  label: string;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
+  onClear: () => void;
+  duplicateLabel: string;
+  deleteLabel: string;
+  clearLabel: string;
+}) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 2500, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px 8px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 48px rgba(0,0,0,.5)' }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginRight: 4 }}>{label}</span>
+      {onDuplicate && (
+        <button onClick={onDuplicate} className="btn btn-ghost" style={{ gap: 6, fontWeight: 600 }}>
+          <CopyPlus size={15} /> {duplicateLabel}
+        </button>
+      )}
+      {onDelete && (
+        <button onClick={onDelete} className="btn btn-ghost" style={{ gap: 6, fontWeight: 600, color: 'var(--red, #ef4444)' }}>
+          <Trash2 size={15} /> {deleteLabel}
+        </button>
+      )}
+      <button onClick={onClear} aria-label={clearLabel} title={clearLabel} className="btn btn-ghost btn-icon" style={{ width: 30, height: 30 }}>
+        <X size={16} />
+      </button>
+    </div>,
+    document.body,
   );
 }
 

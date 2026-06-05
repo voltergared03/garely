@@ -632,9 +632,24 @@ model Row {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   dateReminders BaseDateReminder[]
+  comments      RowComment[]
 
   @@index([tableId])
   @@index([tableId, position])
+}
+
+// Per-row comments (base engine). Soft user reference (authorName is a snapshot
+// that survives user deletion), like TaskComment but without a User FK.
+model RowComment {
+  id         String   @id @default(cuid())
+  rowId      String
+  row        Row      @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  userId     String?
+  authorName String?
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([rowId, createdAt])
 }
 
 // Idempotency log for date-field reminders (one row per row×field×target-day

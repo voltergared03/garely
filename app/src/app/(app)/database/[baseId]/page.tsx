@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock } from 'lucide-react';
@@ -24,6 +24,11 @@ export default function BaseDetailPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const { baseId } = useParams<{ baseId: string }>();
+  const search = useSearchParams();
+  const recordParam = search.get('record');
+  const tableParam = search.get('table');
+  const deepLinkDone = useRef(false);
+  const [copied, setCopied] = useState(false);
 
   const [base, setBase] = useState<BaseDetail | null>(null);
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
@@ -55,7 +60,9 @@ export default function BaseDetailPage() {
       if (bRes.ok) {
         const b: BaseDetail = await bRes.json();
         setBase(b);
-        setActiveTableId(b.tables[0]?.id ?? null);
+        // Honor a deep-link ?table= if it points at a real table, else first table.
+        const deepTable = tableParam && b.tables.some((x) => x.id === tableParam) ? tableParam : null;
+        setActiveTableId(deepTable ?? b.tables[0]?.id ?? null);
       }
       if (mRes.ok) setMembers(await mRes.json());
       setLoading(false);
@@ -83,6 +90,12 @@ export default function BaseDetailPage() {
   useEffect(() => {
     if (activeTableId) { setTable(null); loadTable(activeTableId); }
   }, [activeTableId, loadTable]);
+
+  // Deep link: open ?record= once its row has loaded.
+  useEffect(() => {
+    if (deepLinkDone.current || !recordParam) return;
+    if (rows.some((r) => r.id === recordParam)) { setDetailRowId(recordParam); deepLinkDone.current = true; }
+  }, [rows, recordParam]);
 
   const patchBase = (body: Record<string, unknown>) =>
     fetch(`/api/bases/${baseId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body) });
@@ -183,6 +196,42 @@ export default function BaseDetailPage() {
     if (!activeTableId) return;
     setRows((rs) => { const by = new Map(rs.map((r) => [r.id, r])); return orderedIds.map((id) => by.get(id)).filter((r): r is RowT => !!r); });
     await fetch(`/api/tables/${activeTableId}/rows/reorder`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ order: orderedIds }) });
+  }
+  async function insertRows(anchorId: string, position: 'above' | 'below', count: number) {
+    if (!activeTableId) return;
+    const res = await fetch(`/api/tables/${activeTableId}/rows/insert`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ anchorId, position, count }) });
+    if (!res.ok) return;
+    const d = await res.json();
+    const created: RowT[] = (d.rows ?? []).map((r: RowT) => ({ ...r, data: r.data || {} }));
+    setRows((rs) => {
+      const idx = rs.findIndex((r) => r.id === anchorId);
+      if (idx < 0) return [...rs, ...created];
+      const at = position === 'above' ? idx : idx + 1;
+      return [...rs.slice(0, at), ...created, ...rs.slice(at)];
+    });
+  }
+  async function duplicateRows(ids: string[]) {
+    if (!activeTableId || !ids.length) return;
+    const res = await fetch(`/api/tables/${activeTableId}/rows/duplicate`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids }) });
+    if (!res.ok) return;
+    const d = await res.json();
+    const created: RowT[] = (d.rows ?? []).map((r: RowT) => ({ ...r, data: r.data || {} }));
+    setRows((rs) => {
+      const idxs = ids.map((id) => rs.findIndex((r) => r.id === id)).filter((i) => i >= 0);
+      const at = idxs.length ? Math.max(...idxs) + 1 : rs.length;
+      return [...rs.slice(0, at), ...created, ...rs.slice(at)];
+    });
+  }
+  async function bulkDeleteRows(ids: string[]) {
+    if (!activeTableId || !ids.length) return;
+    const set = new Set(ids);
+    setRows((rs) => rs.filter((r) => !set.has(r.id)));
+    await fetch(`/api/tables/${activeTableId}/rows/bulk-delete`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ ids }) });
+  }
+  async function copyRowLink(rowId: string) {
+    if (typeof window === 'undefined' || !activeTableId) return;
+    const url = `${window.location.origin}/database/${baseId}?table=${activeTableId}&record=${rowId}`;
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch { /* clipboard blocked */ }
   }
   async function patchViewConfig(patch: Partial<ViewConfig>, reload = false) {
     if (!table || !activeTableId) return;
@@ -337,7 +386,7 @@ export default function BaseDetailPage() {
           ) : activeView.type === 'calendar' ? (
             <CalendarView table={table} rows={rows} members={members} dateFieldId={activeView.config?.calendarDateFieldId} onSetDateField={(fid) => patchViewConfig({ calendarDateFieldId: fid })} onAddRow={addRow} onOpenRecord={setDetailRowId} />
           ) : (
-            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} onReorderFields={reorderFields} onReorderRows={reorderRows} canReorderRows={!(activeView.config?.sorts?.length)} />
+            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} onReorderFields={reorderFields} onReorderRows={reorderRows} canReorderRows={!(activeView.config?.sorts?.length)} onInsertRow={insertRows} onDuplicateRows={duplicateRows} onBulkDelete={bulkDeleteRows} onCopyRowLink={copyRowLink} />
           )}
         </>
       )}
@@ -406,6 +455,12 @@ export default function BaseDetailPage() {
       </Modal>
 
       {shareOpen && <ShareModal open={shareOpen} baseId={baseId} onClose={() => setShareOpen(false)} onVisibility={(v) => setBase((b) => (b ? { ...b, visibility: v } : b))} />}
+
+      {copied && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 3000, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', boxShadow: '0 10px 30px rgba(0,0,0,.4)' }}>
+          {t('linkCopied')}
+        </div>
+      )}
     </div>
   );
 }
