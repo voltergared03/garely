@@ -128,8 +128,8 @@ export function GridView({
   const bulkDuplicate = () => { if (onDuplicateRows && selected.size) { onDuplicateRows(Array.from(selected)); clearSelection(); } };
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg)' }}>
-      <div style={{ overflow: 'auto', maxHeight: '74vh' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
       <div style={{ minWidth: 'max-content' }}>
         <div style={{ display: 'grid', gridTemplateColumns: template, position: 'sticky', top: 0, zIndex: 2 }}>
           <div
@@ -247,20 +247,19 @@ export function GridView({
           );
         })}
       </div>
+        {rows.length === 0 && (
+          <div style={{ padding: '34px 16px', textAlign: 'center' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)' }}>{t('noRows')}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>{t('noRowsHint')}</div>
+          </div>
+        )}
       </div>
-
-      {rows.length === 0 && (
-        <div style={{ padding: '34px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)' }}>{t('noRows')}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>{t('noRowsHint')}</div>
-        </div>
-      )}
 
       <button
         onClick={() => onAddRow()}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '10px 14px',
-          border: 'none', borderTop: rows.length ? 'none' : '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '10px 14px', flexShrink: 0,
+          border: 'none', borderTop: '1px solid var(--border)',
           background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13,
         }}
       >

@@ -297,7 +297,7 @@ export default function BaseDetailPage() {
   const detailRow = detailRowId ? rows.find((r) => r.id === detailRowId) ?? null : null;
 
   return (
-    <div style={{ padding: '18px clamp(12px, 3vw, 28px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div style={{ padding: '18px clamp(12px, 3vw, 28px)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <Link href="/database" className="btn btn-ghost btn-icon" style={{ width: 32, height: 32 }}><ChevronLeft size={18} /></Link>
