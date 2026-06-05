@@ -17,19 +17,8 @@ import { useQuizPending } from "@/hooks/use-quiz-pending";
 import { QuizzesPanel } from "../quizzes/quizzes-panel";
 import { FieldCell } from "../database/components/FieldCell";
 import { FieldEditor, type FieldDraft } from "../database/components/FieldEditor";
+import { EDITABLE_CUSTOM_TYPES, customTaskFields, chipsForRow } from "./custom-fields";
 import type { FieldT, OrgMember } from "../database/lib/types";
-
-/* Custom task-field types we edit inline via the engine FieldCell. file/totp/
-   password/link are deferred to a later pass (their cells need base-scoped
-   upload/reveal/relation endpoints), so they render read-only for now. */
-const EDITABLE_CUSTOM_TYPES = new Set([
-  "text", "longText", "number", "currency", "percent", "rating",
-  "singleSelect", "multiSelect", "date", "person", "checkbox", "url", "email", "phone",
-]);
-/* The 6 built-in task fields, by their pinned canonical (English) names from
-   system-tasks.fields.json. The board renders these with its own controls, so
-   they're filtered out of the engine-rendered CUSTOM-field list. */
-const SYSTEM_FIELD_NAMES = new Set(["Title", "Description", "Status", "Priority", "Due date", "Assignee"]);
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
@@ -220,13 +209,36 @@ function SelectChip({ value, onChange, options, icon: IconComp }: {
   );
 }
 
+/* Compact read-only chips for non-empty CUSTOM fields, shown on board rows/cards
+   so values are visible without opening the drawer. Only editable-typed fields
+   are chipped (never totp/password — a live code must not surface on the board). */
+function CustomFieldChips({ fields, cells, members, max = 3 }: {
+  fields: FieldT[]; cells?: Record<string, unknown>; members: OrgMember[]; max?: number;
+}) {
+  const shown = chipsForRow(fields, cells, members, max);
+  if (!shown.length) return null;
+  return (
+    <>
+      {shown.map(c => (
+        <span key={c.name} title={`${c.name}: ${c.text}`} style={{
+          display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 7px", borderRadius: 5,
+          background: "var(--surface-2)", color: "var(--text-2)", maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0,
+        }}>
+          <span style={{ color: "var(--muted)" }}>{c.name}:</span> {c.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    TASK ROW (List view)
    ═══════════════════════════════════════════════════════════ */
-function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggleExpand }: {
+function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggleExpand, customFields = [], members = [] }: {
   t: Task; onEdit: () => void; onStatusChange: (status: string) => void;
   q: string; last: boolean; mobile?: boolean;
   expanded?: boolean; onToggleExpand?: () => void;
+  customFields?: FieldT[]; members?: OrgMember[];
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -294,6 +306,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
             <DeptChip dept={t.department} />
             <SubProgress done={subDone} total={subTotal} />
             <CountBadges c={t._count} />
+            <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={2} />
             {t.assignee ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>
                 <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
@@ -359,6 +372,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
           <DeptChip dept={t.department} />
           <SubProgress done={subDone} total={subTotal} />
           <CountBadges c={t._count} />
+          <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={3} />
         </div>
       </div>
       <PriorityTag p={t.priority} />
@@ -471,10 +485,11 @@ function SubtaskList({ parent, mobile, onOpen, onChange }: {
 /* ═══════════════════════════════════════════════════════════
    LIST VIEW
    ═══════════════════════════════════════════════════════════ */
-function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [], onOpenById, onSubtaskChange }: {
+function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [], onOpenById, onSubtaskChange, customFields = [], members = [] }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
   groupBy?: "status" | "department"; departments?: { id: string; name: string; color: string | null }[];
   onOpenById?: (id: string) => void; onSubtaskChange?: (parentId: string, next: Subtask[]) => void;
+  customFields?: FieldT[]; members?: OrgMember[];
 }) {
   const tr = useTranslations();
   const [collapsedDone, setCollapsedDone] = useState(true);
@@ -549,7 +564,8 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
                     <Fragment key={t.id}>
                       <TaskRow t={t} onEdit={() => onEdit(t)}
                         onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile={mobile}
-                        expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)} />
+                        expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)}
+                        customFields={customFields} members={members} />
                       {expanded.has(t.id) && (
                         <SubtaskList parent={t} mobile={mobile}
                           onOpen={(id) => onOpenById?.(id)}
@@ -570,8 +586,9 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
 /* ═══════════════════════════════════════════════════════════
    KANBAN VIEW
    ═══════════════════════════════════════════════════════════ */
-function KanbanCard({ t, onEdit, onDragStart, dragging }: {
+function KanbanCard({ t, onEdit, onDragStart, dragging, customFields = [], members = [] }: {
   t: Task; onEdit: () => void; onDragStart: () => void; dragging: boolean;
+  customFields?: FieldT[]; members?: OrgMember[];
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -610,6 +627,11 @@ function KanbanCard({ t, onEdit, onDragStart, dragging }: {
           <ListChecks size={11} /> {tr("tasks.standaloneTask")}
         </div>
       ) : null}
+      {customFields.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+          <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={3} />
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         {t.assignee ? <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" /> : <span />}
         {due && (
@@ -627,8 +649,9 @@ function KanbanCard({ t, onEdit, onDragStart, dragging }: {
   );
 }
 
-function KanbanView({ tasks, onEdit, onStatusChange }: {
+function KanbanView({ tasks, onEdit, onStatusChange, customFields = [], members = [] }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void;
+  customFields?: FieldT[]; members?: OrgMember[];
 }) {
   const tr = useTranslations();
   const cols = [
@@ -674,7 +697,8 @@ function KanbanView({ tasks, onEdit, onStatusChange }: {
                 </div>
               ) : (grouped[col.id] || []).map(t => (
                 <KanbanCard key={t.id} t={t} onEdit={() => onEdit(t)}
-                  onDragStart={() => setDragId(t.id)} dragging={dragId === t.id} />
+                  onDragStart={() => setDragId(t.id)} dragging={dragId === t.id}
+                  customFields={customFields} members={members} />
               ))}
             </div>
           </div>
@@ -1516,7 +1540,7 @@ export default function TasksPage() {
     () => users.map(u => ({ id: u.id, name: u.name, image: u.image, email: u.email })),
     [users],
   );
-  const customFields = useMemo(() => fields.filter(f => !SYSTEM_FIELD_NAMES.has(f.name)), [fields]);
+  const customFields = useMemo(() => customTaskFields(fields), [fields]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "quizzes") setTab("quizzes");
@@ -1702,11 +1726,11 @@ export default function TasksPage() {
         ) : filtered.length === 0 ? (
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} customFields={customFields} members={members} />
         ) : view === "dept" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} customFields={customFields} members={members} />
         ) : (
-          <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} />
+          <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} customFields={customFields} members={members} />
         )}
       </div>
 
