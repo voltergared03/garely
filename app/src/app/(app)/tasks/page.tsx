@@ -15,6 +15,21 @@ import { Avatar } from "@/components/ui/avatar";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { useQuizPending } from "@/hooks/use-quiz-pending";
 import { QuizzesPanel } from "../quizzes/quizzes-panel";
+import { FieldCell } from "../database/components/FieldCell";
+import { FieldEditor, type FieldDraft } from "../database/components/FieldEditor";
+import type { FieldT, OrgMember } from "../database/lib/types";
+
+/* Custom task-field types we edit inline via the engine FieldCell. file/totp/
+   password/link are deferred to a later pass (their cells need base-scoped
+   upload/reveal/relation endpoints), so they render read-only for now. */
+const EDITABLE_CUSTOM_TYPES = new Set([
+  "text", "longText", "number", "currency", "percent", "rating",
+  "singleSelect", "multiSelect", "date", "person", "checkbox", "url", "email", "phone",
+]);
+/* The 6 built-in task fields, by their pinned canonical (English) names from
+   system-tasks.fields.json. The board renders these with its own controls, so
+   they're filtered out of the engine-rendered CUSTOM-field list. */
+const SYSTEM_FIELD_NAMES = new Set(["Title", "Description", "Status", "Priority", "Due date", "Assignee"]);
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
@@ -35,6 +50,8 @@ interface Task {
   collaborators?: { userId: string }[];
   assignees?: { user: TaskAssignee }[];
   subtasks?: Subtask[];
+  /** Custom-field cell bag (P3.3), keyed by Field id — secrets already stripped server-side. */
+  cells?: Record<string, unknown>;
   _count?: { subtasks: number; comments: number; attachments: number };
 }
 interface UserItem { id: string; name: string; email: string; image: string | null; }
@@ -979,9 +996,96 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
   );
 }
 
-function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClose, onSaved, onChanged, onOpenById }: {
+/* ─── Custom task fields (P3.3) ─────────────────────────────
+   Renders the system Tasks table's CUSTOM engine fields inside the task
+   drawer: editable types via the shared FieldCell (writes hit PATCH
+   /api/tasks {cells}), the rest read-only. Admins can add/edit/delete the
+   field schema via the engine FieldEditor → /api/tasks/fields. */
+function TaskCustomFields({ taskId, fields, initialCells, members, isAdmin, onChanged, onFieldsChanged }: {
+  taskId: string; fields: FieldT[]; initialCells: Record<string, unknown>;
+  members: OrgMember[]; isAdmin: boolean; onChanged: () => void; onFieldsChanged: () => void;
+}) {
+  const tr = useTranslations();
+  const [cells, setCells] = useState<Record<string, unknown>>(initialCells);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingField, setEditingField] = useState<FieldT | null>(null);
+  useEffect(() => { setCells(initialCells); /* reseed on task switch */ }, [taskId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commitCell = (fieldId: string, value: unknown) => {
+    setCells(c => ({ ...c, [fieldId]: value })); // optimistic; the board refresh reconciles
+    fetch("/api/tasks", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskId, cells: { [fieldId]: value } }),
+    }).then(() => onChanged()).catch(() => {});
+  };
+
+  const saveField = async (draft: FieldDraft) => {
+    const editing = editingField;
+    await fetch(editing ? `/api/tasks/fields/${editing.id}` : "/api/tasks/fields", {
+      method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+    }).catch(() => {});
+    setEditingField(null);
+    onFieldsChanged();
+  };
+
+  const deleteField = async (f: FieldT) => {
+    if (typeof window !== "undefined" && !window.confirm(tr("tasks.deleteFieldConfirm", { name: f.name }))) return;
+    await fetch(`/api/tasks/fields/${f.id}`, { method: "DELETE" }).catch(() => {});
+    onFieldsChanged();
+  };
+
+  if (!fields.length && !isAdmin) return null;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+        <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em" }}>{tr("tasks.customFields")}</label>
+        {isAdmin && (
+          <button className="btn btn-sm" style={{ marginLeft: "auto", padding: "3px 8px", fontSize: 12 }}
+            onClick={() => { setEditingField(null); setEditorOpen(true); }}>
+            <Plus size={12} /> {tr("database.addField")}
+          </button>
+        )}
+      </div>
+      {fields.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{tr("tasks.noCustomFields")}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {fields.map(f => {
+            const editable = EDITABLE_CUSTOM_TYPES.has(f.type);
+            return (
+              <div key={f.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>{f.name}</span>
+                  {isAdmin && (
+                    <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                      <button className="btn btn-sm" title={tr("database.editField")} style={{ padding: "2px 5px" }} onClick={() => { setEditingField(f); setEditorOpen(true); }}><MoreHorizontal size={12} /></button>
+                      <button className="btn btn-sm" title={tr("common.delete")} style={{ padding: "2px 5px", color: "var(--red)" }} onClick={() => deleteField(f)}><Trash2 size={12} /></button>
+                    </span>
+                  )}
+                </div>
+                {editable ? (
+                  <div style={{ minHeight: 38, border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface)", display: "flex", alignItems: "center", overflow: "hidden" }}>
+                    <FieldCell field={f} value={cells[f.id]} members={members} onCommit={(v) => commitCell(f.id, v)} />
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 0" }}>{tr("tasks.fieldReadOnly")}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <FieldEditor open={editorOpen} initial={editingField} onClose={() => setEditorOpen(false)} onSave={saveField} />
+    </div>
+  );
+}
+
+function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, customFields, members, onFieldsChanged, onClose, onSaved, onChanged, onOpenById }: {
   open: boolean; task: Task | null; meetings: MeetingOption[]; users: UserItem[];
   currentUserId?: string; isAdmin: boolean;
+  customFields: FieldT[]; members: OrgMember[]; onFieldsChanged: () => void;
   onClose: () => void; onSaved: () => void; onChanged: () => void; onOpenById?: (id: string) => void;
 }) {
   const tr = useTranslations();
@@ -1304,6 +1408,11 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, onClos
             </div>
           )}
 
+          {!isNew && task && (customFields.length > 0 || isAdmin) && (
+            <TaskCustomFields taskId={task.id} fields={customFields} initialCells={task.cells ?? {}}
+              members={members} isAdmin={isAdmin} onChanged={onChanged} onFieldsChanged={onFieldsChanged} />
+          )}
+
           {!isNew && task && (
             <TaskCollab taskId={task.id} users={users} currentUserId={currentUserId} isAdmin={isAdmin} onChanged={onChanged} onOpenTask={onOpenById} />
           )}
@@ -1355,6 +1464,7 @@ export default function TasksPage() {
   const tr = useTranslations();
   const { data: session } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [fields, setFields] = useState<FieldT[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [meetings, setMeetings] = useState<MeetingOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1378,15 +1488,35 @@ export default function TasksPage() {
   const fetchTasks = useCallback(async () => {
     setError(false);
     try {
-      const res = await fetch("/api/tasks?scope=all");
-      if (res.ok) setTasks(await res.json());
-      else setError(true);
+      // P3.3: ?withFields=1 returns { tasks, fields } so the board can render
+      // CUSTOM task fields. Still tolerate a bare array (defensive).
+      const res = await fetch("/api/tasks?scope=all&withFields=1");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setTasks(data);
+        else { setTasks(Array.isArray(data.tasks) ? data.tasks : []); setFields(Array.isArray(data.fields) ? data.fields : []); }
+      } else setError(true);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Custom-field schema refresh (after an admin add/edit/delete in the drawer).
+  const refreshFields = useCallback(async () => {
+    try {
+      const r = await fetch("/api/tasks/fields");
+      if (r.ok) { const d = await r.json(); setFields(Array.isArray(d) ? d : []); }
+    } catch { /* keep the current schema on a transient failure */ }
+  }, []);
+
+  // FieldCell wants the org members (person picker, avatars) in OrgMember shape.
+  const members = useMemo<OrgMember[]>(
+    () => users.map(u => ({ id: u.id, name: u.name, image: u.image, email: u.email })),
+    [users],
+  );
+  const customFields = useMemo(() => fields.filter(f => !SYSTEM_FIELD_NAMES.has(f.name)), [fields]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "quizzes") setTab("quizzes");
@@ -1582,6 +1712,7 @@ export default function TasksPage() {
 
       <TaskModal open={!!editing} task={editing === "new" ? null : editing as Task}
         meetings={meetings} users={users} currentUserId={userId} isAdmin={isAdmin}
+        customFields={customFields} members={members} onFieldsChanged={refreshFields}
         onClose={() => setEditing(null)} onSaved={handleSaved} onChanged={fetchTasks} onOpenById={openById} />
       </>
       )}
