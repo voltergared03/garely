@@ -5,6 +5,7 @@ import {
   deleteTask,
   setRowAssignees,
   applyCustomCells,
+  createTask,
   createTaskField,
   updateTaskField,
   deleteTaskField,
@@ -106,6 +107,33 @@ describe('applyCustomCells — custom-field write guard (P3.3)', () => {
   it('no-ops when cells is undefined (returns the same patch object)', () => {
     const patch = { fS: 'done' };
     expect(applyCustomCells(patch, undefined, reserved)).toBe(patch);
+  });
+});
+
+describe('createTask — custom cells at creation (P3.3)', () => {
+  it('merges custom-field cells and rejects reserved (system/assignee) ids', async () => {
+    prismaMock.field.findMany.mockResolvedValue([
+      { id: 'fT', type: 'text', options: null },
+      { id: 'fD', type: 'longText', options: null },
+      { id: 'fS', type: 'singleSelect', options: { choices: [{ id: 'open' }] } },
+      { id: 'fP', type: 'singleSelect', options: { choices: [{ id: 'medium' }] } },
+      { id: 'fU', type: 'date', options: null },
+      { id: 'fA', type: 'person', options: { multiple: true } },
+      { id: 'fX', type: 'text', options: null },
+    ] as any);
+    prismaMock.row.create.mockResolvedValue({ id: 'new1' } as any);
+    prismaMock.taskRow.create.mockResolvedValue({} as any);
+    prismaMock.rowAssignment.create.mockResolvedValue({} as any);
+    prismaMock.row.findUnique.mockResolvedValue(null as any); // getTaskById short-circuits
+
+    await createTask({ user: { id: 'u1', orgId: 'org-A' } } as any, {
+      title: 'T',
+      cells: { fX: 'Acme', fS: 'evil-status' }, // fS is reserved → must be ignored
+    });
+
+    const stored = (prismaMock.row.create.mock.calls[0][0] as any).data.data;
+    expect(stored.fX).toBe('Acme'); // custom cell persisted
+    expect(stored.fS).toBe('open'); // status stays 'open' — cells can't override the typed field
   });
 });
 

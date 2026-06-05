@@ -587,6 +587,8 @@ export async function getTaskById(id: string, opts: { detail?: boolean } = {}): 
 export type CreateTaskInput = {
   title: string; description?: string | null; meetingId?: string | null; assigneeId?: string | null;
   assigneeIds?: string[]; priority?: string | null; dueDate?: string | null; departmentId?: string | null; parentId?: string | null;
+  /** Custom-field cells to set at creation (P3.3); the 6 system + assignee ids are rejected. */
+  cells?: Record<string, unknown>;
 };
 
 export async function createTask(session: Session, input: CreateTaskInput): Promise<{ task: MeetingTaskDTO; assignees: string[] } | { error: string; status: number }> {
@@ -612,14 +614,17 @@ export async function createTask(session: Session, input: CreateTaskInput): Prom
   }
 
   const finalAssignees = [...new Set((input.assigneeIds?.length ? input.assigneeIds : input.assigneeId ? [input.assigneeId] : []).filter(Boolean))];
-  const data = coerceRowData(fields, {
+  const cellInput: Cells = {
     [f.title]: input.title,
     [f.description]: input.description ?? undefined,
     [f.status]: 'open',
     [f.priority]: input.priority || 'medium',
     [f.dueDate]: input.dueDate ?? undefined,
     [f.assignee]: finalAssignees,
-  });
+  };
+  // Custom-field cells at creation — same single-write-path guard as updateTask.
+  applyCustomCells(cellInput, input.cells, [f.title, f.description, f.status, f.priority, f.dueDate, f.assignee]);
+  const data = coerceRowData(fields, cellInput);
 
   const row = await prisma.$transaction(async (tx) => {
     const r = await tx.row.create({ data: { tableId: prov.table.id, data: data as Prisma.InputJsonValue, position: 0 } });

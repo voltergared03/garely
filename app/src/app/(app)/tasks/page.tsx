@@ -1122,6 +1122,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState("open");
+  const [newCells, setNewCells] = useState<Record<string, unknown>>({}); // custom-field values for a NEW task (no row yet)
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [meetingOpen, setMeetingOpen] = useState(false);
@@ -1148,7 +1149,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
       setStatus(task.status); setDepartmentId(task.departmentId || "");
     } else {
       setTitle(""); setDesc(""); setMeetingId("");
-      setAssigneeIds([]); setPriority("medium"); setDueDate(""); setStatus("open"); setDepartmentId("");
+      setAssigneeIds([]); setPriority("medium"); setDueDate(""); setStatus("open"); setDepartmentId(""); setNewCells({});
     }
     setMeetingOpen(false); setAssigneeOpen(false); setMeetingQ("");
   }, [open, task?.id]);
@@ -1185,7 +1186,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
         await fetch("/api/tasks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeIds[0] || null, assigneeIds, priority, dueDate: dueDate || null, departmentId: departmentId || null }),
+          body: JSON.stringify({ title, description: desc || null, meetingId: meetingId || null, assigneeId: assigneeIds[0] || null, assigneeIds, priority, dueDate: dueDate || null, departmentId: departmentId || null, cells: newCells }),
         });
       } else {
         await fetch("/api/tasks", {
@@ -1405,6 +1406,23 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
               })}
             </div>
           </div>
+
+          {/* Custom fields (new task) — edited in local state, sent with create */}
+          {isNew && customFields.some(f => EDITABLE_CUSTOM_TYPES.has(f.type)) && (
+            <div>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 8 }}>{tr("tasks.customFields")}</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {customFields.filter(f => EDITABLE_CUSTOM_TYPES.has(f.type)).map(f => (
+                  <div key={f.id}>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: 4 }}>{f.name}</span>
+                    <div style={{ minHeight: 38, border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface)", display: "flex", alignItems: "center", overflow: "hidden" }}>
+                      <FieldCell field={f} value={newCells[f.id]} members={members} onCommit={(v) => setNewCells(c => ({ ...c, [f.id]: v }))} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Status (edit only) */}
           {!isNew && (

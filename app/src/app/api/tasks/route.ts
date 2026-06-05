@@ -17,6 +17,8 @@ const taskCreateSchema = z.object({
   dueDate: z.string().nullish(),
   departmentId: z.string().nullish(),
   parentId: z.string().nullish(),
+  // Custom-field cells set at creation (P3.3); the adapter rejects system/assignee ids.
+  cells: z.record(z.string(), z.unknown()).optional(),
 });
 
 // PATCH accepts ONLY these fields; zod strips everything else, so a client can
