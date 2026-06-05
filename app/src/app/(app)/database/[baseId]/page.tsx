@@ -1,16 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { createPortal } from 'react-dom';
 import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { GridView } from '../components/GridView';
+import { GridToolbar } from '../components/GridToolbar';
+import { KanbanView } from '../components/KanbanView';
+import { CalendarView } from '../components/CalendarView';
+import { ViewTabs } from '../components/ViewTabs';
+import { RecordModal } from '../components/RecordModal';
 import { ShareModal } from '../components/ShareModal';
-import { CHOICE_COLORS, type BaseDetail, type TableTab, type TableT, type RowT, type OrgMember, type FieldType } from '../lib/types';
+import { PopMenu, MenuRow } from '../components/Menu';
+import { CHOICE_COLORS, type BaseDetail, type TableTab, type TableT, type RowT, type OrgMember, type FieldType, type FilterCond, type SortCond, type ViewT, type ViewConfig } from '../lib/types';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -38,6 +43,11 @@ export default function BaseDetailPage() {
   const [renameTableT, setRenameTableT] = useState<TableTab | null>(null);
   const [renameTableVal, setRenameTableVal] = useState('');
   const [delTableT, setDelTableT] = useState<TableTab | null>(null);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [renameViewT, setRenameViewT] = useState<ViewT | null>(null);
+  const [renameViewVal, setRenameViewVal] = useState('');
+  const [delViewT, setDelViewT] = useState<ViewT | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,18 +62,23 @@ export default function BaseDetailPage() {
     })();
   }, [baseId]);
 
-  const loadTable = useCallback(async (tableId: string) => {
-    const tRes = await fetch(`/api/tables/${tableId}`);
-    if (!tRes.ok) return;
-    const tbl: TableT = await tRes.json();
-    setTable(tbl);
-    const vId = tbl.views[0]?.id;
-    const rRes = await fetch(`/api/tables/${tableId}/rows${vId ? `?view=${vId}` : ''}`);
+  const reloadRows = useCallback(async (tableId: string, viewId?: string) => {
+    const rRes = await fetch(`/api/tables/${tableId}/rows${viewId ? `?view=${viewId}` : ''}`);
     if (rRes.ok) {
       const d = await rRes.json();
       setRows((d.rows as RowT[]).map((r) => ({ ...r, data: r.data || {} })));
     } else setRows([]);
   }, []);
+
+  const loadTable = useCallback(async (tableId: string) => {
+    const tRes = await fetch(`/api/tables/${tableId}`);
+    if (!tRes.ok) return;
+    const tbl: TableT = await tRes.json();
+    setTable(tbl);
+    const firstView = [...tbl.views].sort((a, b) => a.position - b.position)[0];
+    setActiveViewId(firstView?.id ?? null);
+    await reloadRows(tableId, firstView?.id);
+  }, [reloadRows]);
 
   useEffect(() => {
     if (activeTableId) { setTable(null); loadTable(activeTableId); }
@@ -133,9 +148,10 @@ export default function BaseDetailPage() {
     const res = await fetch(`/api/tables/${activeTableId}`);
     if (res.ok) { const tbl: TableT = await res.json(); setTable((t0) => (t0 ? { ...t0, fields: tbl.fields, primaryFieldId: tbl.primaryFieldId } : tbl)); }
   }
-  async function addRow() {
+  async function addRow(initial?: Record<string, unknown>) {
     if (!activeTableId) return;
-    const res = await fetch(`/api/tables/${activeTableId}/rows`, { method: 'POST', headers: JSON_HEADERS, body: '{}' });
+    const body = initial && Object.keys(initial).length ? JSON.stringify({ data: initial }) : '{}';
+    const res = await fetch(`/api/tables/${activeTableId}/rows`, { method: 'POST', headers: JSON_HEADERS, body });
     if (res.ok) { const row: RowT = await res.json(); setRows((rs) => [...rs, { ...row, data: row.data || {} }]); }
   }
   async function updateCell(rowId: string, fieldId: string, value: unknown) {
@@ -157,12 +173,68 @@ export default function BaseDetailPage() {
   async function deleteField(fieldId: string) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.filter((f) => f.id !== fieldId) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'DELETE' }); reloadSchema(); }
   async function setPrimary(fieldId: string) { if (!activeTableId) return; setTable((t0) => (t0 ? { ...t0, primaryFieldId: fieldId } : t0)); await fetch(`/api/tables/${activeTableId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ primaryFieldId: fieldId }) }); }
   async function resizeField(fieldId: string, width: number) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.map((f) => (f.id === fieldId ? { ...f, width } : f)) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ width }) }); }
+  async function patchViewConfig(patch: Partial<ViewConfig>, reload = false) {
+    if (!table || !activeTableId) return;
+    const view = table.views.find((v) => v.id === activeViewId) ?? table.views[0];
+    if (!view) return;
+    const nextConfig = { ...(view.config ?? {}), ...patch };
+    setTable((t0) => (t0 ? { ...t0, views: t0.views.map((v) => (v.id === view.id ? { ...v, config: nextConfig } : v)) } : t0));
+    await fetch(`/api/views/${view.id}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ config: nextConfig }) });
+    if (reload) await reloadRows(activeTableId, view.id);
+  }
+
+  function switchView(viewId: string) {
+    if (!activeTableId || viewId === activeViewId) return;
+    setActiveViewId(viewId);
+    reloadRows(activeTableId, viewId);
+  }
+
+  async function addView(type: ViewT['type']) {
+    if (!activeTableId || !table) return;
+    const label = type === 'kanban' ? t('kanbanView') : type === 'calendar' ? t('calendarView') : t('gridView');
+    const config: Record<string, unknown> = {};
+    if (type === 'kanban') { const f = table.fields.find((x) => x.type === 'singleSelect'); if (f) config.kanbanStackFieldId = f.id; }
+    if (type === 'calendar') { const f = table.fields.find((x) => x.type === 'date'); if (f) config.calendarDateFieldId = f.id; }
+    const res = await fetch(`/api/tables/${activeTableId}/views`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ name: label, type, config }) });
+    if (res.ok) {
+      const v: ViewT = await res.json();
+      setTable((t0) => (t0 ? { ...t0, views: [...t0.views, v] } : t0));
+      setActiveViewId(v.id);
+      reloadRows(activeTableId, v.id);
+    }
+  }
+
+  async function renameView() {
+    if (!renameViewT) return;
+    const id = renameViewT.id;
+    const nm = renameViewVal.trim();
+    if (!nm) return;
+    setTable((t0) => (t0 ? { ...t0, views: t0.views.map((v) => (v.id === id ? { ...v, name: nm } : v)) } : t0));
+    setRenameViewT(null);
+    await fetch(`/api/views/${id}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ name: nm }) });
+  }
+
+  async function deleteView() {
+    if (!delViewT || !table || table.views.length <= 1) { setDelViewT(null); return; }
+    const id = delViewT.id;
+    const remaining = table.views.filter((v) => v.id !== id);
+    setTable((t0) => (t0 ? { ...t0, views: remaining } : t0));
+    setDelViewT(null);
+    if (activeViewId === id) {
+      const nextV = [...remaining].sort((a, b) => a.position - b.position)[0];
+      setActiveViewId(nextV?.id ?? null);
+      if (activeTableId && nextV) reloadRows(activeTableId, nextV.id);
+    }
+    await fetch(`/api/views/${id}`, { method: 'DELETE' });
+  }
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner size={22} /></div>;
   if (!base) return <div style={{ padding: 40 }}><Link href="/database" className="btn btn-ghost"><ChevronLeft size={16} /> {t('title')}</Link></div>;
 
   const accent = base.color || '#3b82f6';
   const restricted = base.visibility === 'restricted';
+  const activeView = table ? (table.views.find((v) => v.id === activeViewId) ?? [...table.views].sort((a, b) => a.position - b.position)[0] ?? null) : null;
+  const detailRow = detailRowId ? rows.find((r) => r.id === detailRowId) ?? null : null;
 
   return (
     <div style={{ padding: '18px clamp(12px, 3vw, 28px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -228,10 +300,35 @@ export default function BaseDetailPage() {
           <div style={{ fontSize: 15, fontWeight: 600 }}>{t('noTables')}</div>
           <button className="btn btn-primary" onClick={() => setNewTableOpen(true)} style={{ marginTop: 14 }}><Plus size={16} /> {t('newTable')}</button>
         </div>
-      ) : !table ? (
+      ) : !table || !activeView ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={20} /></div>
       ) : (
-        <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} />
+        <>
+          <ViewTabs
+            views={table.views}
+            activeId={activeView.id}
+            onSwitch={switchView}
+            onAdd={addView}
+            onRename={(v) => { setRenameViewVal(v.name); setRenameViewT(v); }}
+            onDelete={(v) => setDelViewT(v)}
+          />
+          <GridToolbar
+            key={activeView.id}
+            fields={table.fields}
+            members={members}
+            filters={activeView.config?.filters ?? []}
+            sorts={activeView.config?.sorts ?? []}
+            rowCount={rows.length}
+            onChange={(next) => patchViewConfig(next, true)}
+          />
+          {activeView.type === 'kanban' ? (
+            <KanbanView table={table} rows={rows} members={members} stackFieldId={activeView.config?.kanbanStackFieldId} onSetStackField={(fid) => patchViewConfig({ kanbanStackFieldId: fid })} onCellChange={updateCell} onAddRow={addRow} onOpenRecord={setDetailRowId} />
+          ) : activeView.type === 'calendar' ? (
+            <CalendarView table={table} rows={rows} members={members} dateFieldId={activeView.config?.calendarDateFieldId} onSetDateField={(fid) => patchViewConfig({ calendarDateFieldId: fid })} onAddRow={addRow} onOpenRecord={setDetailRowId} />
+          ) : (
+            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} />
+          )}
+        </>
       )}
 
       {/* Modals */}
@@ -277,53 +374,28 @@ export default function BaseDetailPage() {
         </div>
       </Modal>
 
+      {detailRow && table && (
+        <RecordModal table={table} row={detailRow} members={members} onCellChange={updateCell} onClose={() => setDetailRowId(null)} />
+      )}
+
+      <Modal open={!!renameViewT} onClose={() => setRenameViewT(null)} title={t('renameView')} width={420}>
+        <input className="field" autoFocus value={renameViewVal} onChange={(e) => setRenameViewVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameView()} style={{ width: '100%', marginBottom: 18 }} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setRenameViewT(null)}>{tc('cancel')}</button>
+          <button className="btn btn-primary" onClick={renameView} disabled={!renameViewVal.trim()}>{tc('save')}</button>
+        </div>
+      </Modal>
+
+      <Modal open={!!delViewT} onClose={() => setDelViewT(null)} title={t('deleteView')} width={420}>
+        <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteView')}</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setDelViewT(null)}>{tc('cancel')}</button>
+          <button className="btn" onClick={deleteView} style={{ background: 'var(--red, #ef4444)', color: '#fff', fontWeight: 600 }}>{t('deleteView')}</button>
+        </div>
+      </Modal>
+
       {shareOpen && <ShareModal open={shareOpen} baseId={baseId} onClose={() => setShareOpen(false)} onVisibility={(v) => setBase((b) => (b ? { ...b, visibility: v } : b))} />}
     </div>
   );
 }
 
-function PopMenu({ trigger, width = 200, small, label, children }: { trigger: ReactNode; width?: number; small?: boolean; label?: string; children: (close: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    document.addEventListener('mousedown', close);
-    window.addEventListener('scroll', close, true);
-    return () => { document.removeEventListener('mousedown', close); window.removeEventListener('scroll', close, true); };
-  }, [open]);
-  return (
-    <>
-      <button
-        ref={ref}
-        aria-label={label}
-        className="btn btn-ghost btn-icon"
-        style={{ width: small ? 24 : 30, height: small ? 24 : 30, color: 'var(--muted)' }}
-        onClick={(e) => { e.stopPropagation(); const r = ref.current!.getBoundingClientRect(); setPos({ left: r.right - width, top: r.bottom }); setOpen((o) => !o); }}
-      >
-        {trigger}
-      </button>
-      {open && pos && typeof document !== 'undefined' &&
-        createPortal(
-          <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', left: Math.max(pos.left, 8), top: pos.top + 4, width, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 14px 44px rgba(0,0,0,.55)', padding: 6, zIndex: 2000 }}>
-            {children(() => setOpen(false))}
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-function MenuRow({ icon, label, onClick, danger }: { icon: ReactNode; label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', border: 'none', borderRadius: 8, background: 'transparent', color: danger ? 'var(--red, #ef4444)' : 'var(--text)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-    >
-      {icon} {label}
-    </button>
-  );
-}

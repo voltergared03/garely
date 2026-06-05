@@ -7,9 +7,9 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { CHOICE_COLORS, type FieldT, type FieldType, type SelectChoice, type OrgTable } from '../lib/types';
 
-const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone', 'file', 'totp', 'link'];
+const ALL_TYPES: FieldType[] = ['text', 'longText', 'number', 'currency', 'percent', 'rating', 'singleSelect', 'multiSelect', 'date', 'person', 'checkbox', 'url', 'email', 'phone', 'file', 'totp', 'password', 'link'];
 
-type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number; targetTableId?: string; displayFieldId?: string };
+type Opts = { choices?: SelectChoice[]; precision?: number; includeTime?: boolean; multiple?: boolean; symbol?: string; max?: number; targetTableId?: string; displayFieldId?: string; reminderDays?: number };
 
 function defaultsFor(type: FieldType, prev: Opts): Opts {
   switch (type) {
@@ -25,7 +25,7 @@ function defaultsFor(type: FieldType, prev: Opts): Opts {
     case 'rating':
       return { max: prev.max ?? 5 };
     case 'date':
-      return { includeTime: prev.includeTime ?? false };
+      return { includeTime: prev.includeTime ?? false, reminderDays: prev.reminderDays };
     case 'person':
       return { multiple: prev.multiple ?? false };
     case 'link':
@@ -101,7 +101,7 @@ export function FieldEditor({
     else if (type === 'currency') draft.options = { symbol: (opts.symbol || '₴').slice(0, 4), precision: opts.precision ?? 2 };
     else if (type === 'percent') draft.options = { precision: opts.precision ?? 0 };
     else if (type === 'rating') draft.options = { max: opts.max ?? 5 };
-    else if (type === 'date') draft.options = { includeTime: !!opts.includeTime };
+    else if (type === 'date') draft.options = { includeTime: !!opts.includeTime, ...(opts.reminderDays && opts.reminderDays > 0 ? { reminderDays: opts.reminderDays } : {}) };
     else if (type === 'person') draft.options = { multiple: !!opts.multiple };
     else if (type === 'link') draft.options = { targetTableId: opts.targetTableId || '', displayFieldId: opts.displayFieldId, multiple: !!opts.multiple };
     onSave(draft);
@@ -249,10 +249,34 @@ export function FieldEditor({
       )}
 
       {type === 'date' && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer' }}>
-          <input type="checkbox" checked={!!opts.includeTime} onChange={(e) => setOpts((p) => ({ ...p, includeTime: e.target.checked }))} />
-          {t('includeTime')}
-        </label>
+        <>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!opts.includeTime} onChange={(e) => setOpts((p) => ({ ...p, includeTime: e.target.checked }))} />
+            {t('includeTime')}
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: opts.reminderDays ? 8 : 14, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={!!opts.reminderDays}
+              onChange={(e) => setOpts((p) => ({ ...p, reminderDays: e.target.checked ? (p.reminderDays && p.reminderDays > 0 ? p.reminderDays : 3) : undefined }))}
+            />
+            {t('reminderToggle')}
+          </label>
+          {!!opts.reminderDays && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingLeft: 24 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{t('reminderDaysLabel')}</span>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={opts.reminderDays ?? 3}
+                onChange={(e) => setOpts((p) => ({ ...p, reminderDays: Math.max(1, Math.min(365, Number(e.target.value) || 1)) }))}
+                className="field"
+                style={{ width: 84, padding: '6px 8px' }}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {type === 'person' && (

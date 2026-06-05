@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { FieldType } from './base-engine';
 import { normalizeTotpSecret, totpCellFromSecret, totpCellView } from './base-totp';
+import { normalizePassword, passwordCellFromSecret, passwordCellView } from './base-password';
 
 /**
  * Base engine — Row data layer (Phase 2, roadmap §14).
@@ -88,6 +89,12 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
       const secret = normalizeTotpSecret(value);
       return secret ? (totpCellFromSecret(secret) as unknown as Prisma.InputJsonValue) : undefined;
     }
+    case 'password': {
+      // Incoming value is the plaintext password; store it ENCRYPTED at rest.
+      // Bulk reads return only { set }; the plaintext comes from the reveal endpoint.
+      const secret = normalizePassword(value);
+      return secret ? (passwordCellFromSecret(secret) as unknown as Prisma.InputJsonValue) : undefined;
+    }
     case 'link': {
       // Cell stores an array of target ROW ids; labels are resolved server-side on read.
       const multiple = !!(field.options as any)?.multiple;
@@ -131,10 +138,14 @@ export function coerceCell(field: FieldLike, value: unknown): Prisma.InputJsonVa
  */
 export function presentRowData(data: RowData, fields: FieldLike[]): RowData {
   const totpIds = fields.filter((f) => f.type === 'totp').map((f) => f.id);
-  if (totpIds.length === 0) return data;
+  const passwordIds = fields.filter((f) => f.type === 'password').map((f) => f.id);
+  if (totpIds.length === 0 && passwordIds.length === 0) return data;
   const out: RowData = { ...data };
   for (const fid of totpIds) {
     if (fid in out) out[fid] = totpCellView(out[fid]) as unknown as RowData[string];
+  }
+  for (const fid of passwordIds) {
+    if (fid in out) out[fid] = passwordCellView(out[fid]) as unknown as RowData[string];
   }
   return out;
 }

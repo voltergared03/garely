@@ -631,9 +631,24 @@ model Row {
   position    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  dateReminders BaseDateReminder[]
 
   @@index([tableId])
   @@index([tableId, position])
+}
+
+// Idempotency log for date-field reminders (one row per row×field×target-day
+// that has been notified). Keeps the daily reminder cron from re-sending.
+model BaseDateReminder {
+  id        String   @id @default(cuid())
+  rowId     String
+  fieldId   String
+  dueOn     DateTime // target reminder day (UTC) — idempotency key
+  createdAt DateTime @default(now())
+  row       Row      @relation(fields: [rowId], references: [id], onDelete: Cascade)
+
+  @@unique([rowId, fieldId, dueOn])
+  @@index([rowId])
 }
 
 model View {

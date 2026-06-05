@@ -566,6 +566,10 @@ select.field option:checked {
 .col-resize-handle::after { content: ''; width: 2px; height: 100%; background: transparent; transition: background .1s ease; }
 .col-resize-handle:hover::after, .col-resize-handle:active::after { background: var(--accent); }
 
+/* Calendar day cell — reveal the quick-add button on hover */
+.db-cal-cell .db-cal-add { transition: opacity .1s ease; }
+.db-cal-cell:hover .db-cal-add { opacity: 1 !important; }
+
 /* ── Mobile top bar — logo + notification bell (mobile only) ── */
 .mobile-topbar {
   display: flex;

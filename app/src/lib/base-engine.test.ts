@@ -45,11 +45,18 @@ describe('normalizeFieldOptions', () => {
     expect((normalizeFieldOptions('person', {}) as any).multiple).toBe(false);
   });
 
+  it('date.reminderDays: kept when a positive int, dropped otherwise, clamped to 365', () => {
+    expect((normalizeFieldOptions('date', { reminderDays: 3 }) as any).reminderDays).toBe(3);
+    expect((normalizeFieldOptions('date', { reminderDays: 0 }) as any).reminderDays).toBeUndefined();
+    expect((normalizeFieldOptions('date', {}) as any).reminderDays).toBeUndefined();
+    expect((normalizeFieldOptions('date', { reminderDays: 999 }) as any).reminderDays).toBe(365);
+  });
+
   it('exposes all field types', () => {
     expect([...FIELD_TYPES]).toEqual([
       'text', 'longText', 'number', 'currency', 'percent', 'rating',
       'singleSelect', 'multiSelect', 'date', 'person', 'checkbox',
-      'url', 'email', 'phone', 'file', 'totp', 'link',
+      'url', 'email', 'phone', 'file', 'totp', 'link', 'password',
     ]);
   });
 
@@ -67,10 +74,11 @@ describe('normalizeFieldOptions', () => {
     expect((normalizeFieldOptions('rating', {}) as any).max).toBe(5);
   });
 
-  it('url/email/phone carry no options', () => {
+  it('url/email/phone/password carry no options', () => {
     expect(normalizeFieldOptions('url', { x: 1 })).toBeUndefined();
     expect(normalizeFieldOptions('email', {})).toBeUndefined();
     expect(normalizeFieldOptions('phone', {})).toBeUndefined();
+    expect(normalizeFieldOptions('password', { x: 1 })).toBeUndefined();
   });
 });
 

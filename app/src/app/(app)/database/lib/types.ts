@@ -17,7 +17,8 @@ export type FieldType =
   | 'phone'
   | 'file'
   | 'totp'
-  | 'link';
+  | 'link'
+  | 'password';
 
 export interface FileRef {
   id: string;
@@ -33,6 +34,11 @@ export interface TotpView {
   code?: string;
   period?: number;
   remainingSec?: number;
+}
+
+/** Client-safe view of a `password` cell — only whether a value is set, never the value. */
+export interface PasswordView {
+  set: boolean;
 }
 
 /** A resolved link in a `link` cell: target row id + its display-field label. */
@@ -69,6 +75,7 @@ export interface FieldT {
     max?: number;
     targetTableId?: string;
     displayFieldId?: string;
+    reminderDays?: number | null;
   } | null;
   position: number;
   width?: number | null;

@@ -75,6 +75,13 @@ describe('coerceCell', () => {
     expect(coerceCell(tot, '')).toBeUndefined();
     expect(coerceCell(tot, 'short')).toBeUndefined();
   });
+  it('password: stores an ENCRYPTED value (never plaintext); empty clears', () => {
+    const pw: FieldLike = { id: 'pw', type: 'password', options: null };
+    const out = coerceCell(pw, 'hunter2!') as { enc?: string };
+    expect(typeof out.enc).toBe('string');
+    expect(JSON.stringify(out)).not.toContain('hunter2!');
+    expect(coerceCell(pw, '')).toBeUndefined();
+  });
   it('link: array of target ids; single caps to 1, multiple keeps the set', () => {
     const single: FieldLike = { id: 'l', type: 'link', options: { targetTableId: 't', multiple: false } as never };
     const multi: FieldLike = { id: 'l', type: 'link', options: { targetTableId: 't', multiple: true } as never };
@@ -98,6 +105,17 @@ describe('presentRowData', () => {
     expect((view.tot as { enc?: string }).enc).toBeUndefined();
     expect(JSON.stringify(view)).not.toContain('JBSWY3DPEHPK3PXP');
     expect(view.txt).toBe('hi'); // non-totp cells untouched
+  });
+  it('masks a password cell to { set } only, leaking no value', () => {
+    const fields: FieldLike[] = [
+      { id: 'pw', type: 'password', options: null },
+      { id: 'txt', type: 'text', options: null },
+    ];
+    const stored = coerceRowData(fields, { pw: 'hunter2!', txt: 'hi' });
+    const view = presentRowData(stored, fields);
+    expect(view.pw).toEqual({ set: true });
+    expect(JSON.stringify(view)).not.toContain('hunter2!');
+    expect(view.txt).toBe('hi');
   });
   it('is a no-op when there are no totp fields', () => {
     const fields: FieldLike[] = [{ id: 'txt', type: 'text', options: null }];

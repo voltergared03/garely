@@ -33,6 +33,7 @@ export const fieldTypeSchema = z.enum([
   'file',
   'totp',
   'link',
+  'password',
 ]);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 export const FIELD_TYPES = fieldTypeSchema.options;
@@ -82,7 +83,10 @@ export function normalizeFieldOptions(
         max: Number.isInteger(o.max) ? Math.min(Math.max(o.max, 1), 10) : 5,
       };
     case 'date':
-      return { includeTime: !!o.includeTime };
+      return {
+        includeTime: !!o.includeTime,
+        ...(Number.isInteger(o.reminderDays) && o.reminderDays > 0 ? { reminderDays: Math.min(o.reminderDays, 365) } : {}),
+      };
     case 'person':
       return { multiple: !!o.multiple };
     case 'link': {
@@ -94,7 +98,7 @@ export function normalizeFieldOptions(
       return out as Prisma.InputJsonValue;
     }
     default:
-      return undefined; // text | longText | checkbox | url | email | phone | totp have no options
+      return undefined; // text | longText | checkbox | url | email | phone | totp | password have no options
   }
 }
 
