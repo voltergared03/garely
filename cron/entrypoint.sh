@@ -23,7 +23,7 @@ cat > /usr/local/bin/run-cron-job <<EOF
 #!/bin/sh
 set -eu
 secret="\$(cat /etc/cron-secret)"
-wget -qO- -T 30 "${APP_URL}/api/cron/\$1?secret=\${secret}" || echo "[cron] job \$1 failed"
+wget -qO- -T 180 "${APP_URL}/api/cron/\$1?secret=\${secret}" || echo "[cron] job \$1 failed"
 echo
 EOF
 chmod +x /usr/local/bin/run-cron-job
