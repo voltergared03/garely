@@ -14,7 +14,7 @@ import { workspaceLocale } from './i18n-server';
 import { notify } from './notify';
 import { sendReportEmail } from './report-email';
 import { provisionSystemTasksTable } from './system-tasks-table';
-import { createTaskFromAI } from './tasks';
+import { createTaskFromAI, aiCellsFromModel, AI_FILLABLE_TYPES } from './tasks';
 
 export interface ReTranscribedSegment {
   content: string;
@@ -177,6 +177,33 @@ async function generateReportInner(
     }
   }
 
+  // System Tasks table (Phase 3) — provisioned up front (idempotent) so the
+  // prompt can list the org's CUSTOM task fields for the AI to fill (P4.1) and
+  // the persistence step can coerce them. `aiFillFields` = custom fields the AI
+  // may set (excludes the 6 system fields + non-fillable types).
+  const prov = await provisionSystemTasksTable(orgId);
+  const taskFields = await prisma.field.findMany({
+    where: { tableId: prov.table.id },
+    select: { id: true, name: true, type: true, options: true },
+  });
+  const systemFieldIds = new Set<string>(Object.values(prov.fieldIds));
+  // Custom AI-fillable fields, DEDUPED by lowercased name (field names aren't
+  // unique within a table) so the prompt lists each once and a model value maps
+  // to exactly one column id; select fields need ≥1 choice to be fillable.
+  const aiFillFields = (() => {
+    const seen = new Set<string>();
+    const out: typeof taskFields = [];
+    for (const f of taskFields) {
+      if (systemFieldIds.has(f.id) || !AI_FILLABLE_TYPES.has(f.type)) continue;
+      if ((f.type === 'singleSelect' || f.type === 'multiSelect') && !((f.options as { choices?: unknown[] } | null)?.choices?.length)) continue;
+      const key = f.name.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(f);
+    }
+    return out;
+  })();
+
   // Meeting ATTENDEES = registered users (formal participants + any registered
   // transcript speaker) and guests (people who joined by name, with no account —
   // found as participants or as transcript speakers without a speakerId).
@@ -237,6 +264,24 @@ async function generateReportInner(
   const departmentsLine = departments.length
     ? `Departments — route EACH task to the single most relevant one by exact name (by the nature of the work and the assignees' [department] hints), or null if none fits: ${departments.map((d) => d.name).join(', ')}.\n`
     : '';
+  // Custom task fields the AI may fill (P4.1) — listed for the prompt with a
+  // type hint; for select fields the EXACT allowed option names.
+  const aiFieldHint = (f: { type: string; options: any }): string => {
+    const names = (((f.options?.choices as { name?: string }[]) || []).map((c) => c?.name).filter(Boolean) as string[]);
+    switch (f.type) {
+      case 'number': case 'currency': case 'percent': case 'rating': return '(a number)';
+      case 'checkbox': return '(true or false)';
+      case 'singleSelect': return `(exactly one of: ${names.join(', ')})`;
+      case 'multiSelect': return `(an array, any of: ${names.join(', ')})`;
+      default: return '(text)';
+    }
+  };
+  const customFieldsLine = aiFillFields.length
+    ? `Custom task fields — for EACH task you MAY also fill a "fields" object with these EXTRA fields, but ONLY when the transcript clearly states a value (otherwise omit that field, or the whole "fields" object — NEVER invent a value, and NEVER use an option that is not listed):\n${aiFillFields.map((f) => `  • "${f.name}" ${aiFieldHint(f)}`).join('\n')}\n`
+    : '';
+  const customFieldsShape = aiFillFields.length
+    ? `, "fields": { "field name": "value per the Custom task fields list — omit fields you don't know" }`
+    : '';
 
   const numbered = segments
     .map((s, i) => `${i + 1}. [${(s.language || '??').toUpperCase()}] ${s.speakerName || '?'}: ${s.content}`)
@@ -269,13 +314,13 @@ Rules:
       "title": "short topic title in ${langName}",
       "discussion": "a thorough multi-sentence narrative of this topic in ${langName} — the context, the main points raised, who said what, and the reasoning / outcome",
       "decisions": [ { "text": "decision in ${langName}", "owner": "person name or null", "cites": [1, 2] } ],
-      "tasks": [ { "title": "the action only, imperative, in ${langName} — NO person name", "assignees": ["attendee name", "..."], "department": "department name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3], "subtasks": [ { "title": "sub-step, imperative, in ${langName} — NO person name", "assignees": ["attendee name"], "priority": "high|medium|low", "due": "timeframe or null" } ] } ],
+      "tasks": [ { "title": "the action only, imperative, in ${langName} — NO person name", "assignees": ["attendee name", "..."], "department": "department name or null", "priority": "high|medium|low", "due": "timeframe or null", "cites": [3], "subtasks": [ { "title": "sub-step, imperative, in ${langName} — NO person name", "assignees": ["attendee name"], "priority": "high|medium|low", "due": "timeframe or null" } ]${customFieldsShape} } ],
       "open_questions": [ { "text": "open question in ${langName}", "cites": [4] } ],
       "cites": [1, 2, 3, 4]
     }
   ]
 }
-${participantsLine}${departmentsLine}
+${participantsLine}${departmentsLine}${customFieldsLine}
 TRANSCRIPT:
 ${numbered}`;
 
@@ -394,6 +439,8 @@ ${numbered}`;
           priority: ['high', 'medium', 'low'].includes(s.priority) ? s.priority : priority,
           due: s.due || null,
         })).filter((s: any) => s.title),
+        // AI-filled custom-field cells (P4.1), engine-shaped (id→value); subtasks have none.
+        cells: aiCellsFromModel(aiFillFields, k.fields),
       };
     }),
     openQuestions: (Array.isArray(t.open_questions) ? t.open_questions : []).map((q: any) => ({
@@ -425,6 +472,7 @@ ${numbered}`;
       priority: k.priority,
       dueDate: k.due ? parseDueDate(String(k.due)) : null,
       departmentId: resolveDept(k.department, leadId),
+      cells: (k.cells && typeof k.cells === 'object') ? k.cells as Record<string, unknown> : undefined,
       subtasks: (k.subtasks || []).map((s: any) => {
         const r = resolveSet(s.assignees || []);
         return {
@@ -439,10 +487,8 @@ ${numbered}`;
     };
   });
 
-  // Tasks are base-engine Rows (Phase 3): provision the org's system Tasks table
-  // up front, then create Rows + TaskRow + RowAssignment inside the transaction.
-  const prov = await provisionSystemTasksTable(orgId);
-  const taskFields = await prisma.field.findMany({ where: { tableId: prov.table.id }, select: { id: true, type: true, options: true } });
+  // (`prov` + `taskFields` were provisioned earlier — before the prompt — so the
+  // AI could see the org's custom fields.) leadFirst orders the denormalised lead.
   const leadFirst = (lead: string | null, ids: string[]) => (lead ? [lead, ...ids.filter((x) => x !== lead)] : ids);
 
   await prisma.$transaction(async (tx) => {
@@ -478,6 +524,7 @@ ${numbered}`;
         priority: r.priority,
         dueDate: r.dueDate,
         regIds: leadFirst(r.leadId, r.regIds),
+        cells: r.cells,
       });
       // Subtasks: child rows under the parent, inheriting its department.
       for (const s of r.subtasks) {

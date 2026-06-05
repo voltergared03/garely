@@ -5,6 +5,7 @@ import {
   deleteTask,
   setRowAssignees,
   applyCustomCells,
+  aiCellsFromModel,
   createTask,
   createTaskField,
   updateTaskField,
@@ -134,6 +135,54 @@ describe('createTask — custom cells at creation (P3.3)', () => {
     const stored = (prismaMock.row.create.mock.calls[0][0] as any).data.data;
     expect(stored.fX).toBe('Acme'); // custom cell persisted
     expect(stored.fS).toBe('open'); // status stays 'open' — cells can't override the typed field
+  });
+});
+
+describe('aiCellsFromModel — AI fills custom fields from transcript (P4.1)', () => {
+  const ff = (id: string, name: string, type: string, options: unknown = null) => ({ id, name, type, options } as any);
+  const fields = [
+    ff('fC', 'Client', 'text'),
+    ff('fB', 'Budget', 'number'),
+    ff('fS', 'Stage', 'singleSelect', { choices: [{ id: 'won', name: 'Won' }, { id: 'lost', name: 'Lost' }] }),
+    ff('fG', 'Tags', 'multiSelect', { choices: [{ id: 'vip', name: 'VIP' }, { id: 'urg', name: 'Urgent' }] }),
+    ff('fD', 'Deadline', 'date'),   // not AI-fillable
+    ff('fO', 'Owner', 'person'),    // not AI-fillable
+  ];
+
+  it('projects text/number and resolves select names → choice ids', () => {
+    const out = aiCellsFromModel(fields, { Client: 'Acme', Budget: '5000', Stage: 'Won', Tags: ['VIP', 'nope', 'Urgent'] });
+    expect(out).toEqual({ fC: 'Acme', fB: 5000, fS: 'won', fG: ['vip', 'urg'] });
+  });
+
+  it('matches field names case-insensitively; drops unknown select options', () => {
+    expect(aiCellsFromModel(fields, { stage: 'won' })).toEqual({ fS: 'won' });
+    expect(aiCellsFromModel(fields, { Stage: 'Maybe' })).toEqual({}); // not a listed choice
+  });
+
+  it('ignores non-fillable types (date/person) and empty values', () => {
+    expect(aiCellsFromModel(fields, { Deadline: 'next week', Owner: 'Anna', Client: '' })).toEqual({});
+  });
+
+  it('returns {} for non-object model fields', () => {
+    expect(aiCellsFromModel(fields, null)).toEqual({});
+    expect(aiCellsFromModel(fields, 'x')).toEqual({});
+  });
+
+  it('coerces checkbox truthy/falsey, drops the unrecognized', () => {
+    const cb = [ff('fK', 'Done', 'checkbox')];
+    expect(aiCellsFromModel(cb, { Done: 'yes' })).toEqual({ fK: true });
+    expect(aiCellsFromModel(cb, { Done: false })).toEqual({ fK: false });
+    expect(aiCellsFromModel(cb, { Done: 'maybe' })).toEqual({});
+  });
+
+  it('duplicate field names: first wins, no fan-out into multiple ids', () => {
+    const dup = [ff('f1', 'Notes', 'text'), ff('f2', 'notes', 'text')]; // same name, case-collision
+    expect(aiCellsFromModel(dup, { Notes: 'hi' })).toEqual({ f1: 'hi' }); // only the first
+  });
+
+  it('does not pull inherited prototype keys (Object.hasOwn)', () => {
+    const proto = [ff('fX', 'toString', 'text')];
+    expect(aiCellsFromModel(proto, {})).toEqual({}); // {}.toString exists on prototype but not own
   });
 });
 

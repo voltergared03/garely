@@ -637,24 +637,97 @@ export async function createTask(session: Session, input: CreateTaskInput): Prom
   return { task: task!, assignees: finalAssignees };
 }
 
+/** Field types the AI is allowed to auto-fill from a transcript. Excludes
+ *  person (name→id is the assignee path), date (ambiguous timeframes), and
+ *  file/totp/password/link (no transcript-derivable / safe representation). */
+export const AI_FILLABLE_TYPES = new Set<string>([
+  'text', 'longText', 'number', 'currency', 'percent', 'rating', 'checkbox',
+  'url', 'email', 'phone', 'singleSelect', 'multiSelect',
+]);
+
+type AiFillField = { id: string; name: string; type: string; options: Prisma.JsonValue | null };
+
+function choiceIdByName(options: Prisma.JsonValue | null, name: unknown): string | undefined {
+  if (typeof name !== 'string') return undefined;
+  const choices = (options as { choices?: { id?: string; name?: string }[] } | null)?.choices;
+  if (!Array.isArray(choices)) return undefined;
+  const n = name.trim().toLowerCase();
+  return choices.find((c) => c && typeof c.name === 'string' && c.name.trim().toLowerCase() === n)?.id;
+}
+
+/**
+ * Project an AI-returned per-task `fields` object (keyed by field NAME, values
+ * in human terms) → engine cells (keyed by field id, engine shape) for the
+ * org's CUSTOM task fields. Only AI-fillable types; singleSelect/multiSelect
+ * values are resolved from choice NAME → id; anything unmatched/empty is
+ * dropped. `coerceRowData`/`coerceCell` re-validate downstream, so this is a
+ * best-effort projector. Pure (no I/O) → unit-testable.
+ */
+export function aiCellsFromModel(fields: AiFillField[], modelFields: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!modelFields || typeof modelFields !== 'object') return out;
+  const m = modelFields as Record<string, unknown>;
+  const lower = new Map<string, unknown>();
+  for (const [k, v] of Object.entries(m)) lower.set(k.trim().toLowerCase(), v);
+  const seenName = new Set<string>();
+  for (const f of fields) {
+    if (!AI_FILLABLE_TYPES.has(f.type)) continue;
+    const nameKey = f.name.trim().toLowerCase();
+    if (seenName.has(nameKey)) continue; // duplicate field name → first wins, no fan-out into multiple ids
+    seenName.add(nameKey);
+    // Object.hasOwn (not `in`) so an inherited prototype key can't be pulled in.
+    const raw = Object.hasOwn(m, f.name) ? m[f.name] : lower.get(nameKey);
+    if (raw == null || raw === '') continue;
+    let v: unknown;
+    switch (f.type) {
+      case 'number': case 'currency': case 'percent': case 'rating': {
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        v = Number.isFinite(n) ? n : undefined;
+        break;
+      }
+      case 'checkbox':
+        v = raw === true || raw === 'true' || raw === 'yes' ? true
+          : raw === false || raw === 'false' || raw === 'no' ? false : undefined;
+        break;
+      case 'singleSelect':
+        v = choiceIdByName(f.options, raw);
+        break;
+      case 'multiSelect': {
+        const arr = Array.isArray(raw) ? raw : [raw];
+        const ids = arr.map((x) => choiceIdByName(f.options, x)).filter((x): x is string => !!x);
+        v = ids.length ? ids : undefined;
+        break;
+      }
+      default: // text | longText | url | email | phone
+        v = String(raw);
+    }
+    if (v !== undefined) out[f.id] = v;
+  }
+  return out;
+}
+
 /**
  * Transactional Row+TaskRow+RowAssignment creator for the AI pipeline. Caller
  * passes the resolved fieldIds + tx; mirrors the cell shapes of createTask.
  */
 export async function createTaskFromAI(
   tx: Prisma.TransactionClient,
-  args: { tableId: string; fieldIds: TaskFieldIds; fields: FieldLike[]; meetingId: string | null; reportId: string | null; departmentId: string | null; parentRowId: string | null; title: string; description?: string | null; priority?: string | null; dueDate?: Date | string | null; regIds: string[] },
+  args: { tableId: string; fieldIds: TaskFieldIds; fields: FieldLike[]; meetingId: string | null; reportId: string | null; departmentId: string | null; parentRowId: string | null; title: string; description?: string | null; priority?: string | null; dueDate?: Date | string | null; regIds: string[]; cells?: Record<string, unknown> },
 ): Promise<{ rowId: string }> {
   const f = args.fieldIds;
   const regIds = [...new Set(args.regIds.filter(Boolean))];
-  const data = coerceRowData(args.fields, {
+  const base: Cells = {
     [f.title]: args.title,
     [f.description]: args.description ?? undefined,
     [f.status]: 'open',
     [f.priority]: args.priority || 'medium',
     [f.dueDate]: args.dueDate ? (args.dueDate instanceof Date ? args.dueDate.toISOString() : args.dueDate) : undefined,
     [f.assignee]: regIds,
-  });
+  };
+  // AI-filled CUSTOM cells (P4.1) — same single-write-path guard: the 6 system +
+  // assignee ids are rejected, so the model can never overwrite them.
+  applyCustomCells(base, args.cells, [f.title, f.description, f.status, f.priority, f.dueDate, f.assignee]);
+  const data = coerceRowData(args.fields, base);
   const r = await tx.row.create({ data: { tableId: args.tableId, data: data as Prisma.InputJsonValue, position: 0 } });
   await tx.taskRow.create({ data: { rowId: r.id, meetingId: args.meetingId, reportId: args.reportId, departmentId: args.departmentId, parentRowId: args.parentRowId, source: 'ai', completedAt: null } });
   for (const userId of regIds) await tx.rowAssignment.create({ data: { rowId: r.id, userId } });
