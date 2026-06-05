@@ -14,6 +14,7 @@ const patchSchema = z
     type: fieldTypeSchema.optional(),
     options: z.unknown().optional(),
     position: z.number().int().optional(),
+    width: z.number().int().min(60).max(800).nullable().optional(),
   })
   .strict();
 
@@ -34,6 +35,7 @@ export const PATCH = withRoute('fields.update', async (req: NextRequest, ctx: Ct
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
   if (parsed.data.type !== undefined) data.type = parsed.data.type;
   if (parsed.data.position !== undefined) data.position = parsed.data.position;
+  if (parsed.data.width !== undefined) data.width = parsed.data.width;
   if (parsed.data.options !== undefined || parsed.data.type !== undefined) {
     const opts = normalizeFieldOptions(nextType, parsed.data.options ?? field.options);
     if (opts !== undefined) data.options = opts;

@@ -561,6 +561,11 @@ select.field option:checked {
 .db-grid-row:hover .row-expand,
 .db-grid-row:focus-within .row-expand { opacity: 1; }
 
+/* Column resize handle — a thin accent bar appears on hover/drag */
+.col-resize-handle { display: flex; justify-content: center; }
+.col-resize-handle::after { content: ''; width: 2px; height: 100%; background: transparent; transition: background .1s ease; }
+.col-resize-handle:hover::after, .col-resize-handle:active::after { background: var(--accent); }
+
 /* ── Mobile top bar — logo + notification bell (mobile only) ── */
 .mobile-topbar {
   display: flex;

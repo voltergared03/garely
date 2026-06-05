@@ -133,6 +133,7 @@
     "totpPlaceholder": "Вставте секретний ключ",
     "totpCopy": "Копіювати код",
     "totpReplaceKey": "Замінити ключ",
+    "resizeColumn": "Змінити ширину",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",

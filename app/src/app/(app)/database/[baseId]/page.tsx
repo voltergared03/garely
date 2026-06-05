@@ -156,6 +156,7 @@ export default function BaseDetailPage() {
   async function deleteRow(rowId: string) { setRows((rs) => rs.filter((r) => r.id !== rowId)); await fetch(`/api/rows/${rowId}`, { method: 'DELETE' }); }
   async function deleteField(fieldId: string) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.filter((f) => f.id !== fieldId) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'DELETE' }); reloadSchema(); }
   async function setPrimary(fieldId: string) { if (!activeTableId) return; setTable((t0) => (t0 ? { ...t0, primaryFieldId: fieldId } : t0)); await fetch(`/api/tables/${activeTableId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ primaryFieldId: fieldId }) }); }
+  async function resizeField(fieldId: string, width: number) { setTable((t0) => (t0 ? { ...t0, fields: t0.fields.map((f) => (f.id === fieldId ? { ...f, width } : f)) } : t0)); await fetch(`/api/fields/${fieldId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ width }) }); }
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner size={22} /></div>;
   if (!base) return <div style={{ padding: 40 }}><Link href="/database" className="btn btn-ghost"><ChevronLeft size={16} /> {t('title')}</Link></div>;
@@ -230,7 +231,7 @@ export default function BaseDetailPage() {
       ) : !table ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={20} /></div>
       ) : (
-        <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} />
+        <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} />
       )}
 
       {/* Modals */}

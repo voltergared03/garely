@@ -54,6 +54,7 @@ export interface FieldT {
     max?: number;
   } | null;
   position: number;
+  width?: number | null;
 }
 
 export interface FilterCond {

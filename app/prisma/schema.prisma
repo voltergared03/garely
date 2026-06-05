@@ -615,6 +615,7 @@ model Field {
   type      String // text | longText | number | singleSelect | multiSelect | date | person | checkbox
   options   Json? // select {choices:[{id,name,color}]} | number {precision} | date {includeTime} | person {multiple}
   position  Int      @default(0)
+  width     Int? // grid column width in px (null = type default)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -133,6 +133,7 @@
     "totpPlaceholder": "Paste secret key",
     "totpCopy": "Copy code",
     "totpReplaceKey": "Replace key",
+    "resizeColumn": "Resize column",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",

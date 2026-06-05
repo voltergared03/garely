@@ -30,6 +30,7 @@ export function GridView({
   onDeleteRow,
   onDeleteField,
   onSetPrimary,
+  onResizeField,
 }: {
   table: TableT;
   rows: RowT[];
@@ -41,12 +42,15 @@ export function GridView({
   onDeleteRow: (rowId: string) => void;
   onDeleteField: (fieldId: string) => void;
   onSetPrimary: (fieldId: string) => void;
+  onResizeField: (fieldId: string, width: number) => void;
 }) {
   const t = useTranslations('database');
   const [editor, setEditor] = useState<{ field: FieldT | null } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [widths, setWidths] = useState<Record<string, number>>({}); // in-session drag overrides
   const fields = [...table.fields].sort((a, b) => a.position - b.position);
-  const template = `48px ${fields.map((f) => (f.id === table.primaryFieldId ? '240px' : '180px')).join(' ')} 160px`;
+  const widthOf = (f: FieldT) => widths[f.id] ?? f.width ?? (f.id === table.primaryFieldId ? 240 : 180);
+  const template = `48px ${fields.map((f) => `${widthOf(f)}px`).join(' ')} 160px`;
   const detailRow = detailId ? rows.find((r) => r.id === detailId) ?? null : null;
 
   const headerCell: CSSProperties = {
@@ -71,9 +75,12 @@ export function GridView({
               field={f}
               isPrimary={f.id === table.primaryFieldId}
               style={headerCell}
+              width={widthOf(f)}
               onEdit={() => setEditor({ field: f })}
               onDelete={() => onDeleteField(f.id)}
               onSetPrimary={() => onSetPrimary(f.id)}
+              onResize={(w) => setWidths((prev) => ({ ...prev, [f.id]: w }))}
+              onResizeEnd={(w) => onResizeField(f.id, w)}
             />
           ))}
           <div style={headerCell}>
@@ -228,13 +235,19 @@ function FieldHeaderCell({
   onEdit,
   onDelete,
   onSetPrimary,
+  width,
+  onResize,
+  onResizeEnd,
 }: {
   field: FieldT;
   isPrimary: boolean;
   style: CSSProperties;
+  width: number;
   onEdit: () => void;
   onDelete: () => void;
   onSetPrimary: () => void;
+  onResize: (w: number) => void;
+  onResizeEnd: (w: number) => void;
 }) {
   const t = useTranslations('database');
   const Icon = TYPE_ICONS[field.type] ?? Type;
@@ -253,8 +266,27 @@ function FieldHeaderCell({
     };
   }, [menu]);
 
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const clamp = (w: number) => Math.max(80, Math.min(800, w));
+    const move = (ev: MouseEvent) => onResize(clamp(width + ev.clientX - startX));
+    const up = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      onResizeEnd(clamp(width + ev.clientX - startX));
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   return (
-    <div style={{ ...style, justifyContent: 'space-between', gap: 6 }}>
+    <div style={{ ...style, justifyContent: 'space-between', gap: 6, position: 'relative' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
         {isPrimary ? <Star size={13} style={{ color: 'var(--amber, #f59e0b)', flexShrink: 0 }} /> : <Icon size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.name}</span>
@@ -284,6 +316,15 @@ function FieldHeaderCell({
           </div>,
           document.body,
         )}
+      <div
+        className="col-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t('resizeColumn')}
+        onMouseDown={startResize}
+        onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', top: 0, right: -4, width: 8, height: '100%', cursor: 'col-resize', zIndex: 3 }}
+      />
     </div>
   );
 }
