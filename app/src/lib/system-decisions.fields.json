@@ -1,0 +1,26 @@
+{
+  "_comment": "Single source of truth for the per-org system Decisions table (Phase 4.2, roadmap §16). Decisions extracted from meeting reports are persisted here as Rows so they form a queryable, per-decision-authorized registry. The Meeting/Report/Source fields are STRUCTURAL (hold ids / 'ai'|'manual') — they live in Row.data (no sidecar table, so no prod DDL) and drive re-derivation (delete a meeting's AI decisions on regenerate) + authz (a user sees a decision only if they can access its meeting). They are hidden from the bespoke registry UI; the system table is hidden from the generic Database UI (Table.system=true).",
+  "baseName": "Decisions",
+  "tableName": "Decisions",
+  "icon": "gavel",
+  "fieldNames": {
+    "text": "Decision",
+    "owner": "Owner",
+    "date": "Date",
+    "meetingId": "Meeting",
+    "reportId": "Report",
+    "source": "Source"
+  },
+  "fields": [
+    { "key": "text", "name": "Decision", "type": "longText", "options": null },
+    { "key": "owner", "name": "Owner", "type": "person", "options": { "multiple": false } },
+    { "key": "date", "name": "Date", "type": "date", "options": { "includeTime": false } },
+    { "key": "meetingId", "name": "Meeting", "type": "text", "options": null },
+    { "key": "reportId", "name": "Report", "type": "text", "options": null },
+    { "key": "source", "name": "Source", "type": "text", "options": null }
+  ],
+  "views": [
+    { "key": "grid", "name": "Grid", "type": "grid" },
+    { "key": "calendar", "name": "Calendar", "type": "calendar" }
+  ]
+}

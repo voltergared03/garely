@@ -7,6 +7,7 @@
 // triggered by the agent on room end (notify=true) and by the report
 // "fix language & regenerate" flow (notify=false).
 import fs from 'node:fs/promises';
+import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { readConfig, getDeepSeekConfig } from './config';
 import { sseJsonChunks, chunkDelta } from './sse';
@@ -14,7 +15,9 @@ import { workspaceLocale } from './i18n-server';
 import { notify } from './notify';
 import { sendReportEmail } from './report-email';
 import { provisionSystemTasksTable } from './system-tasks-table';
+import { provisionSystemDecisionsTable } from './system-decisions-table';
 import { createTaskFromAI, aiCellsFromModel, AI_FILLABLE_TYPES } from './tasks';
+import { coerceRowData } from './base-rows';
 
 export interface ReTranscribedSegment {
   content: string;
@@ -153,11 +156,12 @@ async function generateReportInner(
   // and the persistence step can resolve a department NAME → id.
   const meetingMeta = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: { departmentId: true, orgId: true },
+    select: { departmentId: true, orgId: true, scheduledAt: true },
   });
   if (!meetingMeta) throw new Error('Meeting not found');
   const meetingDeptId = meetingMeta.departmentId ?? null;
   const orgId = meetingMeta.orgId; // non-null: every meeting carries its org
+  const decisionDateIso = (meetingMeta.scheduledAt ?? new Date()).toISOString();
   const departments = await prisma.department.findMany({
     where: { orgId },
     select: { id: true, name: true, members: { select: { userId: true } } },
@@ -186,6 +190,10 @@ async function generateReportInner(
     where: { tableId: prov.table.id },
     select: { id: true, name: true, type: true, options: true },
   });
+  // Decisions registry (P4.2): provision the system Decisions table + load its
+  // fields for coercion. Decisions are persisted as Rows in the transaction below.
+  const decProv = await provisionSystemDecisionsTable(orgId);
+  const decFields = await prisma.field.findMany({ where: { tableId: decProv.table.id }, select: { id: true, type: true, options: true } });
   const systemFieldIds = new Set<string>(Object.values(prov.fieldIds));
   // Custom AI-fillable fields, DEDUPED by lowercased name (field names aren't
   // unique within a table) so the prompt lists each once and a model value maps
@@ -489,6 +497,9 @@ ${numbered}`;
 
   // (`prov` + `taskFields` were provisioned earlier — before the prompt — so the
   // AI could see the org's custom fields.) leadFirst orders the denormalised lead.
+  // Flatten decisions across topics for the registry (P4.2). owner = a matched
+  // attendee name (or null); re-resolved to a userId at persist time.
+  const allDecisions = topics.flatMap((t: any) => t.decisions) as { text: string; owner: string | null }[];
   const leadFirst = (lead: string | null, ids: string[]) => (lead ? [lead, ...ids.filter((x) => x !== lead)] : ids);
 
   await prisma.$transaction(async (tx) => {
@@ -542,6 +553,35 @@ ${numbered}`;
           regIds: leadFirst(s.leadId, s.regIds),
         });
       }
+    }
+
+    // Decisions registry (P4.2): re-derive THIS meeting's AI decisions as Rows,
+    // delete-then-insert (mirrors the AI-task re-derivation above). The structural
+    // Meeting/Source fields in Row.data scope the delete (JSONB path query) and
+    // later drive per-decision authz (a user sees a decision only if they can
+    // access its meeting). Owner is the source meeting's matched attendee → userId.
+    const df = decProv.fieldIds;
+    await tx.row.deleteMany({
+      where: {
+        tableId: decProv.table.id,
+        AND: [
+          { data: { path: [df.meetingId], equals: meetingId } },
+          { data: { path: [df.source], equals: 'ai' } },
+        ],
+      },
+    });
+    for (const d of allDecisions) {
+      if (!d.text) continue;
+      const ownerId = d.owner ? matchParticipant(d.owner)?.id ?? null : null;
+      const data = coerceRowData(decFields, {
+        [df.text]: d.text,
+        [df.owner]: ownerId ?? undefined,
+        [df.date]: decisionDateIso,
+        [df.meetingId]: meetingId,
+        [df.reportId]: created.id,
+        [df.source]: 'ai',
+      });
+      await tx.row.create({ data: { tableId: decProv.table.id, data: data as Prisma.InputJsonValue, position: 0 } });
     }
   }, {
     // Multi-assignee + subtasks mean many more sequential writes than before —
