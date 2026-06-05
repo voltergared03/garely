@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chipsForRow, customTaskFields, EDITABLE_CUSTOM_TYPES, SYSTEM_FIELD_NAMES } from './custom-fields';
+import { chipsForRow, customTaskFields, EDITABLE_CUSTOM_TYPES, SYSTEM_FIELD_NAMES, filterableCustomFields, matchesCustomFilters } from './custom-fields';
 import type { FieldT } from '../database/lib/types';
 
 const f = (id: string, name: string, type: string, options: unknown = null): FieldT =>
@@ -57,5 +57,39 @@ describe('customTaskFields + type sets', () => {
     for (const t of ['totp', 'password', 'file', 'link']) expect(EDITABLE_CUSTOM_TYPES.has(t)).toBe(false);
     for (const t of ['text', 'number', 'singleSelect', 'person', 'date']) expect(EDITABLE_CUSTOM_TYPES.has(t)).toBe(true);
     expect(SYSTEM_FIELD_NAMES.has('Due date')).toBe(true);
+  });
+});
+
+describe('filterableCustomFields + matchesCustomFilters — board filtering', () => {
+  const sel = f('fS', 'Stage', 'singleSelect', { choices: [{ id: 'won', name: 'Won' }, { id: 'lost', name: 'Lost' }] });
+  const multi = f('fM', 'Tags', 'multiSelect', { choices: [{ id: 'vip', name: 'VIP' }] });
+  const text = f('fT', 'Client', 'text');
+  const emptySel = f('fE', 'Empty', 'singleSelect', { choices: [] });
+
+  it('offers only select-style fields that have choices', () => {
+    expect(filterableCustomFields([sel, multi, text, emptySel]).map((x) => x.id)).toEqual(['fS', 'fM']);
+  });
+
+  it('matches a singleSelect filter by equality', () => {
+    expect(matchesCustomFilters([sel], { fS: 'won' }, { fS: 'won' })).toBe(true);
+    expect(matchesCustomFilters([sel], { fS: 'won' }, { fS: 'lost' })).toBe(false);
+    expect(matchesCustomFilters([sel], { fS: 'won' }, {})).toBe(false);
+  });
+
+  it('matches a multiSelect filter by contains', () => {
+    expect(matchesCustomFilters([multi], { fM: 'vip' }, { fM: ['vip', 'x'] })).toBe(true);
+    expect(matchesCustomFilters([multi], { fM: 'vip' }, { fM: ['x'] })).toBe(false);
+    expect(matchesCustomFilters([multi], { fM: 'vip' }, { fM: 'vip' })).toBe(false); // cell not an array
+  });
+
+  it('ignores "all" / empty / stale (deleted-field) filters', () => {
+    expect(matchesCustomFilters([sel], { fS: 'all' }, { fS: 'lost' })).toBe(true);
+    expect(matchesCustomFilters([sel], {}, { fS: 'lost' })).toBe(true);
+    expect(matchesCustomFilters([], { fS: 'won' }, { fS: 'lost' })).toBe(true); // fS no longer filterable
+  });
+
+  it('requires ALL active filters to match', () => {
+    expect(matchesCustomFilters([sel, multi], { fS: 'won', fM: 'vip' }, { fS: 'won', fM: ['vip'] })).toBe(true);
+    expect(matchesCustomFilters([sel, multi], { fS: 'won', fM: 'vip' }, { fS: 'won', fM: [] })).toBe(false);
   });
 });

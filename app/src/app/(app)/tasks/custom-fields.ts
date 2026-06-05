@@ -49,3 +49,31 @@ export function chipsForRow(
   }
   return out;
 }
+
+/** Custom fields a board can offer as a (single-choice) filter chip: select-style. */
+export function filterableCustomFields(fields: FieldT[]): FieldT[] {
+  return fields.filter(
+    (f) => (f.type === "singleSelect" || f.type === "multiSelect") && (f.options?.choices?.length ?? 0) > 0,
+  );
+}
+
+/**
+ * True if a row's cells satisfy every active custom-field filter. Only fields in
+ * `filterable` are considered, so a stale filter for a since-deleted field is
+ * ignored (never hides every row). singleSelect → cell equals the choice;
+ * multiSelect → the cell array contains it. Pure → unit-testable.
+ */
+export function matchesCustomFilters(
+  filterable: FieldT[],
+  filters: Record<string, string>,
+  cells: Record<string, unknown> | undefined,
+): boolean {
+  for (const f of filterable) {
+    const v = filters[f.id];
+    if (!v || v === "all") continue;
+    const cell = cells?.[f.id];
+    const ok = f.type === "multiSelect" ? Array.isArray(cell) && cell.includes(v) : cell === v;
+    if (!ok) return false;
+  }
+  return true;
+}

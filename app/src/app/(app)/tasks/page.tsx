@@ -9,7 +9,7 @@ import {
   ListChecks, Check, Clock, Search, X, Sparkles, ChevronDown,
   MoreHorizontal, User, Loader2, Plus, Trash2, Video,
   LayoutList, LayoutGrid, AlertCircle, Calendar as CalendarIcon, Wand2, Building2,
-  MessageSquare, Paperclip, Send, Download, Users, UploadCloud, GitBranch,
+  MessageSquare, Paperclip, Send, Download, Users, UploadCloud, GitBranch, SlidersHorizontal,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { useIsMobile } from "@/lib/use-is-mobile";
@@ -17,7 +17,7 @@ import { useQuizPending } from "@/hooks/use-quiz-pending";
 import { QuizzesPanel } from "../quizzes/quizzes-panel";
 import { FieldCell } from "../database/components/FieldCell";
 import { FieldEditor, type FieldDraft } from "../database/components/FieldEditor";
-import { EDITABLE_CUSTOM_TYPES, customTaskFields, chipsForRow } from "./custom-fields";
+import { EDITABLE_CUSTOM_TYPES, customTaskFields, chipsForRow, filterableCustomFields, matchesCustomFilters } from "./custom-fields";
 import type { FieldT, OrgMember } from "../database/lib/types";
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -1499,6 +1499,7 @@ export default function TasksPage() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
   const [filterDept, setFilterDept] = useState("all");
+  const [customFilters, setCustomFilters] = useState<Record<string, string>>({}); // custom singleSelect fieldId → choiceId | "all"
   const [departments, setDepartments] = useState<{ id: string; name: string; color: string | null; members: { userId: string }[] }[]>([]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Task | null | "new">(null);
@@ -1541,6 +1542,8 @@ export default function TasksPage() {
     [users],
   );
   const customFields = useMemo(() => customTaskFields(fields), [fields]);
+  // Custom select-style fields are offered as board filter chips (client-side, by cell value).
+  const filterableFields = useMemo(() => filterableCustomFields(customFields), [customFields]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "quizzes") setTab("quizzes");
@@ -1602,12 +1605,13 @@ export default function TasksPage() {
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
       if (filterAssignee !== "all" && t.assignee?.id !== filterAssignee && t.assigneeId !== filterAssignee) return false;
       if (filterDept !== "all" && t.departmentId !== filterDept) return false;
+      if (!matchesCustomFilters(filterableFields, customFilters, t.cells as Record<string, unknown> | undefined)) return false;
       if (q) {
         const low = q.toLowerCase();
         if (!t.title.toLowerCase().includes(low) && !(t.description || "").toLowerCase().includes(low)) return false;
       }
       return true;
-    }), [tasks, scope, filterMeeting, filterPriority, filterAssignee, filterDept, q, userId, userDept]);
+    }), [tasks, scope, filterMeeting, filterPriority, filterAssignee, filterDept, customFilters, filterableFields, q, userId, userDept]);
 
   const meetingOptions = useMemo(() => {
     const ids = [...new Set(tasks.map(t => t.meetingId))];
@@ -1705,6 +1709,11 @@ export default function TasksPage() {
             <SelectChip icon={User} value={filterAssignee} onChange={(v) => { setFilterAssignee(v); if (v !== "all") setScope("all"); }}
               options={[{ value: "all", label: tr("tasks.filterAllAssignees") }, ...users.map(u => ({ value: u.id, label: u.name || u.email }))]} />
           )}
+          {filterableFields.map(f => (
+            <SelectChip key={f.id} icon={SlidersHorizontal} value={customFilters[f.id] ?? "all"}
+              onChange={(v) => setCustomFilters(p => ({ ...p, [f.id]: v }))}
+              options={[{ value: "all", label: f.name }, ...(f.options?.choices ?? []).map(c => ({ value: c.id, label: c.name }))]} />
+          ))}
           <div className="tasks-search" style={{ position: "relative" }}>
             <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input placeholder={tr("tasks.searchPlaceholder")} value={q} onChange={e => setQ(e.target.value)}
