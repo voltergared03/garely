@@ -45,6 +45,9 @@ that turns meetings into decisions and assigned work — all on your own server.
 - Meeting invitations send the `.ics` as a proper calendar alternative with a
   correct ORGANIZER/ATTENDEE; reports show **all** assignees, not just the lead.
 - Database home bento layout, grid viewport-fit, and assorted polish.
+- Calendar month view no longer nests interactive controls: a day cell is now a
+  keyboard-operable container (not a `<button>`), so the task-deadline chips
+  inside it are valid — clearing the React hydration warning.
 
 ## [1.12.0-beta.1] — 2026-06-03
 

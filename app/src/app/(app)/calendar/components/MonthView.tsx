@@ -110,12 +110,18 @@ export function MonthView({
           const isToday = isSameDay(d, today);
 
           return (
-            <button
+            <div
               key={i}
+              role="button"
+              tabIndex={0}
               onClick={() => onDayClick(d, dayMeetings, dayTasks)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDayClick(d, dayMeetings, dayTasks);
+                }
+              }}
               style={{
-                borderLeft: '1px solid var(--border)',
-                borderTop: '1px solid var(--border)',
                 padding: '8px 10px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -129,13 +135,8 @@ export function MonthView({
                 minHeight: 90,
                 minWidth: 0,
                 overflow: 'hidden',
-                border: 'none',
-                borderLeftStyle: 'solid',
-                borderLeftWidth: 1,
-                borderLeftColor: 'var(--border)',
-                borderTopStyle: 'solid',
-                borderTopWidth: 1,
-                borderTopColor: 'var(--border)',
+                borderLeft: '1px solid var(--border)',
+                borderTop: '1px solid var(--border)',
               }}
               onMouseEnter={(e) => {
                 if (!isToday) e.currentTarget.style.background = 'var(--surface)';
@@ -222,7 +223,7 @@ export function MonthView({
                   </div>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
