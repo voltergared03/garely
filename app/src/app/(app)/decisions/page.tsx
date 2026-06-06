@@ -41,8 +41,10 @@ const STYLES = `
 .dec-head:hover { background: var(--surface-2); }
 .dec-item { transition: background .12s ease; }
 .dec-item:hover { background: color-mix(in oklab, var(--surface-2) 55%, transparent); }
-.dec-item .dec-actions { opacity: 0; transition: opacity .12s ease; }
+.dec-item .dec-actions { opacity: .5; transition: opacity .12s ease; }
 .dec-item:hover .dec-actions, .dec-item:focus-within .dec-actions { opacity: 1; }
+/* touch devices have no hover — keep the edit/delete affordances visible */
+@media (hover: none) { .dec-item .dec-actions { opacity: .9; } }
 .dec-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; transition: all .12s ease; }
 .dec-iconbtn:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
 .dec-iconbtn.danger:hover { color: #f87171; border-color: color-mix(in oklab, #f87171 40%, transparent); }
