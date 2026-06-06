@@ -4,6 +4,48 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.13.0-beta.1] — 2026-06-06
+
+**The "work OS" release.** Garely grows from a meeting app into a self-hosted
+work platform: a built-in database, tasks rebuilt on top of it, and an AI layer
+that turns meetings into decisions and assigned work — all on your own server.
+
+### Added
+- **Rebrand to Garely.** New name, interlock logo mark + wordmark, and docs
+  (formerly EZmeet / EAM Meet). Product brand is decoupled from your workspace name.
+- **Multi-tenancy foundation.** Every record now belongs to an Organization
+  (single-database, `orgId`-scoped throughout) — the groundwork for a clean
+  self-host first-run and a future hosted/multi-org cloud.
+- **A native database engine** (Airtable / Teable-style), built in: Base → Table →
+  Field → Record → Views (**grid, kanban, calendar**), ~18 field types (text,
+  long text, number, currency, percent, rating, single/multi-select, date, person,
+  checkbox, URL, email, phone, file/attachment, **TOTP 2FA code**, encrypted
+  **password**, and two-way **link/relations**), filters & sorts, resizable and
+  drag-reorderable columns & rows, a row context menu (insert ×N / duplicate /
+  copy link / comment / delete), multi-select + bulk actions, **record comments**
+  and attachments, and **per-base sharing by email** (roles + hidden columns).
+- **Tasks, rebuilt on the engine.** Tasks are now records in that database, which
+  unlocks **custom fields on tasks** — set them on create, edit them in the task
+  drawer, see them as chips on the board, and filter the board by select fields.
+  Plus multiple assignees and inline subtasks.
+- **AI that does the work (the moat):**
+  - The AI now **fills your custom task fields** straight from the meeting transcript.
+  - **Decisions registry** — every decision your meetings make is extracted into a
+    searchable registry (with owners), organised by meeting, with per-decision
+    access control, inline **edit/delete**, and a backfill for existing reports.
+  - A **weekly "where to focus" AI rollup** at the top of the digest email.
+  - AI auto-assigns people, subtasks and the right department to action items.
+
+### Changed / Fixed
+- **Self-host first-run hardening.** The Google-SSO setup path now provisions the
+  first Organization (a fresh Google-only install no longer comes up without an
+  org); integration status detects Google credentials via the database **and** env;
+  `.env.example` spells out which services matter (DeepSeek = core, SMTP =
+  recommended, Deepgram = opt-in).
+- Meeting invitations send the `.ics` as a proper calendar alternative with a
+  correct ORGANIZER/ATTENDEE; reports show **all** assignees, not just the lead.
+- Database home bento layout, grid viewport-fit, and assorted polish.
+
 ## [1.12.0-beta.1] — 2026-06-03
 
 ### Added
