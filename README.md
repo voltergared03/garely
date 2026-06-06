@@ -46,7 +46,11 @@ install in place (secrets and config are preserved).
 
 ![Garely dashboard](docs/screenshots/desktop-dashboard.png)
 
-**AI meeting report** — topic-structured summary, decisions, and action items, with clickable transcript citations and per-speaker language analytics.
+**AI meeting report** — a summary, assigned action items, and analytics (duration, word count, language split, speaker time) on the *Summary* tab…
+
+![AI meeting report — summary, action items and analytics](docs/screenshots/desktop-report.png)
+
+…and a topic-structured *Detailed* view: per-topic decisions, tasks and open questions, with clickable transcript citations.
 
 ![AI meeting report — detailed view with citations](docs/screenshots/desktop-report-detailed.png)
 
