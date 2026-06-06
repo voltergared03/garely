@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
-import { listDecisions, assembleDecisionDTO, countDecisions } from '@/lib/decisions';
+import { listDecisions, assembleDecisionDTO, countDecisions, decisionMutationAllowed, updateDecisionRow } from '@/lib/decisions';
 import { getCurrentOrgId } from '@/lib/org';
 import { mockSession } from '@/test/helpers';
 
@@ -30,9 +30,9 @@ const USERS = [
   { id: 'u2', name: 'Bob', image: 'b.png' },
 ];
 const MEETINGS = [
-  { id: 'm1', title: 'Kickoff', scheduledAt: new Date('2026-06-01') },
-  { id: 'm2', title: 'Planning', scheduledAt: null },
-  { id: 'm3', title: 'Private 1:1', scheduledAt: null },
+  { id: 'm1', title: 'Kickoff', scheduledAt: new Date('2026-06-01'), createdById: 'mem1' },
+  { id: 'm2', title: 'Planning', scheduledAt: null, createdById: 'admin1' },
+  { id: 'm3', title: 'Private 1:1', scheduledAt: null, createdById: 'u-other' },
 ];
 const ACCESSIBLE = [{ id: 'm1' }, { id: 'm2' }]; // member can access m1, m2 — NOT m3
 
@@ -72,6 +72,8 @@ describe('listDecisions — admin', () => {
     const d2 = out.find((d) => d.id === 'd2')!;
     expect(d2.owner).toBeNull();
     expect(d2.ownerId).toBeNull();
+    // admins can edit every decision
+    expect(out.every((d) => d.canEdit)).toBe(true);
   });
 });
 
@@ -82,6 +84,9 @@ describe('listDecisions — per-decision authz (member)', () => {
     // d3 (meeting m3, inaccessible) is filtered out; d1/d2 remain
     expect(out.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
     expect(out.find((d) => d.id === 'd3')).toBeUndefined();
+    // canEdit only for decisions whose meeting THIS member created (m1 → mem1)
+    expect(out.find((d) => d.id === 'd1')!.canEdit).toBe(true); // m1.createdById === mem1
+    expect(out.find((d) => d.id === 'd2')!.canEdit).toBe(false); // m2.createdById === admin1
   });
 
   it('hides decisions whose meeting is missing from the accessible set (orphaned/deleted)', async () => {
@@ -148,5 +153,54 @@ describe('countDecisions', () => {
   it('counts rows in the org Decisions table', async () => {
     expect(await countDecisions('org-A')).toBe(3);
     expect(await countDecisions(null)).toBe(0);
+  });
+});
+
+describe('decisionMutationAllowed — admin OR meeting creator', () => {
+  it('always allows admins (no meeting lookup)', async () => {
+    expect(await decisionMutationAllowed('m1', 'anyone', 'admin')).toBe(true);
+    expect(prismaMock.meeting.findUnique).not.toHaveBeenCalled();
+  });
+  it('allows the source meeting creator, denies others', async () => {
+    prismaMock.meeting.findUnique.mockResolvedValue({ createdById: 'creator1' } as any);
+    expect(await decisionMutationAllowed('m1', 'creator1', 'member')).toBe(true);
+    expect(await decisionMutationAllowed('m1', 'someone-else', 'member')).toBe(false);
+  });
+  it('denies when there is no meeting', async () => {
+    expect(await decisionMutationAllowed(null, 'u1', 'member')).toBe(false);
+  });
+});
+
+describe('updateDecisionRow — merges text + owner into Row.data', () => {
+  const ctx = {
+    id: 'd1',
+    data: { fText: 'old', fOwner: 'u1', fMeet: 'm1', fSrc: 'ai' },
+    tableId: 'dtbl',
+    df: PROV.fieldIds,
+    orgId: 'org-A',
+    meetingId: 'm1',
+    fields: [
+      { id: 'fText', type: 'longText', options: null },
+      { id: 'fOwner', type: 'person', options: { multiple: false } },
+    ],
+  } as any;
+
+  it('updates text and reassigns the owner', async () => {
+    prismaMock.row.update.mockResolvedValue({} as any);
+    const out = await updateDecisionRow(ctx, { text: 'new text', ownerId: 'u2' });
+    expect(out).toEqual({ id: 'd1', text: 'new text', ownerId: 'u2' });
+    const written = (prismaMock.row.update.mock.calls[0][0] as any).data.data;
+    expect(written.fText).toBe('new text');
+    expect(written.fOwner).toBe('u2'); // person(single) stores a bare id, structural cells preserved
+    expect(written.fMeet).toBe('m1');
+  });
+
+  it('clears the owner when ownerId is null', async () => {
+    prismaMock.row.update.mockResolvedValue({} as any);
+    const out = await updateDecisionRow(ctx, { ownerId: null });
+    expect(out.ownerId).toBeNull();
+    const written = (prismaMock.row.update.mock.calls[0][0] as any).data.data;
+    expect('fOwner' in written).toBe(false);
+    expect(written.fText).toBe('old'); // unchanged
   });
 });

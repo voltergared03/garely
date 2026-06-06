@@ -58,7 +58,16 @@
     "emptyFilteredTitle": "Немає відповідних рішень",
     "emptyFilteredDesc": "Спробуйте інший мітинг, відповідального або пошуковий запит.",
     "clearFilters": "Скинути фільтри",
-    "count": "{count, plural, one {# рішення} few {# рішення} many {# рішень} other {# рішень}}"
+    "count": "{count, plural, one {# рішення} few {# рішення} many {# рішень} other {# рішень}}",
+    "expandAll": "Розгорнути все",
+    "collapseAll": "Згорнути все",
+    "openReport": "Відкрити звіт",
+    "edit": "Редагувати",
+    "delete": "Видалити",
+    "save": "Зберегти",
+    "cancel": "Скасувати",
+    "setOwner": "Призначити відповідального",
+    "confirmDelete": "Видалити це рішення?"
   },
   "database": {
     "title": "База даних",

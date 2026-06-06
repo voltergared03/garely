@@ -58,7 +58,16 @@
     "emptyFilteredTitle": "No matching decisions",
     "emptyFilteredDesc": "Try a different meeting, owner or search term.",
     "clearFilters": "Clear filters",
-    "count": "{count, plural, one {# decision} other {# decisions}}"
+    "count": "{count, plural, one {# decision} other {# decisions}}",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "openReport": "Open report",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "setOwner": "Set owner",
+    "confirmDelete": "Delete this decision?"
   },
   "database": {
     "title": "Database",
