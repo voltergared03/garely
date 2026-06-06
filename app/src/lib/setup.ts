@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { readConfig, writeConfig, getGoogleConfig } from './config';
+import { readConfig, writeConfig, getGoogleConfig, CONFIG_DEFAULTS } from './config';
 import { prisma } from './prisma';
 
 /**
@@ -71,6 +71,31 @@ export async function verifySetupToken(input: string | null | undefined): Promis
   const token = await getSetupToken();
   if (!token) return false;
   return safeEqual(input, token);
+}
+
+/**
+ * Provision the workspace's FIRST organization (Phase-1 multi-tenancy) and make
+ * `adminUserId` its OWNER. Called by BOTH setup paths (password + Google) so a
+ * fresh install always lands with org #1 — `orgId` is NOT NULL everywhere, so an
+ * install with no org breaks every scoped query. Idempotent: reuses the existing
+ * org if one is already present (e.g. an upgraded instance) and only ensures the
+ * OWNER membership, so it's safe to call from either path / on a re-run.
+ */
+export async function provisionFirstOrg(adminUserId: string): Promise<{ id: string }> {
+  const existing = await prisma.organization.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
+  let orgId = existing?.id;
+  if (!orgId) {
+    const wsName = ((await readConfig(['WS_NAME'])).WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'Workspace').trim();
+    const slug = wsName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'org';
+    const org = await prisma.organization.create({ data: { name: wsName, slug } });
+    orgId = org.id;
+  }
+  await prisma.membership.upsert({
+    where: { orgId_userId: { orgId, userId: adminUserId } },
+    update: { role: 'OWNER' },
+    create: { orgId, userId: adminUserId, role: 'OWNER' },
+  });
+  return { id: orgId };
 }
 
 /** Finalize setup: mark complete and burn the one-time token. */

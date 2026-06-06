@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { verifySetupToken, markSetupComplete } from '@/lib/setup';
+import { verifySetupToken, markSetupComplete, provisionFirstOrg } from '@/lib/setup';
 
 // POST /api/setup/complete { token } — promote the signed-in user to admin and
 // finalize setup. Requires BOTH a valid setup token AND an authenticated session
@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id as string;
   try {
     await prisma.user.update({ where: { id: userId }, data: { role: 'admin' } });
+    // Multi-tenancy: create org #1 and make this first admin its OWNER (fresh
+    // install). MUST happen here too — without it a Google-SSO install has no
+    // org and every orgId-scoped query breaks. Shared with the password path.
+    await provisionFirstOrg(userId);
   } catch {
     return NextResponse.json({ error: 'Could not promote user' }, { status: 500 });
   }

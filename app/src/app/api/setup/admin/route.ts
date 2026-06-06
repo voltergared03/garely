@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { prisma } from '@/lib/prisma';
-import { verifySetupToken, markSetupComplete } from '@/lib/setup';
+import { verifySetupToken, markSetupComplete, provisionFirstOrg } from '@/lib/setup';
 import { hashPassword, passwordPolicyError } from '@/lib/password';
 import { readConfig, CONFIG_DEFAULTS } from '@/lib/config';
 import { withRoute } from '@/lib/with-route';
@@ -44,11 +44,9 @@ async function postHandler(req: NextRequest) {
     } as any,
   });
 
-  // Multi-tenancy: create org #1 and make this first admin its OWNER (fresh install).
-  const wsName = ((await readConfig(['WS_NAME'])).WS_NAME || CONFIG_DEFAULTS.WS_NAME || 'Workspace').trim();
-  const slug = wsName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'org';
-  const org = await prisma.organization.create({ data: { name: wsName, slug } });
-  await prisma.membership.create({ data: { orgId: org.id, userId: admin.id, role: 'OWNER' } });
+  // Multi-tenancy: create org #1 and make this first admin its OWNER (fresh
+  // install). Shared with the Google-auth path so the two can't drift.
+  await provisionFirstOrg(admin.id);
 
   // Burns the setup token and flips SETUP_COMPLETE → /setup is now locked.
   await markSetupComplete();
