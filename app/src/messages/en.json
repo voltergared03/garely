@@ -39,8 +39,11 @@
     "newMeeting": "New meeting"
   },
   "decisions": {
+    "kicker": "Registry",
     "pageTitle": "Decisions",
-    "subtitle": "Every decision your meetings made, in one searchable registry.",
+    "subtitle": "Every decision your meetings made, in one searchable record.",
+    "statMeetings": "{count, plural, one {# meeting} other {# meetings}}",
+    "aiBadge": "AI",
     "searchPlaceholder": "Search decisions…",
     "clear": "Clear",
     "filterAllMeetings": "All meetings",

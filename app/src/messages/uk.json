@@ -39,8 +39,11 @@
     "newMeeting": "Новий мітинг"
   },
   "decisions": {
+    "kicker": "Реєстр",
     "pageTitle": "Рішення",
     "subtitle": "Усі рішення ваших мітингів — в одному реєстрі з пошуком.",
+    "statMeetings": "{count, plural, one {# мітинг} few {# мітинги} many {# мітингів} other {# мітингів}}",
+    "aiBadge": "AI",
     "searchPlaceholder": "Пошук рішень…",
     "clear": "Очистити",
     "filterAllMeetings": "Усі мітинги",
