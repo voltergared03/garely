@@ -42,19 +42,30 @@ install in place (secrets and config are preserved).
 
 ## Screenshots
 
-**Desktop**
+**Dashboard** — your next meeting, your tasks, and recent AI reports at a glance.
 
-![Schedule a meeting with an AI-generated agenda](docs/screenshots/desktop-schedule.png)
-![Calendar with meeting details](docs/screenshots/desktop-calendar.png)
-![Tasks board — action items from meetings](docs/screenshots/desktop-tasks.png)
+![Garely dashboard](docs/screenshots/desktop-dashboard.png)
 
-**Mobile** — installable PWA
+**AI meeting report** — topic-structured summary, decisions, and action items, with clickable transcript citations and per-speaker language analytics.
 
-<p align="left">
-  <img src="docs/screenshots/mobile-dashboard.png" width="240" alt="Mobile dashboard" />
-  <img src="docs/screenshots/mobile-calendar.png" width="240" alt="Mobile calendar (agenda)" />
-  <img src="docs/screenshots/mobile-tasks.png" width="240" alt="Mobile tasks" />
-</p>
+![AI meeting report — detailed view with citations](docs/screenshots/desktop-report-detailed.png)
+
+**Tasks** — a board (list / kanban / by-department) with custom fields, subtasks, assignees and deadlines; AI turns meeting talk into assigned work.
+
+![Tasks kanban board with custom fields](docs/screenshots/desktop-tasks-kanban.png)
+
+**Decisions registry** — every decision your meetings made, searchable, owner-tagged and organised by meeting.
+
+![Decisions registry](docs/screenshots/desktop-decisions.png)
+
+**Built-in database** — an Airtable-style engine (grid / kanban / calendar views, ~18 field types, relations, sharing). Tasks and decisions run on it too.
+
+![Native database — grid view](docs/screenshots/desktop-base-grid.png)
+![Native database — kanban pipeline](docs/screenshots/desktop-base-kanban.png)
+
+**Calendar** — meetings and task deadlines together, with a private ICS feed for Google / Outlook / Apple Calendar.
+
+![Calendar](docs/screenshots/desktop-calendar.png)
 
 ---
 
