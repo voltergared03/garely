@@ -1,9 +1,11 @@
 # Garely
 
-Self-hosted video-conferencing platform with AI meeting intelligence: live
-multilingual transcription, automatic summaries, action items, collaborative
-notes, a report-grounded AI chat, post-meeting comprehension quizzes, and
-on-demand recording.
+Self-hosted, open-source **work OS** built around meetings. It runs entirely on
+**your own server**: per-speaker multilingual video meetings with AI
+transcription and reports, a task workspace and a searchable **decisions
+registry** that the AI fills for you, and a **built-in Airtable-style database**
+that ties it all together — so your meetings and data never leave your
+infrastructure. Ukrainian-first multilingual (per-speaker uk / ru / en).
 
 [![CI](https://github.com/voltergared03/garely/actions/workflows/ci.yml/badge.svg)](https://github.com/voltergared03/garely/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -56,24 +58,49 @@ install in place (secrets and config are preserved).
 
 ---
 
-## Features
+### Meetings & AI
 
-- **Video meetings** over WebRTC (LiveKit SFU): guest join links + waiting room, screen share, reactions, **start now** or schedule
-- **Per-speaker multilingual live transcription** (Deepgram, uk / ru / en) streamed into the room
-- **AI post-meeting reports** (DeepSeek): summary, decisions, action items & follow-ups — plus a topic-structured **"Detailed" report** with clickable transcript citations and PDF export
-- **Report-grounded AI chat** — ask questions about the meeting; answers cite the transcript
-- **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub
-- **Task workspace** — a board (list / kanban / by-department) where **subtasks** are managed inline (expand a row to toggle, reassign, delete or quick-add, with a progress meter), plus **comments**, **file attachments** and **collaborators** in a side panel; deadlines land on the calendar
-- **Departments** — group people into teams; meetings & tasks belong to a department, which gates who sees what (members see their own + their department's + collaborated work; admins see all)
-- **Calendar sync** — subscribe to your own meetings & task deadlines (private ICS feed) from Google Calendar, Outlook or Apple Calendar
-- **Collaborative notes** with @mentions, **recurring meetings**
-- **On-demand recording** via LiveKit Egress — start / stop from an in-meeting button (host/admin); see [Recording](#recording-livekit-egress)
-- **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**
-- **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email (meeting invitations with `.ics`, task assigned / updated, meeting reminders, weekly digest, report-ready, mentions)
-- **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page
-- **Admin panel**: users, workspace policies, integrations, usage/cost
-- **First-run setup wizard** (`/setup`): configure auth methods, branding & integrations from the browser — zero config-file editing
-- **Bilingual** (English / Ukrainian): admin sets the workspace language at setup; each user can switch their own interface language in Settings
+- **Video meetings** over WebRTC (LiveKit SFU): guest join links + waiting room, screen share, reactions, **start now** or schedule, **recurring meetings**.
+- **Per-speaker multilingual live transcription** (Deepgram, uk / ru / en) with **automatic per-speaker language detection** — two people speaking different languages in the same call are each transcribed correctly — streamed into the room.
+- **AI post-meeting reports** (DeepSeek): summary, decisions, action items & follow-ups, plus a topic-structured **"Detailed" report** where every line has **clickable transcript citations** and **PDF export**.
+- **Report-grounded AI chat** — ask questions about the meeting; answers cite the exact transcript moments.
+- **Collaborative notes** with @mentions; **on-demand recording** via LiveKit Egress (start/stop from an in-meeting button — see [Recording](#recording-livekit-egress)).
+
+### Tasks & decisions
+
+- **Task workspace** — a board (**list / kanban / by-department**) with **inline subtasks** (expand a row to toggle, reassign, delete or quick-add, with a progress meter), plus **comments**, **file attachments**, **collaborators** and **multiple assignees** in a side panel; deadlines land on the calendar.
+- **AI turns meeting talk into assigned work** — action items get the right people, subtasks, priority, due date and **department**, automatically.
+- **Custom fields on tasks** — add your own columns (text, select, number, date…), set them on create, edit them in the drawer, see them as chips and **filter the board** by them; the **AI fills them from the transcript** too.
+- **Decisions registry** — every decision your meetings make, extracted into a **searchable registry** with owners, organised by meeting, with **per-decision access control** and inline **edit/delete**.
+
+### Built-in database (Airtable / Teable-style)
+
+- **Base → Table → Field → Record** with **grid, kanban and calendar** views.
+- **~18 field types**: text, long text, number, currency, percent, rating, single/multi-select, date, person, checkbox, URL, email, phone, file/attachment, **TOTP (2FA code)**, **encrypted password**, and two-way **link/relations**.
+- **Filters & sorts**, resizable + drag-reorder columns & rows, a **row context menu** (insert ×N / duplicate / copy link / comment / delete), **multi-select + bulk actions**, **record comments & attachments**, and **per-base sharing by email** (roles + hidden columns).
+- Tasks and the decisions registry run on **this same engine**.
+
+### Knowledge & quizzes
+
+- **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub.
+
+### Teams, accounts & admin
+
+- **Organizations / multi-tenancy** — every record is org-scoped (single-database), the groundwork for clean self-host and a future multi-org cloud.
+- **Departments** — group people into teams; meetings & tasks belong to a department, which gates who sees what (members see their own + their department's + collaborated work; admins see all).
+- **Auth**: Google SSO and/or **email + password** (toggle per workspace), optional **2FA (TOTP)** for admins, admin-managed users + optional **self-registration with approval**.
+- **Admin panel**: users, workspace policies, **integrations status** (with a dashboard **setup checklist** that guides post-install service config), usage/cost.
+- **First-run setup wizard** (`/setup`): branding, auth methods & integrations from the browser — zero config-file editing.
+
+### Notifications, calendar & PWA
+
+- **Notifications**: in-app, **Web Push** (delivered even when the app/tab is closed) + email — meeting invitations with `.ics`, task assigned / updated, meeting reminders, **weekly digest with an AI "where to focus" rollup**, report-ready, @mentions.
+- **Calendar** with task deadlines + a private **ICS feed** to subscribe to your meetings & deadlines from Google / Outlook / Apple Calendar.
+- **Installable PWA**: add to home screen, app icons & shortcuts, offline fallback page.
+
+### Languages
+
+- **Bilingual (English / Ukrainian)** — admin sets the workspace language at setup; each user can switch their own interface language in Settings (details below).
 
 ## Languages
 
@@ -96,6 +123,7 @@ matter of dropping in a `messages/<locale>.json` catalog.
 | Frontend / SSR | Next.js 15 (App Router), React 19, TypeScript |
 | Auth | NextAuth v5 (Google SSO, JWT) + TOTP 2FA |
 | ORM / DB | Prisma 6 + PostgreSQL 16 |
+| Built-in database engine | Airtable-style Base → Table → Field → Record (JSONB on Postgres) |
 | Realtime / media | LiveKit (SFU) + LiveKit Egress (recording) |
 | Agent | Python (`livekit-agents`) — STT + LLM |
 | STT / LLM | Deepgram / DeepSeek |
@@ -331,6 +359,7 @@ All persistent state lives in named Docker volumes:
 | `eam-meet-recordings` | meeting recordings (MP4) |
 | `eam-meet-speaker-audio` | per-speaker audio (re-transcription) |
 | `eam-meet-task-files` | task attachment uploads |
+| `eam-meet-base-files` | database (base) record attachments |
 | `eam-meet-redis-data` | Redis coordination state (transient) |
 | `eam-meet-backups` | automatic daily database dumps (last 14) |
 
