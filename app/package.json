@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:backfill-org": "node scripts/seed-org.mjs",
     "db:migrate-tasks": "node scripts/migrate-tasks-to-rows.mjs",
+    "db:backfill-decisions": "node scripts/backfill-decisions.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
