@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { readConfig, getDeepSeekConfig } from '@/lib/config';
+import { readConfig, getDeepSeekConfig, getGoogleConfig } from '@/lib/config';
 import { getSmtpConfig } from '@/lib/email';
 import { getS3Config } from '@/lib/s3';
 
@@ -36,11 +36,15 @@ export async function GET() {
   const ds = await getDeepSeekConfig();
   const smtp = await getSmtpConfig().catch(() => null);
   const s3 = await getS3Config().catch(() => null);
+  const google = await getGoogleConfig().catch(() => ({ clientId: '', clientSecret: '' }));
 
   const deepseekOk = !!(keys.DEEPSEEK_API_KEY || process.env.DEEPSEEK_API_KEY);
   const deepgramOk = !!(keys.DEEPGRAM_API_KEY || process.env.DEEPGRAM_API_KEY);
   const livekitOk = !!(process.env.LIVEKIT_URL || process.env.LIVEKIT_WS_URL || process.env.LIVEKIT_API_KEY);
-  const googleOk = !!process.env.GOOGLE_CLIENT_ID;
+  // Google creds are normally set via the /setup wizard (stored in the DB), so
+  // check DB+env (getGoogleConfig) — NOT env alone, else a wizard-configured
+  // workspace is falsely flagged "not configured" and the checklist nags forever.
+  const googleOk = !!(google.clientId && google.clientSecret);
 
   const integrations = [
     { name: 'LiveKit', desc: 'WebRTC SFU', status: livekitOk ? 'connected' : 'not_configured', metric: liveMeetings > 0 ? t('liveMeetings', { count: liveMeetings }) : 'self-hosted' },
