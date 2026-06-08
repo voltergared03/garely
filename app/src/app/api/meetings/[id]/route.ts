@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
+import { listTasks } from '@/lib/tasks';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
@@ -34,21 +35,12 @@ async function getHandler(
           speaker: { select: { id: true, name: true, image: true } },
         },
       },
+      // Report action items are NOT loaded here from the dormant MeetingTask
+      // relation — they live in the base-engine task Rows now (Phase 3) and are
+      // attached below via listTasks() in the shape the report transform expects.
       reports: {
         orderBy: { generatedAt: 'desc' },
         take: 1,
-        include: {
-          // Top-level tasks only — AI subtasks (parentId set) belong under their
-          // parent on the board, not as flat action items in the report.
-          tasks: {
-            where: { parentId: null },
-            include: {
-              assignee: { select: { id: true, name: true, image: true } },
-              assignees: { include: { user: { select: { id: true, name: true, image: true } } }, orderBy: { createdAt: 'asc' } },
-            },
-            orderBy: { createdAt: 'asc' },
-          },
-        },
       },
       tasks: {
         include: {
@@ -72,6 +64,15 @@ async function getHandler(
     if (!isCreator && !isParticipant) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
     }
+  }
+
+  // Attach the report's action items from the base-engine task Rows (Phase 3),
+  // shaped like the old MeetingTask relation so the report transform maps them to
+  // actionItems unchanged. The viewer is already access-gated above; scope 'all'
+  // returns every action item of this meeting (not just the viewer's own).
+  const rep = (meeting as { reports?: { tasks?: unknown }[] }).reports?.[0];
+  if (rep) {
+    rep.tasks = await listTasks(session, { scope: 'all', meetingId: id, includeSubtasks: false });
   }
 
   return NextResponse.json(meeting);
