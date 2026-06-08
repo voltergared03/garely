@@ -14,7 +14,7 @@ export function PopMenu({ trigger, width = 200, small, label, align = 'right', c
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; bottom: number; openUp: boolean; maxH: number } | null>(null);
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
@@ -29,13 +29,24 @@ export function PopMenu({ trigger, width = 200, small, label, align = 'right', c
         aria-label={label}
         className="btn btn-ghost btn-icon"
         style={{ width: small ? 24 : 30, height: small ? 24 : 30, color: 'var(--muted)' }}
-        onClick={(e) => { e.stopPropagation(); const r = ref.current!.getBoundingClientRect(); setPos({ left: align === 'left' ? r.left : r.right - width, top: r.bottom }); setOpen((o) => !o); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          const r = ref.current!.getBoundingClientRect();
+          const margin = 8;
+          const spaceBelow = window.innerHeight - r.bottom - margin;
+          const spaceAbove = r.top - margin;
+          const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+          const maxH = Math.max(160, Math.min(360, openUp ? spaceAbove : spaceBelow));
+          const left = Math.max(margin, Math.min(align === 'left' ? r.left : r.right - width, window.innerWidth - width - margin));
+          setPos({ left, top: r.bottom, bottom: r.top, openUp, maxH });
+          setOpen((o) => !o);
+        }}
       >
         {trigger}
       </button>
       {open && pos && typeof document !== 'undefined' &&
         createPortal(
-          <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', left: Math.max(pos.left, 8), top: pos.top + 4, width, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 14px 44px rgba(0,0,0,.55)', padding: 6, zIndex: 2000 }}>
+          <div onMouseDown={(e) => e.stopPropagation()} style={{ position: 'fixed', left: pos.left, ...(pos.openUp ? { bottom: window.innerHeight - pos.bottom + 4 } : { top: pos.top + 4 }), width, maxHeight: pos.maxH, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 14px 44px rgba(0,0,0,.55)', padding: 6, zIndex: 2000 }}>
             {children(() => setOpen(false))}
           </div>,
           document.body,

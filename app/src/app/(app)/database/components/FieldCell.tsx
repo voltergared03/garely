@@ -269,7 +269,7 @@ function ChoiceCell({
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; bottom: number; width: number; openUp: boolean; maxH: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -295,7 +295,15 @@ function ChoiceCell({
   const toggle = () => {
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      setPos({ left: r.left, top: r.bottom, width: r.width });
+      const margin = 8;
+      const panelW = Math.max(r.width, 180);
+      const spaceBelow = window.innerHeight - r.bottom - margin;
+      const spaceAbove = r.top - margin;
+      // Flip above the cell when it would overflow the viewport bottom; cap height.
+      const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+      const maxH = Math.max(160, Math.min(280, openUp ? spaceAbove : spaceBelow));
+      const left = Math.max(margin, Math.min(r.left, window.innerWidth - panelW - margin));
+      setPos({ left, top: r.bottom, bottom: r.top, width: r.width, openUp, maxH });
     }
     setOpen((o) => !o);
   };
@@ -329,9 +337,10 @@ function ChoiceCell({
           <div
             ref={panelRef}
             style={{
-              position: 'fixed', left: pos.left, top: pos.top + 4, width: Math.max(pos.width, 180),
+              position: 'fixed', left: pos.left, width: Math.max(pos.width, 180),
+              ...(pos.openUp ? { bottom: window.innerHeight - pos.bottom + 4 } : { top: pos.top + 4 }),
               background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
-              boxShadow: '0 12px 40px rgba(0,0,0,.5)', padding: 4, zIndex: 2000, maxHeight: 280, overflowY: 'auto',
+              boxShadow: '0 12px 40px rgba(0,0,0,.5)', padding: 4, zIndex: 2000, maxHeight: pos.maxH, overflowY: 'auto',
             }}
           >
             {choices.length === 0 && <div style={{ padding: 10, color: 'var(--muted)', fontSize: 12 }}>—</div>}
