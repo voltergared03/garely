@@ -530,6 +530,7 @@ model Organization {
   registrationRequests RegistrationRequest[]
   emailLogs            EmailLog[]
   bases                Base[]
+  serverConnections    ServerConnection[]
 }
 
 model Membership {
@@ -624,14 +625,14 @@ model Field {
 }
 
 model Row {
-  id          String   @id @default(cuid())
-  tableId     String
-  table       Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  data        Json     @default("{}") // { [fieldId]: value } — value shape per field type
-  createdById String?
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String             @id @default(cuid())
+  tableId       String
+  table         Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  data          Json               @default("{}") // { [fieldId]: value } — value shape per field type
+  createdById   String?
+  position      Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   dateReminders BaseDateReminder[]
   comments      RowComment[]
   attachments   RowAttachment[]
@@ -744,4 +745,98 @@ model View {
   updatedAt DateTime @updatedAt
 
   @@index([tableId])
+}
+
+// === Servers / Remote Access pillar (§15, 2026-06-08) — native browser RDP ===
+// `ServerConnection` is a tenant aggregate root (carries orgId; children inherit).
+// Access mirrors the task/base pattern (lib/server-access.ts): a server is visible iff
+// admin OR an explicit user grant OR membership of a granted department (ServerAccess).
+// RDP credentials are encrypted AT REST in `secretCipher` via lib/twofactor `encryptSecret`
+// (AES-256-GCM, AUTH_SECRET-derived, fail-closed — same scheme as user 2FA + base password
+// cells); the plaintext is NEVER returned to the browser and is decrypted ONLY by the Rust
+// gateway at connect time. File transfer is DECOUPLED from the RDP stream (SFTP relay, §15.6),
+// audited via `ServerFileTransfer`. Live + historical sessions live in `ServerSession`.
+// User/department/creator refs are soft (no FK), like `Base.createdById`.
+model ServerConnection {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name         String
+  host         String
+  port         Int          @default(3389)
+  protocol     String       @default("rdp") // rdp only (v1)
+  username     String
+  secretCipher String? // AES-256-GCM ciphertext of the password; never read back to client
+  domain       String?
+  settings     Json         @default("{}") // color-depth / perf flags / resolution policy
+  departmentId String? // optional owning-department tag (org grouping; access is via ServerAccess)
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  accesses  ServerAccess[]
+  sessions  ServerSession[]
+  transfers ServerFileTransfer[]
+
+  @@index([orgId])
+}
+
+// Explicit access grant: a user XOR a department (XOR enforced in app code). No org-wide
+// servers in v1 — access is always explicit. Mirrors the task-assignment / base-member grants.
+model ServerAccess {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   ServerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       String?
+  departmentId String?
+  grantedById  String?
+  createdAt    DateTime         @default(now())
+
+  @@unique([connectionId, userId])
+  @@unique([connectionId, departmentId])
+  @@index([connectionId])
+  @@index([userId])
+  @@index([departmentId])
+}
+
+// Audit + live-session registry. The Rust gateway writes start/end + byte counts.
+model ServerSession {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   ServerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       String
+  orgId        String
+  status       String           @default("active") // active | ended | error
+  clientIp     String?
+  bytesIn      BigInt?
+  bytesOut     BigInt?
+  gatewayId    String?
+  error        String?
+  startedAt    DateTime         @default(now())
+  endedAt      DateTime?
+
+  @@index([orgId, startedAt])
+  @@index([connectionId])
+  @@index([userId])
+}
+
+// File-transfer audit for the decoupled SFTP relay (§15.6).
+model ServerFileTransfer {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   ServerConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  sessionId    String?
+  userId       String
+  orgId        String
+  direction    String // up | down
+  filename     String
+  sizeBytes    BigInt           @default(0)
+  status       String           @default("pending") // pending | active | done | error
+  error        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([orgId, createdAt])
+  @@index([connectionId])
+  @@index([sessionId])
 }

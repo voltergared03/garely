@@ -25,7 +25,10 @@
     "host": "Host",
     "minutes": "{count} min",
     "participants": "{count, plural, one {# participant} other {# participants}}",
-    "meetings": "{count, plural, one {# meeting} other {# meetings}}"
+    "meetings": "{count, plural, one {# meeting} other {# meetings}}",
+    "done": "Done",
+    "retry": "Retry",
+    "loadError": "Couldn't load."
   },
   "nav": {
     "home": "Home",
@@ -36,7 +39,8 @@
     "quizzes": "Quizzes",
     "archive": "Archive",
     "settings": "Settings",
-    "newMeeting": "New meeting"
+    "newMeeting": "New meeting",
+    "servers": "Servers"
   },
   "decisions": {
     "kicker": "Registry",
@@ -1309,5 +1313,42 @@
     "liveMeetings": "{count, plural, one {# live} other {# live}}",
     "notConfiguredMetric": "not configured",
     "users": "{count, plural, one {# user} other {# users}}"
+  },
+  "servers": {
+    "title": "Remote Access",
+    "subtitle": "Connect to your servers over RDP — right in the browser.",
+    "newServer": "Add server",
+    "editServer": "Edit server",
+    "connect": "Connect",
+    "manageAccess": "Manage access",
+    "name": "Name",
+    "host": "Host",
+    "port": "Port",
+    "username": "Username",
+    "password": "Password",
+    "passwordKeep": "•••••••• (leave blank to keep)",
+    "passwordHint": "Stored encrypted; only the gateway decrypts it at connect time.",
+    "domain": "Domain",
+    "department": "Department",
+    "noDepartment": "No department",
+    "errRequired": "Name, host and username are required.",
+    "errSave": "Couldn't save the server.",
+    "confirmDelete": "Delete this server connection? Access grants and session history are removed too.",
+    "grantsCount": "{count, plural, =0 {No access} one {# grant} other {# grants}}",
+    "emptyAdminTitle": "No servers yet",
+    "emptyAdminBody": "Add a server connection, then grant access to people or departments.",
+    "emptyMemberTitle": "No servers available",
+    "emptyMemberBody": "You don't have access to any servers yet. Ask an admin to grant you access.",
+    "addUser": "Add person…",
+    "addDepartment": "Add department…",
+    "noGrants": "No one has access yet.",
+    "back": "Back",
+    "session": "Session",
+    "connecting": "Connecting…",
+    "accessDeniedTitle": "Access denied",
+    "accessDeniedBody": "You don't have access to this server.",
+    "sessionError": "Something went wrong.",
+    "gatewayPendingTitle": "Session gateway is on the way",
+    "gatewayPendingBody": "The in-browser RDP client mounts here once the secure gateway is deployed. Your access is confirmed and credentials never leave the server."
   }
 }
