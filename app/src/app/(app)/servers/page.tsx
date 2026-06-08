@@ -89,7 +89,8 @@ export default function ServersPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 4px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px clamp(16px, 4vw, 44px) 64px' }}>
       <style>{STYLES}</style>
 
       {/* ── Editorial header: left title block, right stat + action ── */}
@@ -264,6 +265,7 @@ export default function ServersPage() {
           onChanged={() => void load()}
         />
       )}
+      </div>
     </div>
   );
 }

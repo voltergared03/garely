@@ -55,7 +55,8 @@ export default function ServerSessionPage() {
   })();
 
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 4px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px clamp(16px, 4vw, 44px) 64px' }}>
       <style>{STYLES}</style>
 
       {/* Top control row */}
@@ -135,6 +136,7 @@ export default function ServerSessionPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
