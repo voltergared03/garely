@@ -241,6 +241,9 @@
     "multipleRecords": "Дозволити кілька записів",
     "linkSearch": "Пошук записів",
     "linkNoRecords": "Немає записів",
+    "search": "Пошук…",
+    "exportCsv": "Експортувати в CSV",
+    "exporting": "Експорт…",
     "fieldTypes": {
       "text": "Текст",
       "longText": "Довгий текст",

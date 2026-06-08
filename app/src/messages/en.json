@@ -241,6 +241,9 @@
     "multipleRecords": "Allow multiple records",
     "linkSearch": "Search records",
     "linkNoRecords": "No records",
+    "search": "Search…",
+    "exportCsv": "Export to CSV",
+    "exporting": "Exporting…",
     "fieldTypes": {
       "text": "Text",
       "longText": "Long text",

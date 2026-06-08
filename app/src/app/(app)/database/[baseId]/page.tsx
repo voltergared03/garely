@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock } from 'lucide-react';
+import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock, Download } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { GridView } from '../components/GridView';
@@ -15,6 +15,7 @@ import { ViewTabs } from '../components/ViewTabs';
 import { RecordModal } from '../components/RecordModal';
 import { ShareModal } from '../components/ShareModal';
 import { PopMenu, MenuRow } from '../components/Menu';
+import { buildCsv, downloadCsv, fetchAllRows } from '../lib/export-csv';
 import { CHOICE_COLORS, type BaseDetail, type TableTab, type TableT, type RowT, type OrgMember, type FieldType, type FilterCond, type SortCond, type ViewT, type ViewConfig } from '../lib/types';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -99,6 +100,21 @@ export default function BaseDetailPage() {
 
   const patchBase = (body: Record<string, unknown>) =>
     fetch(`/api/bases/${baseId}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(body) });
+
+  const [exporting, setExporting] = useState(false);
+  // Export the active table (current view's filtered/sorted rows) to a CSV file.
+  async function exportCsv() {
+    if (!table || exporting) return;
+    setExporting(true);
+    try {
+      const all = await fetchAllRows(table.id, activeViewId);
+      const csv = buildCsv(table, all, members);
+      const safe = (table.name || 'table').replace(/[^\p{L}\p{N}._-]+/gu, '_').slice(0, 80);
+      downloadCsv(`${safe || 'table'}.csv`, csv);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function createTable() {
     const n = newTableName.trim();
@@ -312,6 +328,7 @@ export default function BaseDetailPage() {
             <>
               <MenuRow icon={<Pencil size={14} />} label={t('rename')} onClick={() => { close(); setRenameBaseVal(base.name); setRenameBaseOpen(true); }} />
               <MenuRow icon={<Share2 size={14} />} label={t('share')} onClick={() => { close(); setShareOpen(true); }} />
+              <MenuRow icon={<Download size={14} />} label={exporting ? t('exporting') : t('exportCsv')} disabled={!table || exporting} onClick={() => { close(); exportCsv(); }} />
               <div style={{ display: 'flex', gap: 5, padding: '8px 10px 6px', flexWrap: 'wrap' }}>
                 {CHOICE_COLORS.slice(0, 8).map((c) => (
                   <button key={c} onClick={() => recolorBase(c)} title={t('recolor')} style={{ width: 18, height: 18, borderRadius: 5, background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid rgba(255,255,255,.12)', cursor: 'pointer' }} />
