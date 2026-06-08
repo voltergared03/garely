@@ -27,6 +27,11 @@ meet.example.com {
     handle /twirp/* {
         reverse_proxy livekit:7880
     }
+    # Garely RDP gateway WebSocket (servers pillar §15) — active only when the
+    # `rdp` compose profile runs; the browser RDP client opens wss://<domain>/jet/rdp.
+    handle /jet/* {
+        reverse_proxy garely-rdp-gw:7171
+    }
     # Next.js app (everything else)
     handle {
         reverse_proxy eam-meet:3000

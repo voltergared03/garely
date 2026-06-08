@@ -1,0 +1,15 @@
+{
+  "Id": "00000000-0000-0000-0000-000000000000",
+  "Hostname": "garely-rdp-gw",
+  "ProvisionerPublicKeyFile": "provisioner.pem",
+  "DelegationPrivateKeyFile": "delegation.key",
+  "TlsCertificateSource": "External",
+  "TlsCertificateFile": "tls.crt",
+  "TlsPrivateKeyFile": "tls.key",
+  "TlsVerifyStrict": false,
+  "Listeners": [
+    { "InternalUrl": "tcp://*:8181", "ExternalUrl": "tcp://*:8181" },
+    { "InternalUrl": "http://*:7171", "ExternalUrl": "https://*:7171" }
+  ],
+  "VerbosityProfile": "Default"
+}
