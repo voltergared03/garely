@@ -5,6 +5,16 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // The IronRDP web client ships as pre-bundled ESM with a base64-inlined WASM
+  // module (no separate .wasm asset → no COOP/COEP / asset-serving needed). It is
+  // imported client-side only (it calls customElements.define at module top level,
+  // so a server import would crash). transpilePackages routes it through Next's
+  // pipeline; topLevelAwait keeps the WASM-init module graph happy under webpack.
+  transpilePackages: ['@devolutions/iron-remote-desktop', '@devolutions/iron-remote-desktop-rdp'],
+  webpack: (config) => {
+    config.experiments = { ...config.experiments, topLevelAwait: true };
+    return config;
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',

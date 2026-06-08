@@ -1350,6 +1350,22 @@
     "sessionError": "Something went wrong.",
     "gatewayPendingTitle": "Session gateway is on the way",
     "gatewayPendingBody": "The in-browser RDP client mounts here once the secure gateway is deployed. Your access is confirmed and credentials never leave the server.",
-    "serverCount": "{count, plural, one {server} other {servers}}"
+    "serverCount": "{count, plural, one {server} other {servers}}",
+    "connected": "Connected",
+    "readyTitle": "Ready to connect",
+    "readyBody": "Launch a secure RDP session right in your browser. Stored credentials are injected by the gateway and never reach this device.",
+    "passwordPromptTitle": "Enter password",
+    "passwordPromptBody": "No password is stored for this server. Enter the password for {user} to connect.",
+    "cancel": "Cancel",
+    "initializing": "Loading client…",
+    "connectFailed": "Couldn't connect",
+    "sessionEnded": "Session ended",
+    "reconnect": "Reconnect",
+    "disconnect": "Disconnect",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
+    "fit": "Fit to window",
+    "actualSize": "Actual size",
+    "clipboard": "Clipboard sync"
   }
 }
