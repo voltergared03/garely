@@ -7,6 +7,19 @@ import { X, Loader2, Server as ServerIcon } from 'lucide-react';
 import { Select } from '@/components/ui/select';
 import type { ServerView, DeptLite } from '../lib/types';
 
+const STYLES = `
+@keyframes srvf-in { from { opacity:0; transform: translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+@keyframes srvf-fade { from { opacity:0; } to { opacity:1; } }
+.srvf-backdrop { animation: srvf-fade .18s ease forwards; }
+.srvf-panel { animation: srvf-in .26s cubic-bezier(.16,1,.3,1) forwards; }
+.srvf-input { width:100%; padding:9px 11px; border-radius:10px; border:1px solid var(--border); background: var(--bg); color: var(--text); font-size:14px; outline:none; transition: border-color .14s ease, box-shadow .14s ease; }
+.srvf-input:focus { border-color: color-mix(in oklab, var(--accent) 70%, var(--border)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent); }
+.srvf-input::placeholder { color: var(--muted-2, var(--muted)); }
+.srvf-save { transition: transform .14s cubic-bezier(.16,1,.3,1); }
+.srvf-save:active:not(:disabled) { transform: translateY(1px) scale(.985); }
+@media (prefers-reduced-motion: reduce){ .srvf-backdrop, .srvf-panel { animation: none; } }
+`;
+
 /** Create / edit a ServerConnection. Password is write-only: on edit it stays blank
  *  and is only sent when the admin types a new one ("leave blank to keep"). */
 export function ServerFormModal({
@@ -52,7 +65,7 @@ export function ServerFormModal({
         domain: domain.trim() || null,
         departmentId: departmentId || null,
       };
-      if (password) body.password = password; // only set when typed
+      if (password) body.password = password;
       const res = await fetch(editing ? `/api/servers/${initial!.id}` : '/api/servers', {
         method: editing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,67 +79,69 @@ export function ServerFormModal({
     }
   };
 
-  const field: React.CSSProperties = {
-    width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border)',
-    background: 'var(--bg)', color: 'var(--text)', fontSize: 14, outline: 'none',
-  };
-  const label: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 5, display: 'block' };
+  const label: React.CSSProperties = { fontSize: 12, fontWeight: 650, color: 'var(--text-2)', marginBottom: 6, display: 'block', letterSpacing: '-0.01em' };
 
   return createPortal(
     <div
+      className="srvf-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 1000,
+        position: 'fixed', inset: 0, background: 'rgba(4,6,10,.6)', backdropFilter: 'blur(3px)', zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
       }}
     >
+      <style>{STYLES}</style>
       <div
+        className="srvf-panel"
         style={{
-          width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,.5)', maxHeight: '90vh', overflow: 'auto',
+          width: '100%', maxWidth: 470, background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 18, boxShadow: '0 30px 80px -24px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04)',
+          maxHeight: '92vh', overflow: 'auto',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
-          <ServerIcon size={18} style={{ color: 'var(--accent)' }} />
-          <h3 style={{ margin: 0, fontSize: 16, flex: 1 }}>{editing ? t('editServer') : t('newServer')}</h3>
-          <button onClick={onClose} className="btn btn-ghost" style={{ padding: 6 }} aria-label={tc('cancel')}><X size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
+          <span style={{ display: 'inline-flex', width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent)' }}>
+            <ServerIcon size={17} />
+          </span>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 640, flex: 1, letterSpacing: '-0.01em' }}>{editing ? t('editServer') : t('newServer')}</h3>
+          <button onClick={onClose} className="srvf-save" style={{ display: 'inline-flex', padding: 7, borderRadius: 8, border: '1px solid transparent', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' }} aria-label={tc('cancel')}><X size={18} /></button>
         </div>
 
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 15 }}>
           <div>
             <label style={label}>{t('name')}</label>
-            <input style={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Prod RDP #1" autoFocus />
+            <input className="srvf-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bastion · Kyiv DC" autoFocus />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 2 }}>
               <label style={label}>{t('host')}</label>
-              <input style={field} value={host} onChange={(e) => setHost(e.target.value)} placeholder="10.0.0.5" />
+              <input className="srvf-input" value={host} onChange={(e) => setHost(e.target.value)} placeholder="10.10.4.21" style={{ fontFamily: 'var(--font-mono, ui-monospace, monospace)' }} />
             </div>
             <div style={{ width: 96 }}>
               <label style={label}>{t('port')}</label>
-              <input style={field} value={port} onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" />
+              <input className="srvf-input" value={port} onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" style={{ fontFamily: 'var(--font-mono, ui-monospace, monospace)' }} />
             </div>
           </div>
           <div>
             <label style={label}>{t('username')}</label>
-            <input style={field} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Administrator" autoComplete="off" />
+            <input className="srvf-input" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Administrator" autoComplete="off" />
           </div>
           <div>
             <label style={label}>{t('password')}</label>
             <input
-              style={field}
+              className="srvf-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={editing && initial?.hasSecret ? t('passwordKeep') : ''}
+              placeholder={editing && initial?.hasSecret ? t('passwordKeep') : '••••••••'}
               autoComplete="new-password"
             />
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{t('passwordHint')}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>{t('passwordHint')}</div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
               <label style={label}>{t('domain')}</label>
-              <input style={field} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="WORKGROUP" autoComplete="off" />
+              <input className="srvf-input" value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="WORKGROUP" autoComplete="off" />
             </div>
             <div style={{ flex: 1 }}>
               <label style={label}>{t('department')}</label>
@@ -134,12 +149,16 @@ export function ServerFormModal({
             </div>
           </div>
 
-          {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
+          {error && (
+            <div style={{ fontSize: 13, color: '#f87171', background: 'color-mix(in oklab, #f87171 10%, transparent)', border: '1px solid color-mix(in oklab, #f87171 30%, transparent)', borderRadius: 9, padding: '8px 11px' }}>
+              {error}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 18px', borderTop: '1px solid var(--border)' }}>
-          <button onClick={onClose} className="btn" disabled={saving}>{tc('cancel')}</button>
-          <button onClick={save} className="btn btn-primary" disabled={saving} style={{ minWidth: 100, justifyContent: 'center' }}>
+          <button onClick={onClose} className="btn srvf-save" disabled={saving}>{tc('cancel')}</button>
+          <button onClick={save} className="btn btn-primary srvf-save" disabled={saving} style={{ minWidth: 108, justifyContent: 'center', fontWeight: 640 }}>
             {saving ? <Loader2 size={16} className="spin" /> : tc('save')}
           </button>
         </div>

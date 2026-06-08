@@ -1349,6 +1349,7 @@
     "accessDeniedBody": "You don't have access to this server.",
     "sessionError": "Something went wrong.",
     "gatewayPendingTitle": "Session gateway is on the way",
-    "gatewayPendingBody": "The in-browser RDP client mounts here once the secure gateway is deployed. Your access is confirmed and credentials never leave the server."
+    "gatewayPendingBody": "The in-browser RDP client mounts here once the secure gateway is deployed. Your access is confirmed and credentials never leave the server.",
+    "serverCount": "{count, plural, one {server} other {servers}}"
   }
 }
