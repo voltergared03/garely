@@ -5,6 +5,10 @@ WORKDIR /app
 COPY package.json package-lock.json* .npmrc* yarn.lock* pnpm-lock.yaml* ./
 COPY prisma ./prisma
 
+# Vendored IronRDP web client (custom WASM build — package.json references it via file:vendor/*.tgz).
+# Must be present before the install step so npm ci can resolve the file: dependencies.
+COPY vendor ./vendor
+
 RUN corepack enable 2>/dev/null || true
 
 # Install dependencies
