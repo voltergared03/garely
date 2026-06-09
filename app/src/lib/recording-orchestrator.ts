@@ -1,3 +1,4 @@
+import { readFile } from 'fs/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { readConfig } from './config';
@@ -20,6 +21,25 @@ export async function getRecordMode(): Promise<RecordMode> {
   } catch {
     return 'composite';
   }
+}
+
+/**
+ * The actual on-disk filename for an egress — read from its `EG_<id>.json` manifest,
+ * which LiveKit writes next to the output. The container/extension depends on the track
+ * codec (e.g. a VP8 screen-share lands as .webm even if we requested .mp4), so the
+ * requested name in meta can be wrong; the manifest is authoritative.
+ */
+async function resolveEgressFile(egressId: string | undefined | null, fallback: string): Promise<string> {
+  if (!egressId) return fallback;
+  try {
+    const raw = await readFile(`${RECORDINGS_DIR}/${egressId}.json`, 'utf8');
+    const j = JSON.parse(raw);
+    const fn = j?.files?.[0]?.filename || j?.file?.filename;
+    if (fn) return String(fn).split('/').pop() as string;
+  } catch {
+    /* manifest missing/unreadable → use the requested name */
+  }
+  return fallback;
 }
 
 async function retentionDays(): Promise<number> {
@@ -132,13 +152,15 @@ export function finalizeScreenAudio(recordingId: string): void {
     try {
       const rec = await prisma.recording.findUnique({ where: { id: recordingId } });
       if (!rec || rec.sourceType !== 'screen-audio') return;
-      const meta = (rec.meta as { audioFile?: string; screenSegments?: { fileName: string; startSec: number }[] }) || {};
-      const audioFile = meta.audioFile;
+      const meta = (rec.meta as { audioEgressId?: string; audioFile?: string; screenSegments?: { egressId?: string; fileName: string; startSec: number }[] }) || {};
+      const audioFile = await resolveEgressFile(meta.audioEgressId, meta.audioFile || '');
       if (!audioFile) {
         await prisma.recording.update({ where: { id: rec.id }, data: { status: 'failed' } });
         return;
       }
-      const segs = (meta.screenSegments || []).map((s) => ({ fileName: s.fileName, startSec: s.startSec }));
+      const segs = await Promise.all(
+        (meta.screenSegments || []).map(async (s) => ({ fileName: await resolveEgressFile(s.egressId, s.fileName), startSec: s.startSec })),
+      );
       const res = await composeScreenAudio({ audioFileName: audioFile, screenSegments: segs, outFileName: `rec-${rec.id}.mp4` });
       if (res.ok && res.outFile) {
         const days = await retentionDays();
