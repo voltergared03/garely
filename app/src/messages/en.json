@@ -1362,6 +1362,7 @@
     "sessionEnded": "Session ended",
     "reconnect": "Reconnect",
     "disconnect": "Disconnect",
+    "dragHint": "Drag to move",
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
     "fit": "Fit to window",

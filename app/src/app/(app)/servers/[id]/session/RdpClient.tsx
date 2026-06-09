@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, Power, RefreshCw, AlertTriangle, Upload, Download } from 'lucide-react';
+import { Loader2, Power, RefreshCw, AlertTriangle, Upload, Download, GripVertical } from 'lucide-react';
 
 /* ─── Minimal structural types for the dynamically-imported IronRDP API ───────
  * The real types live in @devolutions/iron-remote-desktop(.rdp), but those modules
@@ -196,6 +196,72 @@ export default function RdpClient(props: RdpClientProps) {
     setNotice(msg);
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
     noticeTimer.current = setTimeout(() => setNotice(''), durationMs);
+  }, []);
+
+  // ── Draggable status pill ──────────────────────────────────────────────────
+  // The pill (server name + disconnect) defaults to the top-right corner but the
+  // user can grab it and drop it anywhere over the canvas — its viewport position
+  // persists in localStorage so it stays put across reconnects/reloads.
+  const PILL_POS_KEY = 'garely-rdp-pill-pos';
+  const pillRef = useRef<HTMLDivElement | null>(null);
+  const pillDrag = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const [pillPos, setPillPos] = useState<{ x: number; y: number } | null>(null);
+  const [pillDragging, setPillDragging] = useState(false);
+  const clampPill = useCallback((x: number, y: number) => {
+    const w = pillRef.current?.offsetWidth ?? 200;
+    const h = pillRef.current?.offsetHeight ?? 38;
+    const m = 6;
+    return {
+      x: Math.min(Math.max(m, x), Math.max(m, window.innerWidth - w - m)),
+      y: Math.min(Math.max(m, y), Math.max(m, window.innerHeight - h - m)),
+    };
+  }, []);
+  // Restore a saved position once the pill has painted (so offsetWidth is real),
+  // and keep it on-screen if the window shrinks.
+  useEffect(() => {
+    if (phase !== 'connected') return;
+    try {
+      const raw = localStorage.getItem(PILL_POS_KEY);
+      const p = raw ? JSON.parse(raw) : null;
+      if (p && typeof p.x === 'number' && typeof p.y === 'number') {
+        requestAnimationFrame(() => setPillPos(clampPill(p.x, p.y)));
+      }
+    } catch {
+      /* ignore bad/absent storage */
+    }
+    const onResize = () => setPillPos((prev) => (prev ? clampPill(prev.x, prev.y) : prev));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [phase, clampPill]);
+  const onPillDown = useCallback((e: React.PointerEvent) => {
+    // Let the disconnect button click through — only the pill body is a drag handle.
+    if ((e.target as HTMLElement).closest('button')) return;
+    const el = pillRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    pillDrag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top };
+    setPillPos({ x: r.left, y: r.top }); // switch from right-anchored to left/top, no jump
+    setPillDragging(true);
+    try { el.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+  const onPillMove = useCallback((e: React.PointerEvent) => {
+    const d = pillDrag.current;
+    if (!d || d.id !== e.pointerId) return;
+    setPillPos(clampPill(d.ox + (e.clientX - d.sx), d.oy + (e.clientY - d.sy)));
+    e.preventDefault();
+  }, [clampPill]);
+  const onPillUp = useCallback((e: React.PointerEvent) => {
+    const d = pillDrag.current;
+    if (!d || d.id !== e.pointerId) return;
+    pillDrag.current = null;
+    setPillDragging(false);
+    try { pillRef.current?.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    setPillPos((prev) => {
+      if (prev) { try { localStorage.setItem(PILL_POS_KEY, JSON.stringify(prev)); } catch { /* noop */ } }
+      return prev;
+    });
   }, []);
 
   // Close the audit session row (best-effort; the gateway will later add byte counts).
@@ -801,25 +867,39 @@ export default function RdpClient(props: RdpClientProps) {
         )}
       </div>
 
-      {/* floating controls overlay — does not consume canvas space (fades unless hovered) */}
+      {/* floating, draggable status pill — grab anywhere on the body to reposition;
+          the disconnect button stays clickable. Position persists in localStorage. */}
       <div
+        ref={pillRef}
         className="rdp-bar"
+        onPointerDown={liveControls ? onPillDown : undefined}
+        onPointerMove={onPillMove}
+        onPointerUp={onPillUp}
+        onPointerCancel={onPillUp}
+        title={liveControls ? t('dragHint') : undefined}
         style={{
           position: 'absolute',
-          top: 10,
-          right: 10,
+          ...(pillPos ? { left: pillPos.x, top: pillPos.y } : { top: 10, right: 10 }),
           zIndex: 12,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '5px 6px 5px 13px',
+          gap: 6,
+          padding: '5px 6px 5px 6px',
           borderRadius: 999,
           background: 'rgba(5,7,10,.62)',
           backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,.1)',
+          border: `1px solid rgba(255,255,255,${pillDragging ? 0.22 : 0.1})`,
+          boxShadow: pillDragging ? '0 10px 30px -8px rgba(0,0,0,.7)' : 'none',
+          cursor: liveControls ? (pillDragging ? 'grabbing' : 'grab') : 'default',
+          touchAction: 'none',
+          userSelect: 'none',
+          transition: 'border-color .15s ease, box-shadow .15s ease',
         }}
       >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#e7e9ee', maxWidth: 240 }}>
+        {liveControls && (
+          <GripVertical size={14} style={{ color: 'rgba(255,255,255,.4)', flexShrink: 0 }} aria-hidden />
+        )}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#e7e9ee', maxWidth: 240, paddingLeft: liveControls ? 0 : 7 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: liveControls ? '#10b981' : phase === 'error' ? '#f87171' : 'var(--accent)' }} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.serverName}</span>
         </span>
