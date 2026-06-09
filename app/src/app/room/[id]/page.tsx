@@ -26,7 +26,7 @@ import {
   Phone, MessageSquare, FileText, X, Languages,
   Send, MoreVertical, Users, UserPlus, Link2, Check,
   LogOut, Shield, Crown, Volume2, ChevronDown,
-  Smile, StickyNote, Sparkles, Zap, Save, Disc, Square, Sidebar,
+  Smile, StickyNote, Sparkles, Zap, Save, Sidebar,
 } from 'lucide-react';
 import {
   TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, REACTIONS,
@@ -199,10 +199,10 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
     return out;
   }, [transcripts]);
 
-  /* ── recording (host-toggled, on-demand) ── */
+  /* ── recording (fully automatic — starts with the meeting; no manual toggle) ── */
   const [recording, setRecording] = useState(!!recordingActive);
-  const recordingBusyRef = useRef(false);
 
+  // Keep the REC indicator truthful if recording state is broadcast on the data channel.
   const onRecordingState = useCallback((raw: { payload: Uint8Array }) => {
     try {
       const msg = JSON.parse(new TextDecoder().decode(raw.payload));
@@ -212,38 +212,6 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
   }, []);
 
   useDataChannel('recording', onRecordingState);
-
-  const toggleRecording = useCallback(async () => {
-    if (recordingBusyRef.current) return;
-    recordingBusyRef.current = true;
-    const next = !recording;
-    try {
-      const res = await fetch(`/api/meetings/${meetingId}/recording`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: next ? 'start' : 'stop' }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || tr('room.recordingFailed'));
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
-      const active = typeof data.active === 'boolean' ? data.active : next;
-      setRecording(active);
-      // Tell everyone so the REC indicator stays truthful across the room.
-      try {
-        await room.localParticipant.publishData(
-          new TextEncoder().encode(JSON.stringify({ type: 'recording', active })),
-          { topic: 'recording' },
-        );
-      } catch { /* skip */ }
-    } catch {
-      alert(tr('room.connectionError'));
-    } finally {
-      recordingBusyRef.current = false;
-    }
-  }, [recording, meetingId, room, tr]);
 
   /* ── reactions ─────────────────────── */
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
@@ -714,11 +682,8 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                       <MoreItem icon={screenOn ? <MonitorOff size={17} /> : <Monitor size={17} />} active={screenOn}
                         label={tr('room.screen')} onClick={() => { toggleScreen(); setShowMore(false); }} />
                     )}
-                    {canKick && (
-                      <MoreItem icon={recording ? <Square size={17} /> : <Disc size={17} />} active={recording} danger={recording}
-                        label={recording ? tr('room.stopRecording') : tr('room.record')}
-                        onClick={() => { toggleRecording(); setShowMore(false); }} />
-                    )}
+                    {/* Recording is fully automatic (starts with the meeting) — no manual
+                        toggle. The REC indicator stays for transparency. */}
                     {!isGuest && (
                       <MoreItem icon={<UserPlus size={17} />}
                         label={tr('room.invite')} onClick={() => { setShowSharePopup(true); setShowMore(false); }} />
