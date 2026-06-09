@@ -64,6 +64,18 @@ that turns meetings into decisions and assigned work — all on your own server.
 - Calendar month view no longer nests interactive controls: a day cell is now a
   keyboard-operable container (not a `<button>`), so the task-deadline chips
   inside it are valid — clearing the React hydration warning.
+- **Tasks — dense, sortable table.** The desktop list/department views are now a
+  proper data-grid (Task · Priority · Assignee · Due · Subtasks · Department/Status)
+  with click-to-sort headers, tabular dates, overdue/soon colour, and an inline
+  "add a task" row per group; mobile keeps the stacked cards, Kanban is unchanged.
+- **Meetings — entry window + "Start now".** A scheduled meeting can be joined only
+  from 5 minutes before it starts; earlier, only the host/admin can start it via a
+  "Start now" button (enforced server-side in the join-token route). This also fixes
+  a bug where opening a future meeting early flipped it to `live` and an empty-room
+  webhook then ended it — wrongly dropping it into the archive. The cleanup cron no
+  longer auto-ends meetings whose start is still in the future.
+- **Calendar keeps history.** Past, ended and cancelled meetings now stay on the
+  calendar greyed-out instead of vanishing; the Archive remains the dedicated list.
 
 ## [1.12.0-beta.1] — 2026-06-03
 
