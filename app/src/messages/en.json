@@ -1377,6 +1377,8 @@
     "reconnect": "Reconnect",
     "disconnect": "Disconnect",
     "dragHint": "Drag to move",
+    "hiDpiOn": "Retina sharpness — reconnects with a high-density picture",
+    "hiDpiOff": "Standard resolution — reconnects with the faster picture",
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
     "fit": "Fit to window",

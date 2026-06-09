@@ -152,6 +152,7 @@ export default function ServerSessionPage() {
         {/* live session */}
         {stage === 'live' && conn && server && (
           <RdpClient
+            key={conn.sessionId}
             connectionId={id!}
             gatewayUrl={conn.gatewayUrl}
             token={conn.token}
@@ -162,6 +163,7 @@ export default function ServerSessionPage() {
             domain={conn.domain}
             password={conn.hasStoredPassword ? conn.password : password}
             onPhase={setLivePhase}
+            onRequestReconnect={() => void doConnect()}
             onExit={() => {
               setConn(null);
               setPassword('');

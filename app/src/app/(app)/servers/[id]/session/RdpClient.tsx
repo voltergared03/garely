@@ -82,8 +82,25 @@ let _initPromise: Promise<void> | null = null;
 const isMac = () =>
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
-// RDP framebuffers must be 4-pixel aligned or partial codec tiles tear.
-const align4 = (n: number) => Math.max(640, Math.floor(n / 4) * 4);
+// RDP framebuffers must be 4-pixel aligned or partial codec tiles tear; the
+// protocol caps either dimension at 8192 (MS-RDPEDISP hard-errors past it).
+const align4 = (n: number) => Math.min(8192, Math.max(640, Math.floor(n / 4) * 4));
+
+// HiDPI ("HD") mode: render the session at the display's real pixel density
+// (devicePixelRatio, capped at 2) and ask Windows for matching UI scaling, so a
+// Retina screen gets a pixel-for-pixel image instead of a 2× CSS upscale. Costs
+// DPR²× bitmap data per frame — kept as an explicit user toggle in the status
+// pill. Windows only honors the scale factor at connect time, so switching
+// reconnects the session.
+const HIDPI_KEY = 'garely-rdp-hidpi';
+const hiDpiEnabled = () => {
+  try {
+    return localStorage.getItem(HIDPI_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const dprFactor = () => (hiDpiEnabled() ? Math.min(Math.max(window.devicePixelRatio || 1, 1), 2) : 1);
 
 
 // IronError isn't a JS Error — it exposes kind()/backtrace(). Surface the real
@@ -149,6 +166,8 @@ export interface RdpClientProps {
   onExit: () => void;
   /** Report the live RDP phase up so the page status pill reflects reality. */
   onPhase?: (phase: Phase) => void;
+  /** Re-run /connect and remount with a fresh token (used by the HD-mode toggle). */
+  onRequestReconnect?: () => void;
 }
 
 export default function RdpClient(props: RdpClientProps) {
@@ -284,6 +303,30 @@ export default function RdpClient(props: RdpClientProps) {
     closeAudit();
     props.onExit();
   }, [closeAudit, props]);
+
+  /* HD (HiDPI) toggle — persists the preference, then tears the session down and
+   * asks the page for a fresh /connect: Windows only honors desktopScaleFactor in
+   * the connect-time core data, so a live switch is not possible. */
+  const [hiDpi, setHiDpi] = useState(hiDpiEnabled);
+  const dprCapable = typeof window !== 'undefined' && (window.devicePixelRatio || 1) > 1.05;
+  const toggleHiDpi = useCallback(() => {
+    const next = !hiDpi;
+    try {
+      localStorage.setItem(HIDPI_KEY, next ? '1' : '0');
+    } catch {
+      /* noop */
+    }
+    setHiDpi(next);
+    if (exitedRef.current) return;
+    exitedRef.current = true;
+    try {
+      uiRef.current?.shutdown();
+    } catch {
+      /* already gone */
+    }
+    closeAudit();
+    props.onRequestReconnect?.();
+  }, [hiDpi, closeAudit, props]);
 
   /* ─── Presence heartbeat ──────────────────────────────────────────────────
    * While connected, ping the server every 30s so other users with access see this
@@ -424,17 +467,22 @@ export default function RdpClient(props: RdpClientProps) {
           /* backend without file transfer — display/clipboard still work */
         }
 
-        // Negotiate the framebuffer 1:1 with the browser window (CSS pixels, no DPR), so
-        // the remote desktop matches exactly what the user sees — like a native RDP
-        // client. It's then kept in sync live by the debounced resize effect below
-        // (DisplayControl / ui.resize). scale='full' CSS-stretches the canvas during a
-        // drag for instant feedback until the new resolution settles.
-        const size = { width: align4(window.innerWidth), height: align4(window.innerHeight) };
+        // Negotiate the framebuffer 1:1 with the browser window. In standard mode this
+        // is CSS pixels; in HD mode it's multiplied by devicePixelRatio so a Retina
+        // display gets a pixel-for-pixel image (with Windows scaling its UI to match —
+        // the desktopScaleFactor extension below). Kept in sync live by the debounced
+        // resize effect (DisplayControl / ui.resize). scale='full' CSS-stretches the
+        // canvas during a drag for instant feedback until the new resolution settles.
+        const factor = dprFactor();
+        const size = {
+          width: align4(window.innerWidth * factor),
+          height: align4(window.innerHeight * factor),
+        };
         // The browser IronRDP client performs CredSSP/NLA itself over the gateway's
         // RDCleanPath relay (the gateway forwards; it does NOT inject credentials on
         // this path). So the client needs the username/password — delivered from the
         // access-checked /connect response and held only in WASM memory for this session.
-        const config = ui
+        let builder = ui
           .configBuilder()
           .withDestination(props.destination)
           .withProxyAddress(props.gatewayUrl)
@@ -445,8 +493,13 @@ export default function RdpClient(props: RdpClientProps) {
           .withDesktopSize(size)
           .withExtension(rdp.displayControl(true))
           // NLA / CredSSP — required by modern Windows hosts.
-          .withExtension(rdp.enableCredssp(true))
-          .build();
+          .withExtension(rdp.enableCredssp(true));
+        // HD mode: ask Windows to scale its UI to the density we render at, so
+        // elements keep their apparent size while text gains real pixels.
+        if (factor > 1) {
+          builder = builder.withExtension(rdp.desktopScaleFactor(Math.round(factor * 100)));
+        }
+        const config = builder.build();
 
         // CRITICAL — wait for the component to wire its clipboard callback BEFORE we
         // connect, or the CLIPRDR channel is never negotiated. The WASM connector
@@ -619,19 +672,22 @@ export default function RdpClient(props: RdpClientProps) {
       /* noop */
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
-    let lastW = align4(window.innerWidth);
-    let lastH = align4(window.innerHeight);
+    let lastW = align4(window.innerWidth * dprFactor());
+    let lastH = align4(window.innerHeight * dprFactor());
     const applyResize = () => {
-      const w = align4(window.innerWidth);
-      const h = align4(window.innerHeight);
+      // Re-read the factor each time: devicePixelRatio changes when the window
+      // moves to a display with a different density.
+      const f = dprFactor();
+      const w = align4(window.innerWidth * f);
+      const h = align4(window.innerHeight * f);
       if (w === lastW && h === lastH) return; // no real change
       lastW = w;
       lastH = h;
       try {
         // 3rd arg is DesktopScaleFactor in PERCENT (valid 100–500, NOT a 1.0 multiplier
-        // — passing 1 throws "Desktop scale factor is out of range"). 100 = 100% = CSS
-        // pixels / no DPR scaling, matching the 1:1 window mapping.
-        uiRef.current?.resize(w, h, 100);
+        // — passing 1 throws "Desktop scale factor is out of range"). Matches the
+        // density we render at: 100 in standard mode, ~200 in HD mode on Retina.
+        uiRef.current?.resize(w, h, Math.round(f * 100));
       } catch {
         /* noop */
       }
@@ -886,8 +942,10 @@ export default function RdpClient(props: RdpClientProps) {
           gap: 6,
           padding: '5px 6px 5px 6px',
           borderRadius: 999,
-          background: 'rgba(5,7,10,.62)',
-          backdropFilter: 'blur(8px)',
+          // No backdrop-filter here: a blur over the RDP canvas forces the browser
+          // to re-composite the blurred layer on every canvas update; a denser
+          // background keeps the pill readable at zero per-frame cost.
+          background: 'rgba(5,7,10,.88)',
           border: `1px solid rgba(255,255,255,${pillDragging ? 0.22 : 0.1})`,
           boxShadow: pillDragging ? '0 10px 30px -8px rgba(0,0,0,.7)' : 'none',
           cursor: liveControls ? (pillDragging ? 'grabbing' : 'grab') : 'default',
@@ -903,6 +961,13 @@ export default function RdpClient(props: RdpClientProps) {
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: liveControls ? '#10b981' : phase === 'error' ? '#f87171' : 'var(--accent)' }} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.serverName}</span>
         </span>
+        {liveControls && dprCapable &&
+          toolBtn(
+            toggleHiDpi,
+            t(hiDpi ? 'hiDpiOff' : 'hiDpiOn'),
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.05em' }}>HD</span>,
+            { active: hiDpi },
+          )}
         {toolBtn(exit, t('disconnect'), <Power size={15} />, { danger: true })}
       </div>
     </div>
