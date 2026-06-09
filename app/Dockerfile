@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY package.json package-lock.json* .npmrc* yarn.lock* pnpm-lock.yaml* ./
 COPY prisma ./prisma
+# Vendored IronRDP web client (patched: PR #1252 / issue #1251 bitmap-tear fix
+# ported onto the npm 0.11.0/0.7.0 base). Must be present before install because
+# package.json references it via file:vendor/*.tgz.
+COPY vendor ./vendor
 
 RUN corepack enable 2>/dev/null || true
 
