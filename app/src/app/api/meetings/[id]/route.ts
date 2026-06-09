@@ -231,6 +231,17 @@ async function deleteHandler(
     return NextResponse.json({ error: 'Cannot delete a live meeting' }, { status: 400 });
   }
 
+  // Keep any meeting that has a recording — a recording lives on its meeting (cascade),
+  // so deleting the meeting makes the recording vanish from the report. This is what made
+  // quick-meeting recordings disappear. The recording must be deleted explicitly first.
+  const recCount = await prisma.recording.count({
+    where: { meetingId: id, status: { in: ['processing', 'ready'] } },
+  });
+  if (recCount > 0) {
+    const t = await getTranslations('errors');
+    return NextResponse.json({ error: t('meetingHasRecording') }, { status: 409 });
+  }
+
   // Tell attendees it's cancelled before the participant rows cascade away.
   await sendMeetingInvite(id, 'cancel').catch(() => {});
   await prisma.meeting.delete({ where: { id } });

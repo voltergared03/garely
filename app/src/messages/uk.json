@@ -1310,6 +1310,7 @@
     "createMeetingFailed": "Не вдалося створити мітинг",
     "invalidStatus": "Невалідний статус",
     "meetingNotStarted": "Мітинг ще не розпочався. Зайти можна за 5 хвилин до запланованого початку.",
+    "meetingHasRecording": "У цього мітингу є запис. Спершу видаліть запис, потім мітинг.",
     "taskNotInMeeting": "Завдання не належить цьому мітингу",
     "recordingNotFound": "Запис не знайдено",
     "recordingStartFailed": "Не вдалося почати запис",

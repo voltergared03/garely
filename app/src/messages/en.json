@@ -1315,6 +1315,7 @@
     "meetingNotFound": "Meeting not found",
     "quickMeetingTitle": "Quick meeting",
     "meetingNotStarted": "This meeting hasn't started yet. You can join 5 minutes before the scheduled start.",
+    "meetingHasRecording": "This meeting has a recording. Delete the recording first, then the meeting.",
     "joinRequestNotFound": "Request not found",
     "requestIdAndActionRequired": "requestId and action are required",
     "invalidCurrentPassword": "Incorrect current password"
