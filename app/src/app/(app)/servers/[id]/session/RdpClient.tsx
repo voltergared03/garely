@@ -85,19 +85,6 @@ const isMac = () =>
 // RDP framebuffers must be 4-pixel aligned or partial codec tiles tear.
 const align4 = (n: number) => Math.max(640, Math.floor(n / 4) * 4);
 
-// Cap the negotiated framebuffer width. The web client has only the legacy single-
-// threaded bitmap pipeline (no EGFX), so on a large window over WAN the decoder
-// can't keep up with the per-frame damage area → tearing. Negotiating a smaller
-// framebuffer = far fewer pixels per update = the decoder keeps up = much less tear.
-// scale='full' CSS-upscales the canvas to fill the whole window, so it still fills
-// the screen (slightly softer, but smooth). Tunable: lower = smoother/softer,
-// higher (or Infinity) = sharper/more tear.
-const MAX_FB_WIDTH = 1280;
-const capFB = (w: number, h: number) => {
-  const f = w > MAX_FB_WIDTH ? MAX_FB_WIDTH / w : 1;
-  return { width: align4(w * f), height: align4(h * f) };
-};
-
 
 // IronError isn't a JS Error — it exposes kind()/backtrace(). Surface the real
 // reason instead of the "[object Object]" you get from String(an opaque object).
@@ -442,7 +429,7 @@ export default function RdpClient(props: RdpClientProps) {
         // client. It's then kept in sync live by the debounced resize effect below
         // (DisplayControl / ui.resize). scale='full' CSS-stretches the canvas during a
         // drag for instant feedback until the new resolution settles.
-        const size = capFB(window.innerWidth, window.innerHeight);
+        const size = { width: align4(window.innerWidth), height: align4(window.innerHeight) };
         // The browser IronRDP client performs CredSSP/NLA itself over the gateway's
         // RDCleanPath relay (the gateway forwards; it does NOT inject credentials on
         // this path). So the client needs the username/password — delivered from the
@@ -632,9 +619,11 @@ export default function RdpClient(props: RdpClientProps) {
       /* noop */
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
-    let { width: lastW, height: lastH } = capFB(window.innerWidth, window.innerHeight);
+    let lastW = align4(window.innerWidth);
+    let lastH = align4(window.innerHeight);
     const applyResize = () => {
-      const { width: w, height: h } = capFB(window.innerWidth, window.innerHeight);
+      const w = align4(window.innerWidth);
+      const h = align4(window.innerHeight);
       if (w === lastW && h === lastH) return; // no real change
       lastW = w;
       lastH = h;
