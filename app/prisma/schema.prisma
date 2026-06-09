@@ -192,6 +192,13 @@ model Recording {
   permanent   Boolean   @default(false)
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())
+  // Recording strategy. "egress" = legacy single room-composite MP4. "screen-audio"
+  // = the B2-lite pipeline: continuous mixed audio (room-composite audio-only) +
+  // screen-share TrackEgress segment(s), muxed offline into the final MP4.
+  sourceType  String?   // egress | screen-audio
+  // For "screen-audio": { audioEgressId, audioFile, screenSegments: [{ egressId,
+  // fileName, startSec, durationSec, status }] } — drives the offline ffmpeg compose.
+  meta        Json?
 
   @@index([meetingId])
   @@index([expiresAt])
