@@ -46,7 +46,7 @@ function run(cmd: string, args: string[]): Promise<{ code: number; stdout: strin
   });
 }
 
-async function probeDurationSec(file: string): Promise<number> {
+export async function probeDurationSec(file: string): Promise<number> {
   const r = await run('ffprobe', [
     '-v', 'error', '-show_entries', 'format=duration',
     '-of', 'default=noprint_wrappers=1:nokey=1', file,

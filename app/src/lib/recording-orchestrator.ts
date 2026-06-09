@@ -9,7 +9,7 @@ import {
   startScreenTrackEgress,
   stopRecording,
 } from './egress';
-import { composeScreenAudio } from './recording-compose';
+import { composeScreenAudio, probeDurationSec } from './recording-compose';
 
 /** Recording strategy. Gated by the WS_RECORD_MODE workspace config. */
 export type RecordMode = 'composite' | 'screen-audio';
@@ -29,17 +29,40 @@ export async function getRecordMode(): Promise<RecordMode> {
  * codec (e.g. a VP8 screen-share lands as .webm even if we requested .mp4), so the
  * requested name in meta can be wrong; the manifest is authoritative.
  */
-async function resolveEgressFile(egressId: string | undefined | null, fallback: string): Promise<string> {
-  if (!egressId) return fallback;
+async function egressInfo(
+  egressId: string | undefined | null,
+  fallbackFile: string,
+): Promise<{ file: string; endedNs: number | null }> {
+  if (!egressId) return { file: fallbackFile, endedNs: null };
   try {
     const raw = await readFile(`${RECORDINGS_DIR}/${egressId}.json`, 'utf8');
     const j = JSON.parse(raw);
     const fn = j?.files?.[0]?.filename || j?.file?.filename;
-    if (fn) return String(fn).split('/').pop() as string;
+    const ended = Number(j?.ended_at);
+    return {
+      file: fn ? (String(fn).split('/').pop() as string) : fallbackFile,
+      endedNs: Number.isFinite(ended) && ended > 0 ? ended : null,
+    };
   } catch {
-    /* manifest missing/unreadable → use the requested name */
+    /* manifest missing/unreadable → use the requested name, no timestamp */
+    return { file: fallbackFile, endedNs: null };
   }
-  return fallback;
+}
+
+/**
+ * Wall-clock time (ms) of the FIRST media sample in an egress file. Egress `started_at`
+ * is when the job launched, but actual media begins after startup latency (room-composite
+ * audio waits for headless Chrome to join + subscribe → several seconds; a raw screen
+ * TrackEgress is near-instant). Since the file ENDS promptly when the egress stops, the
+ * reliable media-start = ended_at − fileDuration. Aligning two egresses by this removes
+ * the differing-startup-latency skew that a `started_at` delta would leave behind.
+ */
+async function mediaStartMs(egressId: string | undefined | null, file: string): Promise<number | null> {
+  const info = await egressInfo(egressId, file);
+  if (info.endedNs == null) return null;
+  const dur = await probeDurationSec(`${RECORDINGS_DIR}/${info.file}`);
+  if (!(dur > 0)) return null;
+  return info.endedNs / 1e6 - dur * 1000;
 }
 
 async function retentionDays(): Promise<number> {
@@ -153,14 +176,26 @@ export function finalizeScreenAudio(recordingId: string): void {
       const rec = await prisma.recording.findUnique({ where: { id: recordingId } });
       if (!rec || rec.sourceType !== 'screen-audio') return;
       const meta = (rec.meta as { audioEgressId?: string; audioFile?: string; screenSegments?: { egressId?: string; fileName: string; startSec: number }[] }) || {};
-      const audioFile = await resolveEgressFile(meta.audioEgressId, meta.audioFile || '');
-      if (!audioFile) {
+      const audio = await egressInfo(meta.audioEgressId, meta.audioFile || '');
+      if (!audio.file) {
         await prisma.recording.update({ where: { id: rec.id }, data: { status: 'failed' } });
         return;
       }
+      // Place each screen segment by the real MEDIA-start delta vs the audio (ended_at −
+      // file duration), so the differing egress startup latencies don't skew the timeline.
+      const audioStartMs = await mediaStartMs(meta.audioEgressId, audio.file);
       const segs = await Promise.all(
-        (meta.screenSegments || []).map(async (s) => ({ fileName: await resolveEgressFile(s.egressId, s.fileName), startSec: s.startSec })),
+        (meta.screenSegments || []).map(async (s) => {
+          const info = await egressInfo(s.egressId, s.fileName);
+          const segStartMs = await mediaStartMs(s.egressId, info.file);
+          const startSec =
+            audioStartMs != null && segStartMs != null
+              ? Math.max(0, (segStartMs - audioStartMs) / 1000)
+              : s.startSec;
+          return { fileName: info.file, startSec };
+        }),
       );
+      const audioFile = audio.file;
       const res = await composeScreenAudio({ audioFileName: audioFile, screenSegments: segs, outFileName: `rec-${rec.id}.mp4` });
       if (res.ok && res.outFile) {
         const days = await retentionDays();
