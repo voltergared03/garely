@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY package.json package-lock.json* .npmrc* yarn.lock* pnpm-lock.yaml* ./
 COPY prisma ./prisma
+# Vendored IronRDP web client (patched: 32bpp/RemoteFX negotiation to route Windows
+# onto the wired RFX surface-bits decoder instead of legacy bitmaps). Must precede
+# install because package.json references it via file:vendor/*.tgz.
+COPY vendor ./vendor
 
 RUN corepack enable 2>/dev/null || true
 
