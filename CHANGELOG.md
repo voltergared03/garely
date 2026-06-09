@@ -76,6 +76,15 @@ that turns meetings into decisions and assigned work — all on your own server.
   longer auto-ends meetings whose start is still in the future.
 - **Calendar keeps history.** Past, ended and cancelled meetings now stay on the
   calendar greyed-out instead of vanishing; the Archive remains the dedicated list.
+- **Recording rework — stable, automatic, screen-aware.** The recorder no longer uses a
+  CPU-heavy room-composite grid (which tore the video and broke the audio on a modest
+  host). New `screen-audio` mode (`WS_RECORD_MODE`): the screen-share is captured as a
+  passthrough TrackEgress (no transcode, no headless browser) and the whole room's mixed
+  audio via a light audio-only egress, then muxed offline with ffmpeg into one MP4 — the
+  screen placed on the timeline by real media-start so audio and screen stay in sync.
+  Recording is now **fully automatic** (starts with the meeting; the manual in-room
+  toggle is gone, the REC indicator stays). Deleting a meeting that has a recording is
+  blocked so recordings can't silently vanish.
 
 ## [1.12.0-beta.1] — 2026-06-03
 
