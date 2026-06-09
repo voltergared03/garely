@@ -2,8 +2,12 @@ import { pad } from '@/lib/utils';
 import type { Meeting, CalTask } from './types';
 
 export function eventAccent(m: Meeting): string {
+  // Past history reads greyed-out; a live meeting is always green; future
+  // (incl. recurring) keeps its colour.
+  if (m.status === 'ended' || m.status === 'cancelled') return 'var(--muted)';
+  if (m.status === 'live') return 'var(--green)';
+  if (m.scheduledAt && new Date(m.scheduledAt).getTime() < Date.now()) return 'var(--muted)';
   if (m.recurrence) return 'var(--accent)';
-  if (m.status === 'completed') return 'var(--muted)';
   return 'var(--green)';
 }
 

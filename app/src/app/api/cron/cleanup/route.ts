@@ -29,6 +29,9 @@ async function getHandler(req: NextRequest) {
   });
   const staleIds = liveMeetings
     .filter((m) => {
+      // Never auto-end a meeting whose scheduled start is still in the future — it was
+      // opened early by mistake; ending it would wrongly archive a not-yet-happened meeting.
+      if (m.scheduledAt && m.scheduledAt.getTime() > now) return false;
       const start = (m.scheduledAt ?? m.createdAt).getTime();
       const expectedEnd = start + (m.durationMin || 60) * 60_000;
       return expectedEnd + LIVE_GRACE_MS < now;

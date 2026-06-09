@@ -22,6 +22,7 @@ export default function LobbyPage() {
   const guestName = searchParams.get('guest') || '';
   const { data: session } = useSession();
   const [meeting, setMeeting] = useState<any>(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [mic, setMic] = useState(true);
   const [cam, setCam] = useState(true);
   const [txPref, setTxPref] = useState(false); // open transcript panel on join (user pref)
@@ -87,7 +88,14 @@ export default function LobbyPage() {
       .catch(console.error);
   }, [id]);
 
-  const joinMeeting = () => {
+  // Re-evaluate the "too early" gate on a timer so the join button unlocks once the
+  // 5-minutes-before window opens, without a manual refresh.
+  useEffect(() => {
+    const i = setInterval(() => setNowTs(Date.now()), 20000);
+    return () => clearInterval(i);
+  }, []);
+
+  const joinMeeting = (startNow = false) => {
     const params = new URLSearchParams();
     if (!mic) params.set('mic', '0');
     if (!cam) params.set('cam', '0');
@@ -96,9 +104,18 @@ export default function LobbyPage() {
     if (selectedCam) params.set('camId', selectedCam);
     if (selectedSpeaker) params.set('spkId', selectedSpeaker);
     if (txPref) params.set('tx', '1');
+    if (startNow) params.set('start', '1');
     const qs = params.toString();
     router.push(`/room/${id}${qs ? '?' + qs : ''}`);
   };
+
+  // Entry gate (mirrors the server check in join-token): a still-scheduled meeting
+  // opens 5 min before its start; earlier, only the host/admin sees "Start now".
+  const uid = session?.user?.id;
+  const role = session?.user?.role;
+  const isHost = !!uid && (meeting?.createdById === uid || role === 'admin');
+  const schedMs = meeting?.scheduledAt ? new Date(meeting.scheduledAt).getTime() : null;
+  const tooEarly = schedMs != null && meeting?.status === 'scheduled' && nowTs < schedMs - 5 * 60_000;
 
   const getParticipantNames = (m: any) =>
     (m.participants || []).map((p: any) => ({
@@ -228,10 +245,33 @@ export default function LobbyPage() {
                 placeholder={t('lobby.namePlaceholder')} />
             </div>
 
-            <button className="btn btn-primary" onClick={joinMeeting}
-              style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
-              <Video size={17} /> {t('lobby.joinMeeting')}
-            </button>
+            {tooEarly ? (
+              isHost ? (
+                <>
+                  <button className="btn btn-primary" onClick={() => joinMeeting(true)}
+                    style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
+                    <Video size={17} /> {t('lobby.startNow')}
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12.5 }}>
+                    <Clock size={13} /> {t('lobby.earlyHostNote', { time: fmtTime(new Date(meeting.scheduledAt)) })}
+                  </div>
+                </>
+              ) : (
+                <div style={{ padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontWeight: 600, fontSize: 14.5 }}>
+                    <Clock size={16} style={{ color: 'var(--accent)' }} /> {t('lobby.tooEarlyTitle')}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                    {t('lobby.tooEarlyDesc', { time: fmtTime(new Date(meeting.scheduledAt)) })}
+                  </div>
+                </div>
+              )
+            ) : (
+              <button className="btn btn-primary" onClick={() => joinMeeting()}
+                style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
+                <Video size={17} /> {t('lobby.joinMeeting')}
+              </button>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
               <Lock size={12} /> {t('lobby.encryptedNote')}

@@ -71,8 +71,10 @@ export default function CalendarPage() {
       const res = await fetch('/api/meetings');
       if (res.ok) {
         const data: Meeting[] = await res.json();
-        // Filter out ended meetings — they belong in archive
-        setMeetings(data.filter((m: Meeting) => m.status !== "ended"));
+        // Keep ALL meetings on the calendar, including past/ended ones — they render
+        // greyed (eventAccent) so history stays visible. The Archive remains the
+        // dedicated list of ended meetings.
+        setMeetings(data);
       }
     } catch {
       // silent

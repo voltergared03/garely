@@ -1179,6 +1179,7 @@ export default function MeetingRoomPage() {
   const micDeviceId = searchParams.get('micId') || '';
   const camDeviceId = searchParams.get('camId') || '';
   const spkDeviceId = searchParams.get('spkId') || '';
+  const startNow = searchParams.get('start') === '1'; // host explicitly starting before the 5-min window
   const router = useRouter();
   const [token, setToken] = useState('');
   const [wsUrl, setWsUrl] = useState('');
@@ -1198,6 +1199,7 @@ export default function MeetingRoomPage() {
       try {
         const body: any = {};
         if (guest) { body.guestName = guest; if (reqId) body.requestId = reqId; }
+        if (startNow) body.startNow = true; // host starting before the 5-min entry window
 
         const res = await fetch(`/api/meetings/${id}/join-token`, {
           method: 'POST',

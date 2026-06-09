@@ -564,6 +564,10 @@
     "participantsHeading": "Participants",
     "quickMeeting": "Quick meeting",
     "joinMeeting": "Join the meeting",
+    "startNow": "Start now",
+    "earlyHostNote": "Scheduled for {time} — as the host you can start it early.",
+    "tooEarlyTitle": "Not started yet",
+    "tooEarlyDesc": "You can join 5 minutes before the start — at {time}.",
     "quickMeetingDesc": "Start a quick meeting and invite colleagues with a link.",
     "loadingMeeting": "Loading meeting information...",
     "yourName": "Your name",
@@ -1310,6 +1314,7 @@
     "recordingStartFailed": "Could not start recording",
     "meetingNotFound": "Meeting not found",
     "quickMeetingTitle": "Quick meeting",
+    "meetingNotStarted": "This meeting hasn't started yet. You can join 5 minutes before the scheduled start.",
     "joinRequestNotFound": "Request not found",
     "requestIdAndActionRequired": "requestId and action are required",
     "invalidCurrentPassword": "Incorrect current password"

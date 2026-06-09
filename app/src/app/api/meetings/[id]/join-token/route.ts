@@ -41,12 +41,30 @@ export async function POST(
     } else {
       meeting = await prisma.meeting.findUnique({
         where: { id },
-        select: { id: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true },
+        select: { id: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true, scheduledAt: true },
       });
     }
 
     if (!meeting) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
+    }
+
+    // Entry time gate: a still-scheduled meeting opens 5 minutes before its start.
+    // Before that, only the host/admin may START it explicitly (body.startNow). This
+    // stops an early visitor from flipping a FUTURE meeting to 'live' — once live, an
+    // empty room's room_finished webhook ends it, which wrongly drops it into the archive.
+    if (id !== 'quick' && meeting.status === 'scheduled' && meeting.scheduledAt) {
+      const opensAtMs = new Date(meeting.scheduledAt).getTime() - 5 * 60_000;
+      if (Date.now() < opensAtMs) {
+        const hostOrAdmin = !!session?.user &&
+          (meeting.createdById === session.user.id || session.user.role === 'admin');
+        if (!(hostOrAdmin && body.startNow === true)) {
+          return NextResponse.json(
+            { error: t('meetingNotStarted'), tooEarly: true, canStart: hostOrAdmin, scheduledAt: meeting.scheduledAt },
+            { status: 403 },
+          );
+        }
+      }
     }
 
     if (meeting.status === 'scheduled') {
