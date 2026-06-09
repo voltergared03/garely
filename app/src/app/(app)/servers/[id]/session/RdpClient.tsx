@@ -474,6 +474,15 @@ export default function RdpClient(props: RdpClientProps) {
       // the component's own (bubble-phase) key listener to be forwarded to the server.
       if (!e.isTrusted) return;
       if (!focused()) return;
+      // SELF-HEAL a stuck ⌘ state. metaDown is otherwise only cleared on the ⌘ keyup or
+      // on blur — but macOS input-source switching (⌘+Space and friends) is consumed by
+      // the OS, which routinely SWALLOWS the ⌘ keyup. Switching layouts doesn't blur the
+      // window either, so metaDown would stay stuck true forever and every subsequent
+      // keystroke (e.g. a Ukrainian letter) gets mis-routed through the ⌘→Ctrl scancode
+      // remap below → the server applies its own (US) layout → wrong characters. The OS
+      // sets e.metaKey accurately on every real event, so if it says ⌘ is up while our
+      // flag says down, trust the OS and reset (also releases any held synthetic Ctrl).
+      if (!isMeta(e.code) && !e.metaKey && (metaDown || ctrlHeld)) reset();
       // Swallow the ⌘ key itself so it never reaches the server as the Win key.
       if (isMeta(e.code)) {
         e.preventDefault();
