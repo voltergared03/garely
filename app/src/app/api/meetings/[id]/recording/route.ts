@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { promises as fs } from 'fs';
 import { userCanAccessMeeting } from '@/lib/access';
 import { withRoute } from '@/lib/with-route';
-import { startRoomRecording, stopRecording } from '@/lib/egress';
+import { beginRecording, endRecording } from '@/lib/recording-orchestrator';
 
 const RETENTION_DAYS = 7;
 
@@ -126,23 +126,14 @@ async function postHandler(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (action === 'start') {
     if (active) return NextResponse.json({ ok: true, active: true }); // already recording
-    const rec = await startRoomRecording(meeting.livekitRoom);
-    if (!rec) return NextResponse.json({ error: t('recordingStartFailed') }, { status: 502 });
-    await prisma.recording.create({
-      data: {
-        meetingId: id,
-        egressId: rec.egressId,
-        fileName: rec.fileName,
-        filePath: rec.filePath,
-        status: 'processing',
-      },
-    });
+    const ok = await beginRecording(id, meeting.livekitRoom);
+    if (!ok) return NextResponse.json({ error: t('recordingStartFailed') }, { status: 502 });
     return NextResponse.json({ ok: true, active: true });
   }
 
   if (action === 'stop') {
     if (!active) return NextResponse.json({ ok: true, active: false }); // nothing to stop
-    if (active.egressId) await stopRecording(active.egressId);
+    await endRecording(active);
     return NextResponse.json({ ok: true, active: false });
   }
 

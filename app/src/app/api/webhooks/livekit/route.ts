@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { WebhookReceiver } from 'livekit-server-sdk';
 import { prisma } from '@/lib/prisma';
 import { readConfig } from '@/lib/config';
-import { startRoomRecording } from '@/lib/egress';
+import { beginRecording, finalizeScreenAudio } from '@/lib/recording-orchestrator';
 
 const receiver = new WebhookReceiver(
   process.env.LIVEKIT_API_KEY!,
@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
       if (info?.egressId) {
         const data: any = {};
         if (event.event === 'egress_ended') {
+          // screen-audio mode: the AUDIO egress ending means the recording is over →
+          // compose the final MP4 offline instead of flipping the row to "ready" with the
+          // raw audio. (Screen-segment egress ids don't match a Recording.egressId → no-op.)
+          const sa = await prisma.recording.findFirst({ where: { egressId: info.egressId, sourceType: 'screen-audio' } });
+          if (sa) { finalizeScreenAudio(sa.id); return NextResponse.json({ ok: true }); }
           const fileRes = info.fileResults?.[0] || info.file;
           const failed = !!info.error || info.status === 4; // EGRESS_FAILED
           data.status = failed ? 'failed' : 'ready';
@@ -112,19 +117,8 @@ export async function POST(req: NextRequest) {
                 where: { meetingId: meeting.id, status: { in: ['processing', 'ready'] } },
               });
               if (!existing) {
-                const rec = await startRoomRecording(roomName);
-                if (rec) {
-                  await prisma.recording.create({
-                    data: {
-                      meetingId: meeting.id,
-                      egressId: rec.egressId,
-                      fileName: rec.fileName,
-                      filePath: rec.filePath,
-                      status: 'processing',
-                    },
-                  });
-                  console.log(`Recording started for ${meeting.id}: ${rec.egressId}`);
-                }
+                const started = await beginRecording(meeting.id, roomName);
+                if (started) console.log(`Recording started for ${meeting.id}`);
               }
             }
           } catch (e) {

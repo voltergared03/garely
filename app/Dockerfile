@@ -43,6 +43,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# ffmpeg/ffprobe — offline compose of the screen-share recording (screen-audio mode):
+# mux the screen-share track segment(s) over a timeline + the mixed audio into one MP4.
+RUN apk add --no-cache ffmpeg
+
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 

@@ -183,6 +183,25 @@ async def create_stt_with_latest_key() -> STT | None:
     return await create_stt_for_language(None)
 
 
+async def report_screen_segment(meeting_id: str, room_name: str, track_sid: str, action: str):
+    """Tell the app a screen-share video track started/stopped so it can record it as a
+    passthrough TrackEgress segment (B2-lite "screen-audio" recording). Server-side this
+    is a no-op unless a screen-audio recording is currently active for the meeting."""
+    if not meeting_id or not track_sid:
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{APP_URL}/api/webhooks/recording-screen",
+                json={"meetingId": meeting_id, "roomName": room_name, "trackId": track_sid, "action": action},
+                headers={"x-internal-key": INTERNAL_KEY},
+                timeout=10,
+            )
+        logger.info(f"screen-share {action}: track={track_sid}")
+    except Exception as e:
+        logger.warning(f"report_screen_segment {action} failed: {e}")
+
+
 async def entrypoint(ctx: JobContext):
     """Main agent entrypoint — runs per room."""
     logger.info(f"Agent joining room: {ctx.room.name}")
@@ -489,6 +508,23 @@ async def entrypoint(ctx: JobContext):
         task = participant_tasks.pop(participant.identity, None)
         if task:
             task.cancel()
+
+    # Screen-share lifecycle → drive the B2-lite screen recording (TrackEgress segment).
+    @ctx.room.on("track_published")
+    def on_track_published(pub: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant):
+        try:
+            if pub.source == rtc.TrackSource.SOURCE_SCREENSHARE:
+                asyncio.create_task(report_screen_segment(meeting_id, room_name, pub.sid, "start"))
+        except Exception as e:
+            logger.warning(f"track_published handler error: {e}")
+
+    @ctx.room.on("track_unpublished")
+    def on_track_unpublished(pub: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant):
+        try:
+            if pub.source == rtc.TrackSource.SOURCE_SCREENSHARE:
+                asyncio.create_task(report_screen_segment(meeting_id, room_name, pub.sid, "stop"))
+        except Exception as e:
+            logger.warning(f"track_unpublished handler error: {e}")
 
     for participant in ctx.room.remote_participants.values():
         if participant.identity not in participant_tasks:
