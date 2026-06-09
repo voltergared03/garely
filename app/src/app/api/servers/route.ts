@@ -6,6 +6,7 @@ import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
 import {
   serverConnectionView,
+  serverConnectionMemberView,
   encryptServerSecret,
   normalizeServerPassword,
 } from '@/lib/server-credentials';
@@ -22,7 +23,10 @@ export const GET = withRoute('servers.list', async () => {
   if (r instanceof Response) return r;
   const isAdmin = r.session.user.role === 'admin';
 
-  let servers: Array<ReturnType<typeof serverConnectionView> & { accessCount?: number }>;
+  // Admins get the full connection (host/port/login + accessCount for management).
+  // Non-admin grantees get the member-safe view — name/protocol/presence only, NO
+  // host/port/username/domain (they may connect + see occupancy, not the address/login).
+  let servers: Array<{ id: string } & Record<string, unknown>>;
   if (isAdmin) {
     const rows = await prisma.serverConnection.findMany({
       where: { orgId: r.orgId },
@@ -32,7 +36,7 @@ export const GET = withRoute('servers.list', async () => {
     servers = rows.map((c) => ({ ...serverConnectionView(c), accessCount: c._count.accesses }));
   } else {
     const rows = await visibleServerConnections(r.session.user.id, r.session.user.role, r.orgId);
-    servers = rows.map(serverConnectionView);
+    servers = rows.map(serverConnectionMemberView);
   }
 
   const presence = await activeSessionsByConnection(servers.map((s) => s.id), r.session.user.id);

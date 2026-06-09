@@ -82,3 +82,31 @@ export function serverConnectionView(c: ServerConnectionRow): ServerConnectionVi
     updatedAt: c.updatedAt.toISOString(),
   };
 }
+
+/** Member-safe view — for non-admin users a server is granted TO. Deliberately omits
+ *  the connection target (host/port), the login (username/domain) and free-form settings:
+ *  a grantee may connect and see presence, but must NOT learn the server's address or
+ *  credentials identity, nor be able to reconfigure it (mutations are admin-only). The
+ *  destination + credentials still reach the browser at connect time (the in-browser
+ *  IronRDP client performs NLA itself) — this view governs the listing/detail surface. */
+export type ServerConnectionMemberView = {
+  id: string;
+  name: string;
+  protocol: string;
+  departmentId: string | null;
+  hasSecret: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function serverConnectionMemberView(c: ServerConnectionRow): ServerConnectionMemberView {
+  return {
+    id: c.id,
+    name: c.name,
+    protocol: c.protocol,
+    departmentId: c.departmentId,
+    hasSecret: !!c.secretCipher,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
+  };
+}

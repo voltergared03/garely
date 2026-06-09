@@ -134,7 +134,8 @@ export default function ServerSessionPage() {
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 640, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {server ? server.name : t('session')}
             </h1>
-            {server && (
+            {/* address/login subtitle — admins only; the member view omits host/username */}
+            {server?.host && (
               <div style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
                 {server.domain ? `${server.domain}\\${server.username}` : server.username}
                 <span style={{ opacity: 0.5 }}> @ </span>
@@ -251,7 +252,11 @@ export default function ServerSessionPage() {
                   </div>
                   <div style={{ fontSize: 17, fontWeight: 640, color: '#e7e9ee', textAlign: 'center' }}>{t('passwordPromptTitle')}</div>
                   <div style={{ fontSize: 13.5, marginTop: 8, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                    {t('passwordPromptBody', { user: server.domain ? `${server.domain}\\${server.username}` : server.username })}
+                    {t('passwordPromptBody', {
+                      user: server.username
+                        ? (server.domain ? `${server.domain}\\${server.username}` : server.username)
+                        : server.name,
+                    })}
                   </div>
                   <input
                     type="password"

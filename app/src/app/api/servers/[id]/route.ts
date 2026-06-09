@@ -6,6 +6,7 @@ import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
 import {
   serverConnectionView,
+  serverConnectionMemberView,
   encryptServerSecret,
   normalizeServerPassword,
 } from '@/lib/server-credentials';
@@ -27,7 +28,11 @@ export const GET = withRoute('servers.get', async (_req: NextRequest, ctx: Ctx) 
     return jsonError('forbidden', 403);
   }
   const presence = await activeSessionsByConnection([id], r.session.user.id);
-  return NextResponse.json({ ...serverConnectionView(c), activeSessions: presence[id] ?? [] });
+  // Non-admin grantees never receive host/port/username/domain — only the member-safe
+  // view (admins get the full record for the edit form).
+  const view =
+    r.session.user.role === 'admin' ? serverConnectionView(c) : serverConnectionMemberView(c);
+  return NextResponse.json({ ...view, activeSessions: presence[id] ?? [] });
 });
 
 const patchSchema = z

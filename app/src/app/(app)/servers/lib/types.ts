@@ -11,12 +11,14 @@ export interface ActiveServerSession {
 export interface ServerView {
   id: string;
   name: string;
-  host: string;
-  port: number;
+  // host/port/username/domain/settings are present ONLY for admins — the member-safe
+  // view (non-admin grantees) omits them so they can't see the server's address/login.
+  host?: string;
+  port?: number;
   protocol: string;
-  username: string;
-  domain: string | null;
-  settings: unknown;
+  username?: string;
+  domain?: string | null;
+  settings?: unknown;
   departmentId: string | null;
   hasSecret: boolean;
   createdAt: string;

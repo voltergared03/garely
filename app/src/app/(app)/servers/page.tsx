@@ -235,9 +235,12 @@ export default function ServersPage() {
                     <div style={{ fontSize: 15.5, fontWeight: 640, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.name}
                     </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono, ui-monospace, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
-                      {s.host}<span style={{ opacity: 0.5 }}>:</span>{s.port}
-                    </div>
+                    {/* address shown to admins only — members never see host:port */}
+                    {s.host && (
+                      <div style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono, ui-monospace, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
+                        {s.host}<span style={{ opacity: 0.5 }}>:</span>{s.port}
+                      </div>
+                    )}
                   </div>
                   {canManage && (
                     <div className="srv-act" style={{ display: 'flex', gap: 2, marginRight: -4 }}>
@@ -252,9 +255,11 @@ export default function ServersPage() {
 
                 {/* Meta chips */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 11.5 }}>
-                  <span style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-2)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
-                    {identity}
-                  </span>
+                  {s.username && (
+                    <span style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-2)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
+                      {identity}
+                    </span>
+                  )}
                   <span style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid var(--border)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
                     {s.protocol}
                   </span>

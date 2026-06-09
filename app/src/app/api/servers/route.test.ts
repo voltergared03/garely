@@ -43,6 +43,36 @@ describe('GET /api/servers', () => {
     expect(body.canManage).toBe(false);
     expect(body.servers).toEqual([]);
   });
+
+  it('member with a grant gets the member-safe view — NO host/port/login/settings', async () => {
+    mockAuth.mockResolvedValue(sess('member', 'org-A'));
+    prismaMock.departmentMember.findMany.mockResolvedValue([] as any); // no departments
+    prismaMock.serverAccess.findMany.mockResolvedValue([{ connectionId: 's1' }] as any); // explicit grant
+    prismaMock.serverConnection.findMany.mockResolvedValue([
+      {
+        id: 's1', orgId: 'org-A', name: 'Prod', host: '10.0.0.5', port: 3389, protocol: 'rdp',
+        username: 'Administrator', secretCipher: 'v1.x.y.z', domain: 'CORP', settings: { foo: 1 },
+        departmentId: null, createdById: 'u9', createdAt: new Date(), updatedAt: new Date(),
+      },
+    ] as any);
+    prismaMock.serverSession.findMany.mockResolvedValue([] as any); // no live presence
+    const res = await GET(jsonReq('GET', undefined, url));
+    const body = await res.json();
+    expect(body.canManage).toBe(false);
+    expect(body.servers).toHaveLength(1);
+    const s = body.servers[0];
+    // can connect + see it exists; password presence drives the connect flow
+    expect(s.name).toBe('Prod');
+    expect(s.protocol).toBe('rdp');
+    expect(s.hasSecret).toBe(true);
+    // but MUST NOT learn the address or the login
+    expect(s.host).toBeUndefined();
+    expect(s.port).toBeUndefined();
+    expect(s.username).toBeUndefined();
+    expect(s.domain).toBeUndefined();
+    expect(s.settings).toBeUndefined();
+    expect(s.secretCipher).toBeUndefined();
+  });
 });
 
 describe('POST /api/servers', () => {
