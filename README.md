@@ -103,7 +103,9 @@ install in place (secrets and config are preserved).
 
 - **Connect to your RDP servers from the browser** — no client to install. A Rust/WASM **IronRDP** client streams the desktop through a self-hosted **Devolutions Gateway** (RDCleanPath over WSS); the page is the full client (display, keyboard, mouse, **NLA/CredSSP**).
 - **Encrypted credential vault** — server passwords are stored AES-256-GCM encrypted and only ever decrypted for an authorized user's live session; **per-server access control** by user or department, admin-managed.
-- **Shared clipboard** (copy/paste text both ways), **file drag-and-drop**, a Mac **⌘→Ctrl** mapping, and **dynamic resolution** that follows your browser window and re-fits live as you resize — like a native RDP client.
+- **Shared clipboard** (copy/paste text both ways), **file drag-and-drop**, and **dynamic resolution** that follows your browser window and re-fits live as you resize — like a native RDP client.
+- **Type in any language** — keyboard-layout sync sends the character you actually pressed (Ukrainian, etc.) regardless of the server's active layout; plus a Mac **⌘→Ctrl** mapping with self-healing modifier state.
+- **Draggable status chip** — grab the server/disconnect pill and drop it anywhere over the canvas; its position is remembered.
 - **Live presence** — everyone with access sees when a server is **in use, and by whom**, so teammates don't bump each other off the same session. Every connection is audit-logged.
 
 ### Teams, accounts & admin

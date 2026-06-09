@@ -35,6 +35,22 @@ that turns meetings into decisions and assigned work — all on your own server.
     access control, inline **edit/delete**, and a backfill for existing reports.
   - A **weekly "where to focus" AI rollup** at the top of the digest email.
   - AI auto-assigns people, subtasks and the right department to action items.
+- **Remote access — in-browser RDP** *(folded into this beta on 2026-06-09):*
+  - **Connect to your RDP servers from the browser**, no client to install — a
+    Rust/WASM **IronRDP** client streams the desktop through a self-hosted
+    **Devolutions Gateway** (RDCleanPath over WSS); the page is the full client
+    (display, keyboard, mouse, **NLA/CredSSP**).
+  - **Encrypted credential vault** (AES-256-GCM) with **per-server access control**
+    by user or department; every connection is audit-logged.
+  - **Shared clipboard** both ways, **file drag-and-drop**, **dynamic 1:1 resolution**
+    that follows the browser window and re-fits live, and **live presence** — everyone
+    with access sees when a server is in use and by whom.
+  - **Keyboard-layout sync** — Unicode keyboard mode types the character you pressed
+    (Ukrainian, Russian, etc.) regardless of the server's active layout; a macOS
+    **⌘→Ctrl** mapping with self-healing modifier state so a swallowed ⌘ keyup (e.g.
+    after switching input source) never leaves typing stuck.
+  - **Draggable session status pill** — reposition the server/disconnect chip anywhere
+    over the canvas; the position persists across reconnects.
 
 ### Changed / Fixed
 - **Self-host first-run hardening.** The Google-SSO setup path now provisions the
