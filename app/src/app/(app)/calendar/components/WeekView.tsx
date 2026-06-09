@@ -264,7 +264,9 @@ export function WeekView({
                 const start = new Date(m.scheduledAt!);
                 const startH = start.getHours() + start.getMinutes() / 60;
                 const topPx = (startH - START_HOUR) * ROW_H;
-                const heightPx = Math.max((m.durationMin / 60) * ROW_H - 4, 24);
+                // Floor the block tall enough to fit the time line + a 2-line title,
+                // so short meetings (e.g. 30–45 min) don't clip their name.
+                const heightPx = Math.max((m.durationMin / 60) * ROW_H - 4, 54);
                 const accent = eventAccent(m);
                 const users = getParticipantNames(m);
 
@@ -284,14 +286,14 @@ export function WeekView({
                       borderLeftWidth: 3,
                       borderLeftColor: accent,
                       borderRadius: 8,
-                      padding: '6px 8px',
+                      padding: '5px 8px',
                       textAlign: 'left',
                       color: 'inherit',
                       cursor: 'pointer',
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 2,
+                      gap: 1,
                       zIndex: 2,
                     }}
                     onMouseEnter={(e) => {
