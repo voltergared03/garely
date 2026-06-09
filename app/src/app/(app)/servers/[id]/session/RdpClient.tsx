@@ -2,19 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import {
-  Loader2,
-  Maximize2,
-  Minimize2,
-  ClipboardCheck,
-  ClipboardX,
-  Power,
-  Keyboard,
-  ScanLine,
-  Square,
-  RefreshCw,
-  AlertTriangle,
-} from 'lucide-react';
+import { Loader2, Power, RefreshCw, AlertTriangle, Upload, Download } from 'lucide-react';
 
 /* ─── Minimal structural types for the dynamically-imported IronRDP API ───────
  * The real types live in @devolutions/iron-remote-desktop(.rdp), but those modules
@@ -37,11 +25,39 @@ interface UserInteractionLike {
   connect(config: unknown): Promise<{ run(): Promise<{ reason(): string }> }>;
   setVisibility(v: boolean): void;
   setScale(scale: number): void;
+  resize(width: number, height: number, scale?: number): void;
   ctrlAltDel(): void;
   metaKey(): void;
+  // Send a Ctrl+C / Ctrl+V special combination STRAIGHT to the backend
+  // (sendSpecialCombination) — bypasses the component's key-forward focus gate, so
+  // copy/paste works regardless of which element is document.activeElement.
+  ctrlC?(): void;
+  ctrlV?(): void;
   shutdown(): void;
   setEnableClipboard(v: boolean): void;
   setEnableAutoClipboard?(v: boolean): void;
+  enableFileTransfer?(provider: unknown): unknown;
+  // Manual clipboard path (the component falls back to this when the auto monitor
+  // can't read without a user gesture). remote→local: saveRemoteClipboardData();
+  // local→remote: sendClipboardData(). Notified of remote changes via the callback.
+  onClipboardRemoteUpdateCallback?(cb: () => void): void;
+  onWarningCallback?(cb: (msg: string) => void): void;
+  saveRemoteClipboardData?(): Promise<void>;
+  sendClipboardData?(): Promise<void>;
+}
+// Bidirectional file transfer over the RDP clipboard channel (CLIPRDR file copy).
+interface RdpFileInfo {
+  name: string;
+  size: number;
+  lastModified: number;
+  path?: string;
+}
+interface FileTransferProviderLike {
+  on(event: string, handler: (...args: never[]) => void): void;
+  handleDrop(e: DragEvent): Promise<unknown[]>;
+  handleDragOver(e: DragEvent): void;
+  uploadFiles(files: unknown[]): unknown;
+  downloadFile(info: RdpFileInfo, index: number): { completion: Promise<Blob> };
 }
 type IronElement = HTMLElement & {
   module: unknown;
@@ -59,7 +75,57 @@ let _initPromise: Promise<void> | null = null;
 const isMac = () =>
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
-type Phase = 'init' | 'connecting' | 'connected' | 'closed' | 'error';
+// RDP framebuffers must be 4-pixel aligned or partial codec tiles tear.
+const align4 = (n: number) => Math.max(640, Math.floor(n / 4) * 4);
+
+
+// IronError isn't a JS Error — it exposes kind()/backtrace(). Surface the real
+// reason instead of the "[object Object]" you get from String(an opaque object).
+function describeError(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const e = err as { backtrace?: () => string; kind?: () => string; message?: string };
+    if (typeof e.backtrace === 'function') {
+      try {
+        const kind = typeof e.kind === 'function' ? e.kind() : '';
+        const trace = e.backtrace();
+        return [kind, trace].filter(Boolean).join(': ') || 'connection error';
+      } catch {
+        /* fall through */
+      }
+    }
+    if (typeof e.message === 'string' && e.message) return e.message;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+// Stream a downloaded blob to the user's machine (server → client file transfer).
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// The IronRDP web component attaches the CLIPRDR (clipboard) static channel only if
+// its remote-clipboard callback was registered on the SessionBuilder BEFORE connect().
+// That registration is done by the component's own async initClipboard() in onMount,
+// which runs right AFTER the 'ready' event and awaits a clipboard-read permission query.
+// We await the same query + a margin so the registration lands before we connect —
+// otherwise cliprdr is never negotiated and clipboard/file-transfer are dead on the wire.
+async function waitForClipboardWiring(): Promise<void> {
+  try {
+    await navigator.permissions?.query?.({ name: 'clipboard-read' as PermissionName });
+  } catch {
+    /* permission name unsupported in this browser — rely on the timed margin */
+  }
+  await new Promise((r) => setTimeout(r, 400));
+}
+
+export type Phase = 'init' | 'connecting' | 'connected' | 'closed' | 'error';
 
 export interface RdpClientProps {
   connectionId: string;
@@ -70,11 +136,12 @@ export interface RdpClientProps {
   serverName: string;
   username: string;
   domain: string | null;
-  injected: boolean;
-  /** Empty when injected; the user-supplied password when the gateway is not injecting. */
+  /** Credentials the client uses for CredSSP/NLA (from /connect or a user prompt). */
   password: string;
   /** Back to the pre-connect screen (user disconnected or the session ended). */
   onExit: () => void;
+  /** Report the live RDP phase up so the page status pill reflects reality. */
+  onPhase?: (phase: Phase) => void;
 }
 
 export default function RdpClient(props: RdpClientProps) {
@@ -83,12 +150,46 @@ export default function RdpClient(props: RdpClientProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const uiRef = useRef<UserInteractionLike | null>(null);
   const elRef = useRef<IronElement | null>(null);
+  const fileProviderRef = useRef<FileTransferProviderLike | null>(null);
   const exitedRef = useRef(false);
+  // Timestamp (ms) until which a local→remote clipboard push is suppressed, so a
+  // freshly-dropped file's FormatList on the remote clipboard isn't overwritten by a
+  // text/image push before the user can Ctrl+V it. Time-based + self-expiring so it
+  // can NEVER get stuck blocking the clipboard (the earlier boolean-flag version did).
+  const clobberUntilRef = useRef(0);
+  // Set when the server's clipboard changed but the local write hasn't landed yet;
+  // a later gesture (which guarantees focus) retries the pull.
+  const remotePullPendingRef = useRef(false);
+
+  // Pull the latest remote clipboard into the local one (server→Mac). Wrapped so a
+  // "clipboard has no data" / focus IronError can never surface as an uncaught
+  // rejection. Clears the pending flag only on success so a gesture can retry.
+  const flushRemoteClipboard = useCallback(async () => {
+    if (!remotePullPendingRef.current) return;
+    try {
+      await uiRef.current?.saveRemoteClipboardData?.();
+      remotePullPendingRef.current = false;
+    } catch {
+      /* leave pending; a later gesture retries */
+    }
+  }, []);
 
   const [phase, setPhase] = useState<Phase>('init');
   const [errMsg, setErrMsg] = useState<string>('');
-  const [fullscreen, setFullscreen] = useState(false);
-  const [clipboard, setClipboard] = useState(true);
+
+  useEffect(() => {
+    props.onPhase?.(phase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+  const [dragOver, setDragOver] = useState(false);
+  const [transfer, setTransfer] = useState<{ dir: 'up' | 'down'; label: string; pct: number } | null>(null);
+  const [notice, setNotice] = useState<string>('');
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = useCallback((msg: string, durationMs = 6000) => {
+    setNotice(msg);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(''), durationMs);
+  }, []);
 
   // Close the audit session row (best-effort; the gateway will later add byte counts).
   const closeAudit = useCallback(() => {
@@ -111,6 +212,25 @@ export default function RdpClient(props: RdpClientProps) {
     props.onExit();
   }, [closeAudit, props]);
 
+  /* ─── Presence heartbeat ──────────────────────────────────────────────────
+   * While connected, ping the server every 30s so other users with access see this
+   * server as "in use by <me>". When the beats stop (disconnect, tab close, crash)
+   * the audit row goes stale and presence drops it within ~90s — no ghost occupancy. */
+  useEffect(() => {
+    if (phase !== 'connected') return;
+    const ping = () => {
+      void fetch(`/api/servers/${props.connectionId}/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: props.sessionId }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    ping(); // immediate, then on an interval
+    const id = setInterval(ping, 30_000);
+    return () => clearInterval(id);
+  }, [phase, props.connectionId, props.sessionId]);
+
   /* ─── Mount the web component + run the session lifecycle (once) ─── */
   useEffect(() => {
     let cancelled = false;
@@ -128,7 +248,7 @@ export default function RdpClient(props: RdpClientProps) {
 
         const el = document.createElement('iron-remote-desktop') as IronElement;
         el.module = rdp.Backend;
-        el.scale = 'fit';
+        el.scale = 'full'; // 'fit' letterboxes (preserves aspect); 'full' fills the window
         el.verbose = false;
         el.flexcenter = true;
         el.style.width = '100%';
@@ -146,7 +266,7 @@ export default function RdpClient(props: RdpClientProps) {
         elRef.current = el;
       } catch (err) {
         if (!cancelled) {
-          setErrMsg(err instanceof Error ? err.message : String(err));
+          setErrMsg(describeError(err));
           setPhase('error');
         }
       }
@@ -155,41 +275,121 @@ export default function RdpClient(props: RdpClientProps) {
     async function startSession(ui: UserInteractionLike, rdp: typeof import('@devolutions/iron-remote-desktop-rdp')) {
       try {
         setPhase('connecting');
-        ui.setEnableClipboard(clipboard);
+        ui.setEnableClipboard(true); // clipboard channel on
+        // MANUAL clipboard mode. AUTO mode runs a 100ms navigator.clipboard.read()
+        // monitor that — once the tab is focused — throws an UNCAUGHT IronError every
+        // tick (confirmed live: two "Uncaught (in promise) IronError kind=General" right
+        // after "Start RDP session", present only when document.hasFocus()===true). That
+        // erroring monitor is what broke the clipboard both ways. In manual mode no
+        // monitor runs; we drive sync deterministically: local→remote on the ⌘-down /
+        // pointer-enter gesture (sendClipboardData), remote→local on the component's
+        // remote-clipboard-change callback (saveRemoteClipboardData). All wrapped in
+        // .catch so a "clipboard has no data" IronError can never surface uncaught.
+        try {
+          ui.setEnableAutoClipboard?.(false);
+        } catch {
+          /* older backend without the toggle */
+        }
+        // server→Mac: fires for BOTH keyboard ⌘C/Ctrl+C AND right-click→Copy on the
+        // server (any remote clipboard change). The canvas is focused at copy time, so
+        // the write usually lands immediately; if it doesn't, retry on the next gesture.
+        try {
+          ui.onClipboardRemoteUpdateCallback?.(() => {
+            remotePullPendingRef.current = true;
+            void flushRemoteClipboard();
+          });
+        } catch {
+          /* older backend */
+        }
 
-        const rect = host?.getBoundingClientRect();
-        const size = {
-          width: Math.max(800, Math.round(rect?.width || 1280)),
-          height: Math.max(600, Math.round(rect?.height || 720)),
-        };
-        // Empty creds when injected → the gateway supplies them from the encrypted token.
-        const dstUser = props.injected
-          ? ''
-          : props.domain
-            ? `${props.domain}\\${props.username}`
-            : props.username;
+        // Bidirectional file transfer over the RDP clipboard channel. Must be enabled
+        // BEFORE connect. Drag files onto the canvas → uploaded to the remote clipboard
+        // (paste with Ctrl+V there); copy files on the remote → auto-downloaded here.
+        try {
+          // The component's enableFileTransfer() already composes in its own
+          // suppress/resume of the 100ms clipboard monitor around uploads, so we do
+          // NOT pass onUploadStarted/onUploadFinished. Our separate, time-based
+          // clobber window (set in onDrop) guards only OUR manual ⌘-down/pointer-enter
+          // pushes — it can't get stuck and never blocks text clipboard for long.
+          const provider = new rdp.RdpFileTransferProvider({ chunkSize: 64 * 1024 });
+          provider.on('files-available', async (files) => {
+            for (let i = 0; i < files.length; i++) {
+              try {
+                const blob = await provider.downloadFile(files[i], i).completion;
+                saveBlob(blob, files[i].name);
+              } catch {
+                /* one file failed — keep going */
+              }
+            }
+          });
+          provider.on('download-progress', (p) =>
+            setTransfer({ dir: 'down', label: p.fileName, pct: Math.round(p.percentage) }),
+          );
+          provider.on('upload-progress', (p) =>
+            setTransfer({ dir: 'up', label: p.fileName, pct: Math.round(p.percentage) }),
+          );
+          provider.on('download-complete', () => setTimeout(() => setTransfer(null), 1500));
+          provider.on('upload-complete', () => setTimeout(() => setTransfer(null), 1500));
+          provider.on('error', () => {
+            setTransfer(null);
+            flash(t('fileError'));
+          });
+          ui.enableFileTransfer?.(provider);
+          fileProviderRef.current = provider as unknown as FileTransferProviderLike;
+        } catch {
+          /* backend without file transfer — display/clipboard still work */
+        }
 
+        // Negotiate the framebuffer 1:1 with the browser window (CSS pixels, no DPR), so
+        // the remote desktop matches exactly what the user sees — like a native RDP
+        // client. It's then kept in sync live by the debounced resize effect below
+        // (DisplayControl / ui.resize). scale='full' CSS-stretches the canvas during a
+        // drag for instant feedback until the new resolution settles.
+        const size = { width: align4(window.innerWidth), height: align4(window.innerHeight) };
+        // The browser IronRDP client performs CredSSP/NLA itself over the gateway's
+        // RDCleanPath relay (the gateway forwards; it does NOT inject credentials on
+        // this path). So the client needs the username/password — delivered from the
+        // access-checked /connect response and held only in WASM memory for this session.
         const config = ui
           .configBuilder()
           .withDestination(props.destination)
           .withProxyAddress(props.gatewayUrl)
           .withAuthToken(props.token)
-          .withServerDomain(props.injected ? '' : props.domain || '')
-          .withUsername(dstUser)
-          .withPassword(props.injected ? '' : props.password)
+          .withServerDomain(props.domain || '')
+          .withUsername(props.username)
+          .withPassword(props.password)
           .withDesktopSize(size)
           .withExtension(rdp.displayControl(true))
+          // NLA / CredSSP — required by modern Windows hosts.
+          .withExtension(rdp.enableCredssp(true))
           .build();
+
+        // CRITICAL — wait for the component to wire its clipboard callback BEFORE we
+        // connect, or the CLIPRDR channel is never negotiated. The WASM connector
+        // attaches the cliprdr static channel ONLY if the component called the
+        // low-level SessionBuilder.remoteClipboardChangedCallback before connect()
+        // (guarded by `onRemoteClipboardChanged != null && enableClipboard`). That
+        // callback is registered by the component's own initClipboard(), which runs in
+        // its onMount RIGHT AFTER the 'ready' event we're in — and awaits a
+        // clipboard-read permission query first. If we connect synchronously here, the
+        // callback isn't set yet → ConnectInitial lists only "drdynvc", no "cliprdr",
+        // and clipboard + file transfer are dead on the wire. So we await the same
+        // permission query (the only async gap) + a margin so initClipboard's
+        // registration lands first. (Devolutions' own client connects on a later user
+        // action, which is why clipboard works for them.)
+        await waitForClipboardWiring();
 
         const info = await ui.connect(config);
         if (cancelled) return;
         ui.setVisibility(true);
-        try {
-          ui.setEnableAutoClipboard?.(clipboard);
-        } catch {
-          /* older backend without auto-clipboard */
-        }
         setPhase('connected');
+        // Focus the canvas so clipboard read/write (gated on document focus + the
+        // shadow-root canvas) works and keystrokes land. delegatesFocus forwards it.
+        try {
+          elRef.current?.focus();
+        } catch {
+          /* noop */
+        }
 
         const term = await info.run(); // resolves when the session ends
         if (cancelled) return;
@@ -198,7 +398,7 @@ export default function RdpClient(props: RdpClientProps) {
         closeAudit();
       } catch (err) {
         if (cancelled) return;
-        setErrMsg(err instanceof Error ? err.message : String(err));
+        setErrMsg(describeError(err));
         setPhase('error');
         closeAudit();
       }
@@ -221,77 +421,190 @@ export default function RdpClient(props: RdpClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ─── Best-effort Mac ⌘→Ctrl layer (clipboard SYNC is the reliable path) ───
-   * Copy/paste across the Mac↔remote boundary is handled by CLIPRDR clipboard
-   * sync (setEnableClipboard/AutoClipboard) — the proven fix. This layer is a
-   * muscle-memory nicety: when the canvas is focused, translate ⌘C/V/X/A/Z into
-   * the Ctrl equivalent the remote OS expects, and stop the browser from running
-   * its own ⌘C (which would hijack the selection). Reserved combos (⌘R/T/W/Q…)
-   * are left to the browser. */
+  /* ─── Mac ⌘ → server copy/paste + shortcut remap ──────────────────────────
+   * ROOT CAUSE (confirmed in the component source): the component only forwards a
+   * key to the remote when its OWN focus gate is true — `document.activeElement ===
+   * <iron-remote-desktop>` — and it sends ⌘ as the Win key. The canvas often isn't
+   * the activeElement (stays BODY), so a synthetic ControlLeft we dispatch may never
+   * be forwarded → ⌘C/⌘V did nothing. FIX: drive copy/paste through the backend
+   * DIRECTLY via ui.ctrlC()/ui.ctrlV() (sendSpecialCombination), which bypasses that
+   * focus gate entirely. Clipboard SYNC rides alongside: push local→remote before a
+   * paste, pull remote→local after a copy. Other ⌘+letter combos are best-effort
+   * remapped to Ctrl. Gate on window focus; reset on blur so nothing sticks. */
   useEffect(() => {
-    if (!isMac()) return;
-    const ALLOW = new Set(['c', 'v', 'x', 'a', 'z', 'y']);
-    const onKey = (e: KeyboardEvent) => {
-      if (phase !== 'connected') return;
-      if (!e.metaKey || e.ctrlKey || e.altKey) return;
-      const key = e.key.toLowerCase();
-      if (!ALLOW.has(key)) return;
-      const el = elRef.current;
-      const active = document.activeElement;
-      if (!el || (active !== el && !el.contains(active))) return; // only when the canvas owns focus
+    if (!isMac() || phase !== 'connected') return;
+    const isMeta = (code: string) => code === 'MetaLeft' || code === 'MetaRight';
+    const focused = () => document.hasFocus();
+    let metaDown = false;
+    let ctrlHeld = false;
+    const synthCtrl = (type: 'keydown' | 'keyup') =>
+      window.dispatchEvent(new KeyboardEvent(type, { code: 'ControlLeft', key: 'Control', ctrlKey: type === 'keydown', bubbles: true, cancelable: true }));
+    const releaseCtrl = () => { if (ctrlHeld) { ctrlHeld = false; synthCtrl('keyup'); } };
+    const reset = () => { metaDown = false; releaseCtrl(); };
+    const pushLocal = () => {
+      if (Date.now() <= clobberUntilRef.current) return;
+      void Promise.resolve(uiRef.current?.sendClipboardData?.()).catch(() => {});
+    };
+
+    const onDown = (e: KeyboardEvent) => {
+      // IGNORE our own synthetic events (isTrusted=false). Without this, the synthetic
+      // Ctrl+letter we dispatch in the "other combo" branch below is re-caught by this
+      // same capture listener (metaDown is still true) → re-dispatched → INFINITE
+      // RECURSION → "RangeError: Maximum call stack size exceeded", which also blew up
+      // the concurrent clipboard handlers (the IronError clipboard failures). Real key
+      // presses are trusted; our synthetic re-dispatches are not — and they still reach
+      // the component's own (bubble-phase) key listener to be forwarded to the server.
+      if (!e.isTrusted) return;
+      if (!focused()) return;
+      // Swallow the ⌘ key itself so it never reaches the server as the Win key.
+      if (isMeta(e.code)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        metaDown = true;
+        pushLocal();                 // pre-stage the Mac clipboard for a paste
+        void flushRemoteClipboard(); // and flush any pending server→Mac pull
+        return;
+      }
+      if (!metaDown && !e.metaKey) return;       // only ⌘+key combos below
+      const k = e.key.toLowerCase();
+      const ui = uiRef.current;
+      if (k === 'c') {
+        // server COPY (direct, bypasses focus gate) → then pull the server clipboard
+        // into the Mac clipboard once the CLIPRDR round-trip lands.
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        releaseCtrl();
+        ui?.ctrlC?.();
+        remotePullPendingRef.current = true;
+        setTimeout(() => void flushRemoteClipboard(), 300);
+        return;
+      }
+      if (k === 'v') {
+        // push the freshest Mac clipboard, then server PASTE (small delay so the
+        // CLIPRDR format-data round-trip reaches the server before Ctrl+V fires).
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        releaseCtrl();
+        pushLocal();
+        setTimeout(() => ui?.ctrlV?.(), 140);
+        return;
+      }
+      // Other ⌘+letter (a/x/z/…): best-effort Ctrl+letter via a held synthetic Ctrl.
       e.preventDefault();
       e.stopImmediatePropagation();
-      const synth = new KeyboardEvent(e.type, {
-        key: e.key,
-        code: e.code,
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true,
-      });
-      (active || el).dispatchEvent(synth);
+      if (!ctrlHeld) { ctrlHeld = true; synthCtrl('keydown'); }
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: e.code, key: e.key, ctrlKey: true, bubbles: true, cancelable: true }));
     };
-    window.addEventListener('keydown', onKey, true);
-    window.addEventListener('keyup', onKey, true);
+    const onUp = (e: KeyboardEvent) => {
+      if (!e.isTrusted) return;
+      if (isMeta(e.code)) reset();
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', reset);
+    document.addEventListener('visibilitychange', reset);
     return () => {
-      window.removeEventListener('keydown', onKey, true);
-      window.removeEventListener('keyup', onKey, true);
+      window.removeEventListener('keydown', onDown, true);
+      window.removeEventListener('keyup', onUp, true);
+      window.removeEventListener('blur', reset);
+      document.removeEventListener('visibilitychange', reset);
+      releaseCtrl();
     };
   }, [phase]);
 
-  // Re-fit when entering/leaving our own CSS fullscreen (NEVER the browser
-  // Fullscreen API — that recentres the canvas and breaks pointer coordinates).
+  // Dynamic resolution — match the remote desktop to the browser window 1:1 and
+  // re-negotiate it (via the DisplayControl channel, ui.resize) whenever the window
+  // settles after a resize, exactly like the native RDP client. DEBOUNCED: the codec
+  // redraws once per settle, NOT continuously — continuous per-pixel resize was the
+  // earlier tear cause. During the drag, scale='full' keeps the canvas CSS-stretched
+  // for instant feedback; the crisp reflow lands ~350ms after the window stops moving.
   useEffect(() => {
-    const ui = uiRef.current;
-    if (ui && phase === 'connected') {
+    if (phase !== 'connected') return;
+    try {
+      uiRef.current?.setScale(SCALE.FULL);
+    } catch {
+      /* noop */
+    }
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastW = align4(window.innerWidth);
+    let lastH = align4(window.innerHeight);
+    const applyResize = () => {
+      const w = align4(window.innerWidth);
+      const h = align4(window.innerHeight);
+      if (w === lastW && h === lastH) return; // no real change
+      lastW = w;
+      lastH = h;
       try {
-        ui.setScale(SCALE.FIT);
+        // 3rd arg is DesktopScaleFactor in PERCENT (valid 100–500, NOT a 1.0 multiplier
+        // — passing 1 throws "Desktop scale factor is out of range"). 100 = 100% = CSS
+        // pixels / no DPR scaling, matching the 1:1 window mapping.
+        uiRef.current?.resize(w, h, 100);
       } catch {
         /* noop */
       }
-    }
-  }, [fullscreen, phase]);
-
-  // Esc exits our fullscreen (capture phase so it doesn't reach the canvas first).
-  useEffect(() => {
-    if (!fullscreen) return;
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        setFullscreen(false);
-      }
     };
-    window.addEventListener('keydown', onEsc, true);
-    return () => window.removeEventListener('keydown', onEsc, true);
-  }, [fullscreen]);
+    const onResize = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(applyResize, 350);
+    };
+    window.addEventListener('resize', onResize);
+    document.addEventListener('fullscreenchange', onResize);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('fullscreenchange', onResize);
+    };
+  }, [phase]);
 
-  const toggleClipboard = () => {
-    const ui = uiRef.current;
-    const next = !clipboard;
-    setClipboard(next);
+  // Bidirectional file transfer via drag & drop onto the canvas.
+  const onDragOver = (e: React.DragEvent) => {
+    if (phase !== 'connected' || !fileProviderRef.current) return;
+    e.preventDefault();
     try {
-      ui?.setEnableClipboard(next);
-      ui?.setEnableAutoClipboard?.(next);
+      fileProviderRef.current.handleDragOver(e.nativeEvent);
+    } catch {
+      /* noop */
+    }
+    if (!dragOver) setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    // Only clear when the pointer actually leaves the frame (not on child enter).
+    if (e.relatedTarget && (e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
+    setDragOver(false);
+  };
+  const onDrop = async (e: React.DragEvent) => {
+    setDragOver(false);
+    const provider = fileProviderRef.current;
+    if (phase !== 'connected' || !provider) return;
+    e.preventDefault();
+    try {
+      const files = await provider.handleDrop(e.nativeEvent);
+      if (files.length) {
+        provider.uploadFiles(files);
+        // Suppress our local→remote clipboard pushes for a short window so they don't
+        // overwrite the file FormatList before the user pastes it on the server.
+        clobberUntilRef.current = Date.now() + 8000;
+        // CLIPRDR file copy: the file now sits on the remote clipboard. The user must
+        // click into a Windows folder / the Desktop and press Ctrl+V to drop it there
+        // (plain RDP without a server agent can't auto-place it). Keep the hint up
+        // longer since they have to switch focus before pasting.
+        flash(t('fileUploadHint'), 13_000);
+      }
+    } catch {
+      /* noop */
+    }
+  };
+
+  // Focus the canvas so keystrokes land + the async Clipboard API is unblocked, and
+  // push the freshest Mac clipboard to the remote so a paste there is ready. Suppressed
+  // briefly after a file drop so it doesn't clobber the file FormatList.
+  const onCanvasEnter = () => {
+    if (phase !== 'connected') return;
+    try {
+      elRef.current?.focus();
+      if (Date.now() > clobberUntilRef.current) void Promise.resolve(uiRef.current?.sendClipboardData?.()).catch(() => {});
+      // Retry a pending server→Mac pull now that the pointer (focus) is here.
+      void flushRemoteClipboard();
     } catch {
       /* noop */
     }
@@ -323,89 +636,110 @@ export default function RdpClient(props: RdpClientProps) {
   const liveControls = phase === 'connected';
 
   return (
-    <div
-      ref={frameRef}
-      style={
-        fullscreen
-          ? { position: 'fixed', inset: 0, zIndex: 200, background: '#05070a', display: 'flex', flexDirection: 'column' }
-          : {
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              overflow: 'hidden',
-              background: '#05070a',
-              boxShadow: '0 24px 70px -30px rgba(0,0,0,.7)',
-              display: 'flex',
-              flexDirection: 'column',
-            }
-      }
-    >
+    // Full-viewport RDP takeover (native-client feel). The component scales the canvas
+    // to window.innerWidth/Height, so the host MUST be the full window or it tears/clips.
+    <div ref={frameRef} style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000' }}>
       <style>{`
         .rdp-tool { display:inline-flex; align-items:center; justify-content:center; width:32px; height:28px; border-radius:8px; background:transparent; border:1px solid transparent; transition:background .15s ease, color .15s ease; }
-        .rdp-tool:hover:not(:disabled) { background:rgba(255,255,255,.06); }
+        .rdp-tool:hover:not(:disabled) { background:rgba(255,255,255,.08); }
         @keyframes rdp-spin { to { transform: rotate(360deg); } }
         .rdp-spin { animation: rdp-spin 1s linear infinite; }
+        .rdp-bar { opacity:.4; transition:opacity .2s ease; }
+        .rdp-bar:hover { opacity:1; }
       `}</style>
 
-      {/* toolbar */}
+      {/* full-viewport canvas host + drag & drop target */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 12px',
-          borderBottom: '1px solid rgba(255,255,255,.07)',
-          background: 'rgba(255,255,255,.02)',
-          flexShrink: 0,
-        }}
+        style={{ position: 'absolute', inset: 0 }}
+        onDragOver={onDragOver}
+        onDragEnter={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onPointerEnter={onCanvasEnter}
       >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            fontSize: 12.5,
-            fontWeight: 600,
-            color: '#e7e9ee',
-            minWidth: 0,
-          }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: liveControls ? '#10b981' : phase === 'error' ? '#f87171' : 'var(--accent)',
-              boxShadow: liveControls ? '0 0 0 3px rgba(16,185,129,.18)' : 'none',
-            }}
-          />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {props.serverName}
-          </span>
-        </span>
-
-        <div style={{ flex: 1 }} />
-
-        {toolBtn(() => uiRef.current?.setScale(SCALE.FIT), t('fit'), <ScanLine size={15} />, { disabled: !liveControls })}
-        {toolBtn(() => uiRef.current?.setScale(SCALE.REAL), t('actualSize'), <Square size={15} />, {
-          disabled: !liveControls,
-        })}
-        {toolBtn(toggleClipboard, t('clipboard'), clipboard ? <ClipboardCheck size={15} /> : <ClipboardX size={15} />, {
-          active: clipboard,
-          disabled: !liveControls,
-        })}
-        {toolBtn(() => uiRef.current?.ctrlAltDel(), 'Ctrl+Alt+Del', <Keyboard size={15} />, { disabled: !liveControls })}
-        {toolBtn(
-          () => setFullscreen((v) => !v),
-          fullscreen ? t('exitFullscreen') : t('fullscreen'),
-          fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />,
-          { disabled: !liveControls },
-        )}
-        {toolBtn(exit, t('disconnect'), <Power size={15} />, { danger: true })}
-      </div>
-
-      {/* canvas host */}
-      <div style={{ position: 'relative', flex: 1, minHeight: fullscreen ? 0 : 'min(72vh, 720px)' }}>
         <div ref={hostRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+
+        {/* drop-to-upload overlay */}
+        {dragOver && liveControls && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 10,
+              zIndex: 8,
+              border: '2px dashed color-mix(in oklab, var(--accent) 70%, transparent)',
+              borderRadius: 14,
+              background: 'color-mix(in oklab, var(--accent) 14%, rgba(5,7,10,.55))',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              color: '#e7e9ee',
+              pointerEvents: 'none',
+            }}
+          >
+            <Upload size={30} style={{ color: 'var(--accent)' }} />
+            <div style={{ fontSize: 15, fontWeight: 640 }}>{t('dropToUpload')}</div>
+          </div>
+        )}
+
+        {/* transient notice (file hints / errors) */}
+        {notice && liveControls && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 14,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9,
+              maxWidth: '80%',
+              padding: '9px 15px',
+              borderRadius: 10,
+              background: 'rgba(5,7,10,.92)',
+              border: '1px solid rgba(255,255,255,.14)',
+              color: '#e7e9ee',
+              fontSize: 13,
+              textAlign: 'center',
+              boxShadow: '0 8px 30px -10px rgba(0,0,0,.7)',
+            }}
+          >
+            {notice}
+          </div>
+        )}
+
+        {/* transfer progress chip */}
+        {transfer && liveControls && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 14,
+              bottom: 14,
+              zIndex: 8,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 9,
+              padding: '8px 13px',
+              borderRadius: 10,
+              background: 'rgba(5,7,10,.88)',
+              border: '1px solid rgba(255,255,255,.12)',
+              color: '#e7e9ee',
+              fontSize: 12.5,
+              maxWidth: '60%',
+            }}
+          >
+            {transfer.dir === 'up' ? (
+              <Upload size={14} style={{ color: 'var(--accent)' }} />
+            ) : (
+              <Download size={14} style={{ color: '#10b981' }} />
+            )}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+              {transfer.label}
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono, ui-monospace, monospace)', color: 'var(--muted)' }}>
+              {transfer.pct}%
+            </span>
+          </div>
+        )}
 
         {/* overlays */}
         {(phase === 'init' || phase === 'connecting') && (
@@ -438,6 +772,31 @@ export default function RdpClient(props: RdpClientProps) {
             </button>
           </div>
         )}
+      </div>
+
+      {/* floating controls overlay — does not consume canvas space (fades unless hovered) */}
+      <div
+        className="rdp-bar"
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          zIndex: 12,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '5px 6px 5px 13px',
+          borderRadius: 999,
+          background: 'rgba(5,7,10,.62)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,.1)',
+        }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#e7e9ee', maxWidth: 240 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: liveControls ? '#10b981' : phase === 'error' ? '#f87171' : 'var(--accent)' }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.serverName}</span>
+        </span>
+        {toolBtn(exit, t('disconnect'), <Power size={15} />, { danger: true })}
       </div>
     </div>
   );

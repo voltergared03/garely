@@ -1,5 +1,13 @@
 // Shared types for the Servers / Remote Access section (§15).
 
+/** Someone currently connected to a server (live, fresh heartbeat). */
+export interface ActiveServerSession {
+  userId: string;
+  name: string | null;
+  startedAt: string; // ISO
+  isSelf: boolean; // true when it's the current user's own session
+}
+
 export interface ServerView {
   id: string;
   name: string;
@@ -14,6 +22,7 @@ export interface ServerView {
   createdAt: string;
   updatedAt: string;
   accessCount?: number; // present only in the admin list
+  activeSessions?: ActiveServerSession[]; // who's currently using this server (live presence)
 }
 
 export interface OrgMember {

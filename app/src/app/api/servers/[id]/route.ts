@@ -10,11 +10,13 @@ import {
   normalizeServerPassword,
 } from '@/lib/server-credentials';
 import { userCanAccessServer } from '@/lib/server-access';
+import { activeSessionsByConnection } from '@/lib/server-presence';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 // GET /api/servers/[id] — one connection (credentials stripped). Any user who can
-// access it (admin / explicit grant / granted department).
+// access it (admin / explicit grant / granted department). Includes `activeSessions`
+// so the pre-connect screen can warn when someone else is already using the server.
 export const GET = withRoute('servers.get', async (_req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
@@ -24,7 +26,8 @@ export const GET = withRoute('servers.get', async (_req: NextRequest, ctx: Ctx) 
   if (!(await userCanAccessServer(id, r.session.user.id, r.session.user.role))) {
     return jsonError('forbidden', 403);
   }
-  return NextResponse.json(serverConnectionView(c));
+  const presence = await activeSessionsByConnection([id], r.session.user.id);
+  return NextResponse.json({ ...serverConnectionView(c), activeSessions: presence[id] ?? [] });
 });
 
 const patchSchema = z

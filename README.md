@@ -99,6 +99,13 @@ install in place (secrets and config are preserved).
 
 - **Post-meeting comprehension quizzes** — generate AI questions from a report, assign to attendees, auto-graded, with a scores & answers hub.
 
+### Remote access (in-browser RDP)
+
+- **Connect to your RDP servers from the browser** — no client to install. A Rust/WASM **IronRDP** client streams the desktop through a self-hosted **Devolutions Gateway** (RDCleanPath over WSS); the page is the full client (display, keyboard, mouse, **NLA/CredSSP**).
+- **Encrypted credential vault** — server passwords are stored AES-256-GCM encrypted and only ever decrypted for an authorized user's live session; **per-server access control** by user or department, admin-managed.
+- **Shared clipboard** (copy/paste text both ways), **file drag-and-drop**, a Mac **⌘→Ctrl** mapping, and **dynamic resolution** that follows your browser window and re-fits live as you resize — like a native RDP client.
+- **Live presence** — everyone with access sees when a server is **in use, and by whom**, so teammates don't bump each other off the same session. Every connection is audit-logged.
+
 ### Teams, accounts & admin
 
 - **Organizations / multi-tenancy** — every record is org-scoped (single-database), the groundwork for clean self-host and a future multi-org cloud.

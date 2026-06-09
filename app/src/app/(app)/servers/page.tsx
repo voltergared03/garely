@@ -77,6 +77,35 @@ export default function ServersPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Live presence: silently refresh the server list every 25s (and when the tab
+  // refocuses) so "in use by …" stays current without showing skeletons.
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/servers');
+        if (!res.ok) return;
+        const data = await res.json();
+        setServers(data.servers ?? []);
+      } catch {
+        /* keep last-known on a transient failure */
+      }
+    };
+    const id = setInterval(tick, 25_000);
+    const onVis = () => { if (document.visibilityState === 'visible') void tick(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
+
+  // Compact "who's using this server right now" label for a card. null = free.
+  const occupancyLabel = useCallback((sessions: ServerView['activeSessions']): string | null => {
+    if (!sessions || sessions.length === 0) return null;
+    const others = sessions.filter((s) => !s.isSelf);
+    if (others.length === 0) return t('inUseByYou'); // only my own session
+    const name = others[0].name?.trim() || t('someone');
+    const extra = others.length - 1;
+    return extra > 0 ? `${t('inUseBy', { name })} +${extra}` : t('inUseBy', { name });
+  }, [t]);
+
   const del = async (id: string) => {
     if (!confirm(t('confirmDelete'))) return;
     setDeletingId(id);
@@ -178,6 +207,8 @@ export default function ServersPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
           {servers.map((s, i) => {
             const identity = s.domain ? `${s.domain}\\${s.username}` : s.username;
+            const occ = occupancyLabel(s.activeSessions);
+            const occByOthers = (s.activeSessions ?? []).some((x) => !x.isSelf);
             return (
               <article
                 key={s.id}
@@ -233,6 +264,27 @@ export default function ServersPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Live presence — who's currently connected */}
+                {occ && (
+                  <div
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+                      maxWidth: '100%', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+                      background: occByOthers ? 'color-mix(in oklab, #f59e0b 14%, transparent)' : 'var(--surface-2)',
+                      color: occByOthers ? '#f59e0b' : 'var(--muted)',
+                      border: `1px solid ${occByOthers ? 'color-mix(in oklab, #f59e0b 35%, transparent)' : 'var(--border)'}`,
+                    }}
+                    title={occ}
+                  >
+                    <span
+                      className="srv-dot"
+                      aria-hidden
+                      style={{ width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: occByOthers ? '#f59e0b' : '#10b981' }}
+                    />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{occ}</span>
+                  </div>
+                )}
 
                 {/* Connect */}
                 <Link

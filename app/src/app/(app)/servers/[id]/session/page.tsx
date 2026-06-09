@@ -5,8 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, ShieldAlert, Cpu, MonitorPlay, Lock } from 'lucide-react';
-import type { ServerView } from '../../lib/types';
-import RdpClient from './RdpClient';
+import type { ServerView, ActiveServerSession } from '../../lib/types';
+import RdpClient, { type Phase } from './RdpClient';
 
 const STYLES = `
 @keyframes sess-ring { 0% { transform: scale(.62); opacity:.6; } 100% { transform: scale(2.3); opacity:0; } }
@@ -23,7 +23,10 @@ interface ConnectInfo {
   token: string;
   sessionId: string;
   destination: string;
-  injected: boolean;
+  username: string;
+  domain: string | null;
+  hasStoredPassword: boolean;
+  password: string; // decrypted server-side for the authorized caller; '' when none stored
 }
 
 // Pre-connect → token mint → live IronRDP session host. The WASM canvas + toolbar
@@ -41,6 +44,7 @@ export default function ServerSessionPage() {
   const [stage, setStage] = useState<Stage>('loading');
   const [conn, setConn] = useState<ConnectInfo | null>(null);
   const [password, setPassword] = useState('');
+  const [livePhase, setLivePhase] = useState<Phase>('init');
 
   useEffect(() => {
     if (!id) return;
@@ -77,17 +81,39 @@ export default function ServerSessionPage() {
     }
   }, [id]);
 
-  // Connect entry: prompt for a password first when none is stored on the server.
-  const onConnectClick = useCallback(() => {
+  // Connect entry: re-check live occupancy (so the warning is accurate at click time),
+  // warn if someone else is already connected (RDP bumps the prior session for the same
+  // account), then prompt for a password when none is stored, else connect.
+  const onConnectClick = useCallback(async () => {
+    let others: ActiveServerSession[] = (server?.activeSessions ?? []).filter((s) => !s.isSelf);
+    try {
+      const res = await fetch(`/api/servers/${id}`);
+      if (res.ok) {
+        const fresh: ServerView = await res.json();
+        setServer(fresh);
+        others = (fresh.activeSessions ?? []).filter((s) => !s.isSelf);
+      }
+    } catch {
+      /* use last-known occupancy */
+    }
+    if (others.length > 0) {
+      const name = others[0].name?.trim() || t('someone');
+      if (!window.confirm(t('inUseConfirm', { name }))) return;
+    }
     if (server && !server.hasSecret) {
       setStage('needPassword');
       return;
     }
     void doConnect();
-  }, [server, doConnect]);
+  }, [server, doConnect, id, t]);
 
   const statusPill = (() => {
-    if (stage === 'live') return { label: t('connected'), color: '#10b981' };
+    if (stage === 'live') {
+      if (livePhase === 'connected') return { label: t('connected'), color: '#10b981' };
+      if (livePhase === 'error') return { label: t('connectFailed'), color: '#f87171' };
+      if (livePhase === 'closed') return { label: t('sessionEnded'), color: 'var(--muted)' };
+      return { label: t('connecting'), color: 'var(--accent)' };
+    }
     if (stage === 'connecting') return { label: t('connecting'), color: 'var(--accent)' };
     if (stage === 'denied') return { label: t('accessDeniedTitle'), color: '#f87171' };
     if (stage === 'error') return { label: t('sessionError'), color: '#f87171' };
@@ -131,13 +157,14 @@ export default function ServerSessionPage() {
             destination={conn.destination}
             sessionId={conn.sessionId}
             serverName={server.name}
-            username={server.username}
-            domain={server.domain}
-            injected={conn.injected}
-            password={password}
+            username={conn.username}
+            domain={conn.domain}
+            password={conn.hasStoredPassword ? conn.password : password}
+            onPhase={setLivePhase}
             onExit={() => {
               setConn(null);
               setPassword('');
+              setLivePhase('init');
               setStage('idle');
             }}
           />
@@ -183,9 +210,31 @@ export default function ServerSessionPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 650, color: '#e7e9ee', letterSpacing: '-0.01em' }}>{t('readyTitle')}</div>
                   <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.55 }}>{t('readyBody')}</div>
-                  <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={onConnectClick}>
-                    <MonitorPlay size={16} style={{ marginRight: 7 }} /> {t('connect')}
-                  </button>
+                  {(() => {
+                    const others = (server.activeSessions ?? []).filter((s) => !s.isSelf);
+                    if (others.length === 0) return null;
+                    const name = others[0].name?.trim() || t('someone');
+                    const extra = others.length - 1;
+                    const label = extra > 0 ? `${t('inUseBy', { name })} +${extra}` : t('inUseBy', { name });
+                    return (
+                      <div
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '8px 14px',
+                          borderRadius: 999, fontSize: 13, fontWeight: 600, color: '#f59e0b',
+                          background: 'color-mix(in oklab, #f59e0b 13%, transparent)',
+                          border: '1px solid color-mix(in oklab, #f59e0b 34%, transparent)',
+                        }}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} className="sess-pulse" />
+                        {label}
+                      </div>
+                    );
+                  })()}
+                  <div>
+                    <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={() => void onConnectClick()}>
+                      <MonitorPlay size={16} style={{ marginRight: 7 }} /> {t('connect')}
+                    </button>
+                  </div>
                 </div>
               )}
 

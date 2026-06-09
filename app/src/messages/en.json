@@ -1366,6 +1366,14 @@
     "exitFullscreen": "Exit fullscreen",
     "fit": "Fit to window",
     "actualSize": "Actual size",
-    "clipboard": "Clipboard sync"
+    "clipboard": "Clipboard sync",
+    "performanceMode": "Performance mode (smoother, lower resolution)",
+    "dropToUpload": "Drop files to send to the server",
+    "fileUploadHint": "File is on the server clipboard. Click into a Windows folder or the Desktop, then press Ctrl+V (⌘V) to drop it there. To bring files back, copy them on the server (Ctrl+C).",
+    "fileError": "File transfer failed. The server may block clipboard file copy.",
+    "inUseBy": "In use: {name}",
+    "inUseByYou": "You're connected",
+    "someone": "someone",
+    "inUseConfirm": "{name} is currently connected to this server. Connecting may disconnect them (Windows allows one session per account). Continue?"
   }
 }

@@ -10,26 +10,36 @@ import {
   normalizeServerPassword,
 } from '@/lib/server-credentials';
 import { visibleServerConnections } from '@/lib/server-access';
+import { activeSessionsByConnection } from '@/lib/server-presence';
 
 // GET /api/servers — admins get every connection in the org (+ accessCount for the
 // management UI); members get only the connections they may reach. Credentials are
 // never included (serverConnectionView strips secretCipher → only `hasSecret`).
+// Each server also carries `activeSessions` (who is currently connected) so users can
+// see a server is in use — and by whom — before connecting and bumping each other.
 export const GET = withRoute('servers.list', async () => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
-  if (r.session.user.role === 'admin') {
+  const isAdmin = r.session.user.role === 'admin';
+
+  let servers: Array<ReturnType<typeof serverConnectionView> & { accessCount?: number }>;
+  if (isAdmin) {
     const rows = await prisma.serverConnection.findMany({
       where: { orgId: r.orgId },
       orderBy: { name: 'asc' },
       include: { _count: { select: { accesses: true } } },
     });
-    return NextResponse.json({
-      canManage: true,
-      servers: rows.map((c) => ({ ...serverConnectionView(c), accessCount: c._count.accesses })),
-    });
+    servers = rows.map((c) => ({ ...serverConnectionView(c), accessCount: c._count.accesses }));
+  } else {
+    const rows = await visibleServerConnections(r.session.user.id, r.session.user.role, r.orgId);
+    servers = rows.map(serverConnectionView);
   }
-  const rows = await visibleServerConnections(r.session.user.id, r.session.user.role, r.orgId);
-  return NextResponse.json({ canManage: false, servers: rows.map(serverConnectionView) });
+
+  const presence = await activeSessionsByConnection(servers.map((s) => s.id), r.session.user.id);
+  return NextResponse.json({
+    canManage: isAdmin,
+    servers: servers.map((s) => ({ ...s, activeSessions: presence[s.id] ?? [] })),
+  });
 });
 
 const createSchema = z.object({

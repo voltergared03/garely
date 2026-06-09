@@ -813,6 +813,7 @@ model ServerSession {
   gatewayId    String?
   error        String?
   startedAt    DateTime         @default(now())
+  lastSeenAt   DateTime? // heartbeat from the live client; a session is shown "in use" only while this stays fresh
   endedAt      DateTime?
 
   @@index([orgId, startedAt])
