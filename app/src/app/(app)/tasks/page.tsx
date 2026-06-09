@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import {
-  ListChecks, Check, Clock, Search, X, Sparkles, ChevronDown,
+  ListChecks, Check, Clock, Search, X, Sparkles, ChevronDown, ArrowUp, ArrowDown,
   MoreHorizontal, User, Loader2, Plus, Trash2, Video,
   LayoutList, LayoutGrid, AlertCircle, Calendar as CalendarIcon, Wand2, Building2,
   MessageSquare, Paperclip, Send, Download, Users, UploadCloud, GitBranch, SlidersHorizontal,
@@ -483,22 +483,178 @@ function SubtaskList({ parent, mobile, onOpen, onChange }: {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   LIST VIEW
+   LIST VIEW  (desktop = dense sortable table · mobile = stacked cards)
    ═══════════════════════════════════════════════════════════ */
-function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [], onOpenById, onSubtaskChange, customFields = [], members = [] }: {
+type SortKey = "title" | "priority" | "assignee" | "due" | "progress" | "dept" | "state";
+const PRIO_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
+const STATE_RANK: Record<string, number> = { open: 0, in_progress: 1, done: 2 };
+function dueRank(d: string | null): number {
+  if (!d) return Number.POSITIVE_INFINITY; // tasks with no due date sort last
+  const t = new Date(d); t.setHours(0, 0, 0, 0); return t.getTime();
+}
+function progPct(t: Task): number {
+  const total = t.subtasks?.length ?? t._count?.subtasks ?? 0;
+  if (total <= 0) return -1; // "no subtasks" sorts below 0%
+  return (t.subtasks?.filter(s => s.status === "done").length ?? 0) / total;
+}
+function cmpTasks(a: Task, b: Task, key: SortKey): number {
+  switch (key) {
+    case "title": return a.title.localeCompare(b.title);
+    case "priority": return (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1);
+    case "assignee": return (a.assignee?.name || a.assigneeName || "￿").localeCompare(b.assignee?.name || b.assigneeName || "￿");
+    case "due": return dueRank(a.dueDate) - dueRank(b.dueDate);
+    case "progress": return progPct(b) - progPct(a); // base order: most complete first
+    case "dept": return (a.department?.name || "￿").localeCompare(b.department?.name || "￿");
+    case "state": return (STATE_RANK[a.status] ?? 0) - (STATE_RANK[b.status] ?? 0);
+  }
+}
+
+/* Small status pill (used in the Status column of the by-department table). */
+function StateChip({ status }: { status: string }) {
+  const tr = useTranslations();
+  const map: Record<string, { c: string; l: string }> = {
+    open: { c: "var(--accent)", l: tr("tasks.statusOpen") },
+    in_progress: { c: "var(--amber)", l: tr("tasks.statusInProgress") },
+    done: { c: "var(--green)", l: tr("tasks.statusDone") },
+  };
+  const v = map[status] || map.open;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "2px 8px", borderRadius: 999,
+      background: `color-mix(in oklab, ${v.c} 14%, transparent)`, color: v.c, fontWeight: 600, whiteSpace: "nowrap" }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: v.c }} />{v.l}
+    </span>
+  );
+}
+
+const Dash = () => <span style={{ color: "var(--border-2, #3f3f46)", fontSize: 12 }}>—</span>;
+
+/* One desktop table row — aligns to the shared `cols` grid template. */
+function TaskTableRow({ t, cols, onEdit, onStatusChange, q, expanded, onToggleExpand, customFields, members, showDept, showState }: {
+  t: Task; cols: string; onEdit: () => void; onStatusChange: (s: string) => void;
+  q: string; expanded: boolean; onToggleExpand: () => void;
+  customFields: FieldT[]; members: OrgMember[]; showDept: boolean; showState: boolean;
+}) {
+  const tr = useTranslations();
+  const locale = useLocale();
+  const due = dueInfo(t.dueDate);
+  const isOverdue = due?.overdue && t.status !== "done";
+  const isDone = t.status === "done";
+  const subTotal = t.subtasks?.length ?? t._count?.subtasks ?? 0;
+  const subDone = t.subtasks?.filter(s => s.status === "done").length ?? 0;
+  const cycle = (e: React.MouseEvent) => { e.stopPropagation(); onStatusChange(t.status === "open" ? "in_progress" : t.status === "in_progress" ? "done" : "open"); };
+  const showSubtitle = !!(t.meeting && t.meetingId) || (!t.meetingId) || (!!t.cells && customFields.length > 0);
+  return (
+    <div role="row" onClick={onEdit}
+      style={{
+        display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12,
+        padding: "0 14px", minHeight: 46, borderBottom: "1px solid var(--border)",
+        borderLeft: isOverdue ? "2px solid var(--red)" : "2px solid transparent",
+        cursor: "pointer", transition: "background .12s",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-2)")}
+      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+    >
+      {/* disclosure + status */}
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <button onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} aria-label={expanded ? tr("tasks.hide") : tr("tasks.show")}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "var(--muted)" }}>
+          <ChevronDown size={14} style={{ transform: expanded ? "none" : "rotate(-90deg)", transition: "transform .15s", opacity: subTotal > 0 ? 0.9 : 0.3 }} />
+        </button>
+        <StatusCheckbox status={t.status} onClick={cycle} />
+      </div>
+      {/* title (+ subtitle: meeting source / custom chips) */}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2, paddingRight: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: isDone ? "var(--muted)" : "var(--text)",
+            textDecoration: isDone ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Hl text={t.title} q={q} />
+          </span>
+        </div>
+        {showSubtitle && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted)", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" }}>
+            {t.meeting && t.meetingId ? (
+              <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} style={{
+                display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", textDecoration: "none",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280, flexShrink: 1 }}>
+                <Video size={10} style={{ flexShrink: 0 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.meeting.title}</span>
+              </Link>
+            ) : !t.meetingId ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}><ListChecks size={10} /> {tr("tasks.standaloneTask")}</span>
+            ) : null}
+            <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={2} />
+          </div>
+        )}
+      </div>
+      {/* priority */}
+      <div style={{ minWidth: 0 }}><PriorityTag p={t.priority} /></div>
+      {/* assignee */}
+      <div style={{ minWidth: 0 }}>
+        {t.assignee ? (
+          <span title={t.assignee.name || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
+            <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
+            <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.assignee.name}</span>
+          </span>
+        ) : t.assigneeName ? (
+          <span title={t.assigneeName} style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{t.assigneeName}</span>
+        ) : <Dash />}
+      </div>
+      {/* due */}
+      <div style={{ minWidth: 0 }}>
+        {due ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "3px 8px", borderRadius: 6, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+            background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" : due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "var(--surface-2)",
+            color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)", fontWeight: isOverdue ? 600 : 500 }}>
+            <Clock size={11} /> {dueText(due, tr, locale)}
+          </span>
+        ) : <Dash />}
+      </div>
+      {/* progress */}
+      <div style={{ minWidth: 0 }}>{subTotal > 0 ? <SubProgress done={subDone} total={subTotal} /> : <Dash />}</div>
+      {/* dept (status grouping) */}
+      {showDept && <div style={{ minWidth: 0 }}>{t.department ? <DeptChip dept={t.department} /> : <Dash />}</div>}
+      {/* status (department grouping) */}
+      {showState && <div style={{ minWidth: 0 }}><StateChip status={t.status} /></div>}
+    </div>
+  );
+}
+
+/* Inline quick-add at the foot of a group. */
+function QuickAddRow({ cols, placeholder, onCreate }: { cols: string; placeholder: string; onCreate: (title: string) => Promise<void> | void }) {
+  const [val, setVal] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    const v = val.trim(); if (!v || busy) return;
+    setBusy(true); try { await onCreate(v); setVal(""); } finally { setBusy(false); }
+  };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12, padding: "0 14px", minHeight: 40, borderLeft: "2px solid transparent" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: 2, color: "var(--muted)" }}>
+        {busy ? <Loader2 size={14} className="spin" /> : <Plus size={15} />}
+      </div>
+      <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); }} placeholder={placeholder}
+        style={{ background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13, width: "100%", padding: "10px 0" }} />
+    </div>
+  );
+}
+
+function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "status", departments = [], onOpenById, onSubtaskChange, onQuickCreate, customFields = [], members = [] }: {
   tasks: Task[]; onEdit: (t: Task) => void; onStatusChange: (id: string, s: string) => void; q: string; mobile?: boolean;
   groupBy?: "status" | "department"; departments?: { id: string; name: string; color: string | null }[];
   onOpenById?: (id: string) => void; onSubtaskChange?: (parentId: string, next: Subtask[]) => void;
+  onQuickCreate?: (opts: { title: string; status?: string; departmentId?: string | null }) => void | Promise<void>;
   customFields?: FieldT[]; members?: OrgMember[];
 }) {
   const tr = useTranslations();
   const [collapsedDone, setCollapsedDone] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const toggleExpand = (id: string) => setExpanded(prev => {
     const n = new Set(prev);
     if (n.has(id)) n.delete(id); else n.add(id);
     return n;
   });
+  const toggleSort = (key: SortKey) => setSort(prev => prev?.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
 
   const { order, groups, meta } = useMemo(() => {
     if (groupBy === "department") {
@@ -528,56 +684,142 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
     };
   }, [tasks, groupBy, departments, tr]);
 
+  const itemsFor = (key: string) => {
+    const base = groups[key] || [];
+    if (!sort) return base;
+    const sorted = [...base].sort((a, b) => cmpTasks(a, b, sort.key));
+    return sort.dir === "asc" ? sorted : sorted.reverse();
+  };
+
+  /* ── Mobile: stacked cards (unchanged) ─────────────────────────── */
+  if (mobile) {
+    return (
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px clamp(12px, 4vw, 20px) 60px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {order.map(key => {
+            const items = itemsFor(key);
+            if (!items.length) return null;
+            const m = meta[key];
+            const collapsible = groupBy === "status" && key === "done";
+            const collapsed = collapsible && collapsedDone;
+            const square = groupBy === "department";
+            return (
+              <section key={key}>
+                <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }} disabled={!collapsible}
+                  style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: "transparent", border: "none", padding: 0, cursor: collapsible ? "pointer" : "default", color: "inherit", width: "100%" }}>
+                  <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
+                  <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "2px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
+                  <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 6 }} />
+                  {collapsible && (
+                    <span style={{ color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
+                      {collapsed ? tr("tasks.show") : tr("tasks.hide")}
+                      <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
+                    </span>
+                  )}
+                </button>
+                {!collapsed && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                    {items.map((t, i) => (
+                      <Fragment key={t.id}>
+                        <TaskRow t={t} onEdit={() => onEdit(t)} onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile
+                          expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)} customFields={customFields} members={members} />
+                        {expanded.has(t.id) && (
+                          <SubtaskList parent={t} mobile onOpen={(id) => onOpenById?.(id)} onChange={(next) => onSubtaskChange?.(t.id, next)} />
+                        )}
+                      </Fragment>
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Desktop: dense, sortable table ────────────────────────────── */
+  const showDept = groupBy === "status" && departments.length > 0;
+  const showState = groupBy === "department";
+  const colDefs: { key: SortKey | "_check"; label: string; width: string; sortable: boolean }[] = [
+    { key: "_check", label: "", width: "44px", sortable: false },
+    { key: "title", label: tr("tasks.colTitle"), width: "minmax(0,1fr)", sortable: true },
+    { key: "priority", label: tr("tasks.colPriority"), width: "120px", sortable: true },
+    { key: "assignee", label: tr("tasks.colAssignee"), width: "156px", sortable: true },
+    { key: "due", label: tr("tasks.colDue"), width: "126px", sortable: true },
+    { key: "progress", label: tr("tasks.colProgress"), width: "92px", sortable: true },
+    ...(showDept ? [{ key: "dept" as const, label: tr("tasks.colDept"), width: "138px", sortable: true }] : []),
+    ...(showState ? [{ key: "state" as const, label: tr("tasks.colStatus"), width: "132px", sortable: true }] : []),
+  ];
+  const cols = colDefs.map(c => c.width).join(" ");
+
   return (
     <div style={{ flex: 1, overflowY: "auto", padding: "18px clamp(14px, 4vw, 28px) 60px" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", flexDirection: "column", gap: 26 }}>
-        {order.map(key => {
-          const items = groups[key];
-          if (!items || items.length === 0) return null;
-          const m = meta[key];
-          const collapsible = groupBy === "status" && key === "done";
-          const collapsed = collapsible && collapsedDone;
-          const square = groupBy === "department";
-          return (
-            <section key={key}>
-              <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }}
-                disabled={!collapsible}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, marginBottom: 10,
-                  background: "transparent", border: "none", padding: 0,
-                  cursor: collapsible ? "pointer" : "default", color: "inherit", width: "100%",
-                }}>
-                <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
-                <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "2px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
-                <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 6 }} />
-                {collapsible && (
-                  <span style={{ color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
-                    {collapsed ? tr("tasks.show") : tr("tasks.hide")}
-                    <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
-                  </span>
-                )}
-              </button>
-              {!collapsed && (
-                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
-                  {items.map((t, i) => (
-                    <Fragment key={t.id}>
-                      <TaskRow t={t} onEdit={() => onEdit(t)}
-                        onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile={mobile}
-                        expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)}
-                        customFields={customFields} members={members} />
-                      {expanded.has(t.id) && (
-                        <SubtaskList parent={t} mobile={mobile}
-                          onOpen={(id) => onOpenById?.(id)}
-                          onChange={(next) => onSubtaskChange?.(t.id, next)} />
-                      )}
-                    </Fragment>
-                  ))}
+      <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+          {/* column header */}
+          <div role="row" style={{ display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12, padding: "0 14px", height: 38,
+            borderBottom: "1px solid var(--border)", borderLeft: "2px solid transparent", background: "var(--bg, #0f1117)" }}>
+            {colDefs.map(c => {
+              const active = sort?.key === c.key;
+              if (!c.sortable) return <div key={c.key} />;
+              return (
+                <div key={c.key} style={{ minWidth: 0 }}>
+                  <button onClick={() => toggleSort(c.key as SortKey)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: 0, cursor: "pointer",
+                    fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: active ? "var(--text)" : "var(--muted)", transition: "color .12s" }}>
+                    {c.label}
+                    {active && (sort!.dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+                  </button>
                 </div>
-              )}
-            </section>
-          );
-        })}
+              );
+            })}
+          </div>
+
+          {order.map(key => {
+            const items = itemsFor(key);
+            if (!items.length) return null;
+            const m = meta[key];
+            const collapsible = groupBy === "status" && key === "done";
+            const collapsed = collapsible && collapsedDone;
+            const square = groupBy === "department";
+            const create = onQuickCreate && (groupBy === "status"
+              ? (title: string) => onQuickCreate({ title, status: key })
+              : (title: string) => onQuickCreate({ title, departmentId: key === "__none__" ? null : key }));
+            return (
+              <Fragment key={key}>
+                {/* group separator band */}
+                <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }} disabled={!collapsible}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 14px", background: "var(--bg, #0f1117)",
+                    borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid transparent",
+                    cursor: collapsible ? "pointer" : "default", color: "inherit" }}>
+                  <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
+                  <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "1px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
+                  {collapsible && (
+                    <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
+                      {collapsed ? tr("tasks.show") : tr("tasks.hide")}
+                      <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
+                    </span>
+                  )}
+                </button>
+                {!collapsed && items.map(t => (
+                  <Fragment key={t.id}>
+                    <TaskTableRow t={t} cols={cols} onEdit={() => onEdit(t)} onStatusChange={(s) => onStatusChange(t.id, s)} q={q}
+                      expanded={expanded.has(t.id)} onToggleExpand={() => toggleExpand(t.id)} customFields={customFields} members={members}
+                      showDept={showDept} showState={showState} />
+                    {expanded.has(t.id) && (
+                      <SubtaskList parent={t} onOpen={(id) => onOpenById?.(id)} onChange={(next) => onSubtaskChange?.(t.id, next)} />
+                    )}
+                  </Fragment>
+                ))}
+                {!collapsed && create && !sort && (
+                  <QuickAddRow cols={cols} placeholder={tr("tasks.quickAddPlaceholder")} onCreate={create} />
+                )}
+              </Fragment>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1649,6 +1891,23 @@ export default function TasksPage() {
     });
   };
 
+  // Inline quick-add from a list group. Create defaults to status "open"; for a
+  // non-open status group or a department group, follow up with a PATCH/the
+  // departmentId so the new task lands in the group the user typed into.
+  const handleQuickCreate = useCallback(async (opts: { title: string; status?: string; departmentId?: string | null }) => {
+    const body: Record<string, unknown> = { title: opts.title };
+    if (opts.departmentId) body.departmentId = opts.departmentId;
+    try {
+      const res = await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok && opts.status && opts.status !== "open") {
+        const created = await res.json().catch(() => null);
+        if (created?.id) await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: created.id, status: opts.status }) });
+      }
+    } finally {
+      fetchTasks();
+    }
+  }, [fetchTasks]);
+
   const handleSaved = () => {
     setEditing(null);
     fetchTasks();
@@ -1753,9 +2012,9 @@ export default function TasksPage() {
         ) : filtered.length === 0 ? (
           <EmptyState scope={scope} q={q} onCreate={() => setEditing("new")} />
         ) : view === "list" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} customFields={customFields} members={members} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} onQuickCreate={handleQuickCreate} customFields={customFields} members={members} />
         ) : view === "dept" ? (
-          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} customFields={customFields} members={members} />
+          <TaskListView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} q={q} mobile={isMobile} groupBy="department" departments={departments} onOpenById={openById} onSubtaskChange={patchTaskSubtasks} onQuickCreate={handleQuickCreate} customFields={customFields} members={members} />
         ) : (
           <KanbanView tasks={filtered} onEdit={t => setEditing(t)} onStatusChange={handleStatusChange} customFields={customFields} members={members} />
         )}
