@@ -33,6 +33,13 @@ interface UserInteractionLike {
   // copy/paste works regardless of which element is document.activeElement.
   ctrlC?(): void;
   ctrlV?(): void;
+  // Unicode keyboard mode: send the typed CHARACTER (event.key) instead of the
+  // physical-key SCANCODE, so the result is independent of the server's active
+  // keyboard layout. The RDP backend reports supportsUnicodeKeyboardShortcuts=false,
+  // so the component only takes the Unicode path for modifier-free printable keys —
+  // anything with Ctrl/Alt/⌘ held, and all named keys (Enter/Tab/arrows/F-keys),
+  // still go through scancodes, so shortcuts keep working.
+  setKeyboardUnicodeMode?(useUnicode: boolean): void;
   shutdown(): void;
   setEnableClipboard(v: boolean): void;
   setEnableAutoClipboard?(v: boolean): void;
@@ -275,6 +282,17 @@ export default function RdpClient(props: RdpClientProps) {
     async function startSession(ui: UserInteractionLike, rdp: typeof import('@devolutions/iron-remote-desktop-rdp')) {
       try {
         setPhase('connecting');
+        // Keyboard layout sync: in the default SCANCODE mode the server interprets the
+        // physical key position with ITS OWN active layout, so typing Ukrainian (or any
+        // non-US layout) on the Mac while the server sits on US-English produces the wrong
+        // characters. Unicode mode sends the actual character the user typed, so it lands
+        // correctly regardless of the server's active layout — and since the RDP backend
+        // forces modifier combos + named keys through scancodes anyway, shortcuts are safe.
+        try {
+          ui.setKeyboardUnicodeMode?.(true);
+        } catch {
+          /* older backend without the toggle */
+        }
         ui.setEnableClipboard(true); // clipboard channel on
         // MANUAL clipboard mode. AUTO mode runs a 100ms navigator.clipboard.read()
         // monitor that — once the tab is focused — throws an UNCAUGHT IronError every
