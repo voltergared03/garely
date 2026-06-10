@@ -40,7 +40,8 @@
     "archive": "Archive",
     "settings": "Settings",
     "newMeeting": "New meeting",
-    "servers": "Servers"
+    "servers": "Servers",
+    "more": "More"
   },
   "decisions": {
     "kicker": "Registry",

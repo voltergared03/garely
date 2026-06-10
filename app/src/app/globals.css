@@ -458,50 +458,169 @@ select.field option:checked {
    Breakpoints: 640px (tablet), 768px (nav switch), 1024px (desktop)
    ═══════════════════════════════════════════════════════ */
 
-/* ── Mobile bottom nav (visible by default) ──────────── */
-.mobile-nav {
-  display: flex;
+/* ── Mobile bottom nav — iOS 26 Liquid Glass tab bar ─────────────────
+   Apple Music layout (grounded in community-measured iOS 26 specs — FabBar —
+   since Apple publishes no official px): a translucent floating CAPSULE of
+   four tabs + a DETACHED CIRCULAR accessory button (their search slot → our
+   More/Ще). The glass is deliberately see-through (≤0.4 fill + heavy blur) so
+   content reads through it. `--lg-h` drives both the bar height and the
+   accessory diameter so the button stays a perfect circle in every state
+   (base / small-phone / scroll-minimized). See mobile-nav.tsx. */
+.lg-navwrap {
+  --lg-h: 62px;                                   /* floating-pill height (iOS 26) */
   position: fixed;
-  bottom: 0;
+  /* Centered via margin (NOT transform) — a transformed ancestor breaks the
+     children's backdrop-filter in WebKit, which made the glass render opaque. */
   left: 0;
   right: 0;
-  /* Compact icon-only bar + the iOS home-indicator inset reserved BELOW it. */
-  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); /* almost flush to the edge */
+  width: min(480px, calc(100% - 40px));           /* 20px inset each edge */
+  height: var(--lg-h);
   z-index: 50;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  align-items: center;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex;
+  align-items: stretch;
+  gap: 8px;                                        /* FabBar fabSpacing */
+  pointer-events: none;                            /* gap passes touches to content */
+  transition: height .4s cubic-bezier(.34, 1.4, .5, 1);
+}
+.lg-navwrap > * { pointer-events: auto; }
+.lg-navwrap.min { --lg-h: 50px; }                  /* scroll-minimized (icons only) */
+
+/* Shared Liquid Glass material for the capsule + the circle. Translucent dark
+   glass (#1c1c1e @ 32%) + blur/saturate/brightness so content shows through. */
+.lg-tabbar,
+.lg-morebtn {
+  background: rgba(28, 28, 30, 0.18);              /* very translucent — content reads through */
+  -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.06);
+  backdrop-filter: blur(22px) saturate(180%) brightness(1.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),         /* specular top rim */
+    0 6px 22px -10px rgba(0, 0, 0, 0.45);
 }
 
-.mobile-nav-btn {
+.lg-tabbar {
+  position: relative;
   flex: 1;
+  min-width: 0;
+  display: flex;
+  padding: 6px;
+  border-radius: 999px;                            /* true capsule */
+}
+.lg-tabs {
+  flex: 1;
+  display: flex;
+  animation: lgItemsIn .3s cubic-bezier(.34, 1.4, .5, 1); /* morph when the set swaps */
+}
+@keyframes lgItemsIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Liquid selection capsule — morphs/slides under the active tab with a gentle
+   spring overshoot (Apple's gel-like motion). */
+.lg-tab-pill {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc((100% - 12px) / 4);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 34%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform .38s cubic-bezier(.34, 1.56, .64, 1), opacity .2s ease;
+  pointer-events: none;
+}
+
+.lg-tab,
+.lg-morebtn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.55);                /* inactive on dark glass */
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .18s ease, transform .1s ease;
+}
+.lg-tab { flex: 1; min-width: 0; border: none; background: transparent; }
+.lg-tab span:last-child {
+  max-width: 100%;
+  font-size: 10px;                                 /* HIG tab-bar label size */
+  font-weight: 550;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity .2s ease, max-height .26s ease, margin-top .26s ease;
+  max-height: 13px;
+}
+.lg-tab.active { color: var(--accent-2); }
+.lg-tab.active span:last-child { font-weight: 680; }
+.lg-tab:active,
+.lg-morebtn:active { transform: scale(0.9); }
+
+/* Scroll-minimized: labels collapse → compact icon-only bar. */
+.lg-navwrap.min .lg-tab span:last-child {
+  opacity: 0;
+  max-height: 0;
+  margin-top: -3px;
+}
+
+/* Detached CIRCULAR accessory button (the More/Ще). Diameter == bar height via
+   --lg-h, so it stays a circle when the bar shrinks on scroll. Icon-only. */
+.lg-morebtn {
+  flex: 0 0 auto;
+  width: var(--lg-h);
+  border-radius: 50%;
+  transition: width .4s cubic-bezier(.34, 1.4, .5, 1), color .18s ease,
+    background .18s ease, border-color .18s ease, transform .1s ease;
+}
+.lg-morebtn.active {
+  color: var(--accent-2);
+  background: color-mix(in oklab, var(--accent) 22%, rgba(28, 28, 30, 0.18));
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+.lg-tab-badge {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted);
-  text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: color .15s;
+  border: 1.5px solid rgba(28, 28, 30, 0.5);
 }
-.mobile-nav-btn span {
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
-}
-.mobile-nav-btn.active {
-  color: var(--accent-2);
-}
-.mobile-nav-btn.active span {
-  font-weight: 600;
+
+/* Respect Reduce Motion: no morph/scroll-spring, just instant state. */
+@media (prefers-reduced-motion: reduce) {
+  .lg-navwrap,
+  .lg-morebtn { transition: color .15s ease, background .15s ease; }
+  .lg-tabs { animation: none; }
+  .lg-tab-pill { transition: opacity .15s ease; }
 }
 
 .mobile-nav-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 16px);
-  width: 56px;
-  height: 56px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 94px);
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
@@ -509,7 +628,9 @@ select.field option:checked {
   align-items: center;
   justify-content: center;
   z-index: 51;
-  box-shadow: 0 6px 20px rgba(59,130,246,.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 8px 22px rgba(59, 130, 246, .5);
   -webkit-tap-highlight-color: transparent;
   transition: transform .12s;
 }
@@ -537,7 +658,10 @@ select.field option:checked {
   min-width: 0;
   overflow: hidden;
   width: 100%;
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  /* NO bottom padding here — the per-page scroller fills the full height so
+     content scrolls UNDER the translucent floating tab bar (instead of being
+     cut off by a dead opaque band above it). Bottom clearance for the bar lives
+     inside each scroller's own padding (.page-container etc.). */
 }
 
 /* ── Database bento grid — base cards: 1 → 2 → 3 columns ── */
@@ -730,12 +854,12 @@ h2 {
 
 /* ── Small phones (< 420px) ──────────────────────────── */
 @media (max-width: 419px) {
-  .mobile-nav-btn span {
-    font-size: 9px;
-  }
+  .lg-navwrap { --lg-h: 58px; width: calc(100% - 28px); }
+  .lg-navwrap.min { --lg-h: 48px; }
+  .lg-tab span:last-child { font-size: 9px; }
   .mobile-nav-fab {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
   }
   .dash-stats {
     grid-template-columns: 1fr;
@@ -821,7 +945,7 @@ h2 {
    Hide mobile nav, show sidebar
    ═══════════════════════════════════════════════════════ */
 @media (min-width: 768px) {
-  .mobile-nav {
+  .lg-navwrap {
     display: none;
   }
   .mobile-topbar {

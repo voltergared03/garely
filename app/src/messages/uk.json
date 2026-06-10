@@ -40,7 +40,8 @@
     "archive": "Архів",
     "settings": "Налаштування",
     "newMeeting": "Новий мітинг",
-    "servers": "Сервери"
+    "servers": "Сервери",
+    "more": "Ще"
   },
   "decisions": {
     "kicker": "Реєстр",

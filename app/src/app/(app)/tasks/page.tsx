@@ -694,7 +694,7 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
   /* ── Mobile: stacked cards (unchanged) ─────────────────────────── */
   if (mobile) {
     return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px clamp(12px, 4vw, 20px) 60px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px clamp(12px, 4vw, 20px) calc(96px + env(safe-area-inset-bottom, 0px))" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           {order.map(key => {
             const items = itemsFor(key);
