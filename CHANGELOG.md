@@ -4,6 +4,24 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.14.1-beta.1] — 2026-06-11
+
+Follow-up to the two-way Google Calendar release.
+
+### Changed
+- **Google Calendar connects automatically on Google sign-in.** Signing in with
+  Google now also enables two-way calendar sync — no separate "Connect" step.
+  The Settings → Profile connect/disconnect card stays for password accounts and
+  as a manual fallback. (Best-effort and fully isolated from the login flow — a
+  Google hiccup never blocks or breaks signing in.)
+
+### Removed
+- **Retired the read-only ICS subscription feed** (the "Calendar sync" link in
+  Settings → Profile and its `/api/calendar/*` endpoints) — superseded by the
+  two-way Google Calendar integration. Note: meeting/task-deadline visibility in
+  Outlook/Apple Calendar via that feed is no longer available; the two-way Google
+  sync covers meetings.
+
 ## [1.14.0-beta.1] — 2026-06-10
 
 **The "calendar that just works" release.** Garely now lives inside Google

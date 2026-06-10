@@ -20,7 +20,10 @@ import crypto from 'crypto';
 import { prisma } from './prisma';
 import { generateMeetingSlug } from './utils';
 import { readConfig, num, publicBaseUrl } from './config';
-import { gcalFetch } from './google-calendar';
+import { getSingletonOrgId } from './org';
+import {
+  gcalFetch, saveTokens, ensureGarelyCalendar, emailFromIdToken, GCAL_SCOPE,
+} from './google-calendar';
 import type { GoogleCalendarConnection, Meeting } from '@prisma/client';
 
 interface GEvent {
@@ -342,4 +345,64 @@ export async function startWatch(conn: GoogleCalendarConnection): Promise<boolea
     },
   });
   return true;
+}
+
+/* ── SSO auto-connect ───────────────────────────────────────────── */
+
+/**
+ * Establish (or refresh) a user's Google Calendar connection straight from the
+ * tokens NextAuth captured during Google SSO sign-in — so logging in with
+ * Google auto-enables two-way sync, no separate "Connect" step. Best-effort and
+ * fire-and-forget from the auth callback: it must NEVER throw into the login
+ * flow. `account` is NextAuth's provider account (access_token, refresh_token?,
+ * expires_at unix-sec, scope, id_token). No-op unless the calendar scope was
+ * granted (older sessions / password users are unaffected).
+ *
+ * The heavy calendar bootstrap (find-or-create "Garely", initial sync, push
+ * channel) runs detached — the persistent Node server keeps it alive — and the
+ * cron poller self-heals any connection still missing a calendarId.
+ */
+export async function linkGoogleCalendarFromSSO(
+  userId: string,
+  account: { access_token?: string; refresh_token?: string; expires_at?: number; scope?: string; id_token?: string } | null | undefined,
+): Promise<void> {
+  try {
+    if (!account?.access_token || !account.scope?.includes(GCAL_SCOPE)) return;
+
+    const membership = await prisma.membership.findFirst({ where: { userId }, select: { orgId: true } });
+    const orgId = membership?.orgId ?? (await getSingletonOrgId());
+    if (!orgId) return;
+
+    const existing = await prisma.googleCalendarConnection.findUnique({ where: { userId } });
+    const nowSec = Math.floor(Date.now() / 1000);
+    const conn = await saveTokens(
+      { userId, orgId },
+      {
+        access_token: account.access_token,
+        refresh_token: account.refresh_token, // absent on repeat logins — saveTokens keeps the stored one
+        expires_in: account.expires_at ? Math.max(60, account.expires_at - nowSec) : 3600,
+        scope: account.scope,
+        id_token: account.id_token,
+      },
+      existing?.googleEmail ? {} : { googleEmail: emailFromIdToken(account.id_token) },
+    );
+
+    // Detached bootstrap — never blocks (or breaks) login.
+    void (async () => {
+      try {
+        let calId = conn.calendarId;
+        if (!calId) {
+          calId = await ensureGarelyCalendar(conn);
+          await prisma.googleCalendarConnection.update({ where: { id: conn.id }, data: { calendarId: calId } });
+        }
+        const ready = { ...conn, calendarId: calId };
+        await syncConnection(ready);
+        await startWatch(ready);
+      } catch (e) {
+        console.error('gcal SSO bootstrap failed (cron will retry):', e);
+      }
+    })();
+  } catch (e) {
+    console.error('gcal SSO link failed:', e);
+  }
 }

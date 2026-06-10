@@ -7,6 +7,7 @@ import { readConfig, CONFIG_DEFAULTS, getGoogleConfig, getAuthConfig } from './c
 import { verifyPassword } from './password';
 import { rateLimit, rateLimitReset } from './rate-limit';
 import { getSingletonOrgId } from './org';
+import { linkGoogleCalendarFromSSO } from './calendar-sync';
 
 // Lazy / per-request config so the enabled sign-in methods + Google OAuth
 // credentials can be read from the database (set during /setup) instead of
@@ -24,6 +25,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
         clientSecret: google.clientSecret,
         // Link Google login to a pre-created (invited) user with the same email
         allowDangerousEmailAccountLinking: true,
+        // Request Calendar access at login (incremental consent) + a refresh
+        // token, so signing in with Google auto-enables two-way calendar sync.
+        // No `prompt:consent` → Google only re-prompts the first time the new
+        // scope appears, not every login; the Settings "Connect" button (which
+        // does force consent) remains the guaranteed fallback.
+        authorization: {
+          params: {
+            scope: 'openid email profile https://www.googleapis.com/auth/calendar',
+            access_type: 'offline',
+            include_granted_scopes: 'true',
+          },
+        },
         // Pin the account id to Google's stable `sub` (mirrors next-auth's
         // default mapping). Added 2026-05-29 after a transient
         // OAuthAccountNotLinked incident, to keep the OIDC account lookup
@@ -79,9 +92,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
       strategy: 'jwt',
     },
     callbacks: {
-      async jwt({ token, user }) {
+      async jwt({ token, user, account }) {
         if (user) {
           token.id = user.id;
+        }
+        // On a Google SSO sign-in, capture the OAuth tokens to auto-enable
+        // two-way calendar sync. Fire-and-forget — never blocks/breaks login;
+        // no-op for credentials login or when the calendar scope wasn't granted.
+        if (account?.provider === 'google' && token.id) {
+          void linkGoogleCalendarFromSSO(token.id as string, account as any);
         }
         // Always fetch the latest role + 2FA status from DB (read by middleware via getToken)
         if (token.id) {

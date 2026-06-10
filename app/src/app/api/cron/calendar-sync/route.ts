@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncConnection, startWatch } from '@/lib/calendar-sync';
+import { ensureGarelyCalendar } from '@/lib/google-calendar';
 import { withRoute } from '@/lib/with-route';
 
 export const runtime = 'nodejs';
@@ -16,16 +17,23 @@ async function getHandler(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Include connections still missing a calendarId — those were just linked at
+  // SSO login and need the "Garely" calendar bootstrapped here (self-heal if
+  // the login-time bootstrap didn't finish).
   const conns = await prisma.googleCalendarConnection.findMany({
-    where: { status: { not: 'revoked' }, calendarId: { not: null } },
+    where: { status: { not: 'revoked' } },
     take: 200,
   });
 
   let synced = 0;
   let renewed = 0;
   let failed = 0;
-  for (const conn of conns) {
+  for (let conn of conns) {
     try {
+      if (!conn.calendarId) {
+        const calendarId = await ensureGarelyCalendar(conn);
+        conn = await prisma.googleCalendarConnection.update({ where: { id: conn.id }, data: { calendarId } });
+      }
       await syncConnection(conn);
       synced++;
       const expiry = conn.channelExpiry?.getTime() ?? 0;

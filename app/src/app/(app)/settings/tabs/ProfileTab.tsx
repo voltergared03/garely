@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Globe, LogOut, Save, Check, Calendar as CalendarIcon, Copy, RefreshCw, Link2, Unlink, AlertCircle } from 'lucide-react';
+import { Globe, LogOut, Save, Check, Calendar as CalendarIcon, Link2, Unlink, AlertCircle } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { TwoFactorSecurity } from '@/components/twofa/security-card';
@@ -12,51 +12,6 @@ import { signOut } from 'next-auth/react';
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locales';
 import { Toggle, FieldWrapper } from '../components/shared';
 import { PasswordSection } from './PasswordSection';
-
-// Personal ICS subscription feed — meetings + task deadlines in the user's own
-// Google/Outlook/Apple calendar. The secret URL is the credential; rotate revokes.
-function CalendarFeedCard() {
-  const t = useTranslations();
-  const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/calendar/feed').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.url) setUrl(d.url); }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
-  };
-  const regenerate = async () => {
-    if (!confirm(t('settings.calendarRegenConfirm'))) return;
-    setBusy(true);
-    try {
-      const r = await fetch('/api/calendar/feed', { method: 'POST' });
-      if (r.ok) { const d = await r.json(); setUrl(d.url || ''); }
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <CalendarIcon size={15} style={{ color: 'var(--accent)' }} /> {t('settings.calendarSync')}
-      </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{t('settings.calendarSyncDesc')}</div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input className="field mono" readOnly value={loading ? '…' : url} onFocus={(e) => e.currentTarget.select()} style={{ flex: 1, fontSize: 12, minWidth: 0 }} />
-        <button className="btn btn-sm" onClick={copy} disabled={!url} style={{ flexShrink: 0 }}>
-          {copied ? <><Check size={13} /> {t('settings.copied')}</> : <><Copy size={13} /> {t('settings.copyLink')}</>}
-        </button>
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>{t('settings.calendarSyncHint')}</div>
-      <button className="btn btn-sm" onClick={regenerate} disabled={busy} style={{ marginTop: 12 }}>
-        <RefreshCw size={13} style={busy ? { animation: 'spin 1s linear infinite' } : undefined} /> {t('settings.calendarRegen')}
-      </button>
-    </div>
-  );
-}
 
 // Two-way Google Calendar sync — per-user OAuth into a dedicated "Garely"
 // calendar: events created/edited/deleted there become Garely meetings and
@@ -317,8 +272,6 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
       </div>
 
       <GoogleCalendarCard />
-
-      <CalendarFeedCard />
 
       <div className="card" style={{ padding: '18px 22px' }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.security')}</div>

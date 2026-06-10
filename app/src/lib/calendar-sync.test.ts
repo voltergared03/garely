@@ -1,11 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
-import { gcalFetch } from '@/lib/google-calendar';
-import { syncConnection, syncMeetingToGoogle } from '@/lib/calendar-sync';
+import { gcalFetch, saveTokens, ensureGarelyCalendar, emailFromIdToken } from '@/lib/google-calendar';
+import { syncConnection, syncMeetingToGoogle, linkGoogleCalendarFromSSO } from '@/lib/calendar-sync';
 
 vi.mock('@/lib/prisma');
-vi.mock('@/lib/google-calendar', () => ({ gcalFetch: vi.fn() }));
+vi.mock('@/lib/google-calendar', () => ({
+  gcalFetch: vi.fn(),
+  saveTokens: vi.fn(),
+  ensureGarelyCalendar: vi.fn(async () => 'cal1'),
+  emailFromIdToken: vi.fn(() => 'me@example.com'),
+  GCAL_SCOPE: 'https://www.googleapis.com/auth/calendar',
+}));
+vi.mock('@/lib/org', () => ({ getSingletonOrgId: vi.fn(async () => 'org1') }));
 vi.mock('@/lib/config', () => ({
   readConfig: vi.fn(async () => ({})),
   num: vi.fn(() => 240),
@@ -13,6 +20,7 @@ vi.mock('@/lib/config', () => ({
 }));
 
 const mockFetch = vi.mocked(gcalFetch);
+const mockSaveTokens = vi.mocked(saveTokens);
 
 const conn = (over: Record<string, unknown> = {}) => ({
   id: 'gc1', userId: 'u1', orgId: 'org1', calendarId: 'cal1', status: 'active',
@@ -168,5 +176,41 @@ describe('syncMeetingToGoogle (Garely → Google)', () => {
     prismaMock.googleCalendarConnection.findUnique.mockResolvedValue(null as any);
     await syncMeetingToGoogle('m1', 'upsert');
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('linkGoogleCalendarFromSSO', () => {
+  beforeEach(() => mockSaveTokens.mockReset());
+
+  it('no-ops when the calendar scope was not granted', async () => {
+    await linkGoogleCalendarFromSSO('u1', { access_token: 'at', scope: 'openid email profile' });
+    expect(mockSaveTokens).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when there is no access token', async () => {
+    await linkGoogleCalendarFromSSO('u1', { scope: 'https://www.googleapis.com/auth/calendar' });
+    expect(mockSaveTokens).not.toHaveBeenCalled();
+  });
+
+  it('upserts the connection from SSO tokens when calendar scope is present', async () => {
+    prismaMock.membership.findFirst.mockResolvedValue({ orgId: 'org1' } as any);
+    prismaMock.googleCalendarConnection.findUnique.mockResolvedValue(null as any);
+    mockSaveTokens.mockResolvedValue({ id: 'gc1', userId: 'u1', orgId: 'org1', calendarId: 'cal1' } as any);
+    await linkGoogleCalendarFromSSO('u1', {
+      access_token: 'at', refresh_token: 'rt', expires_at: 9999999999,
+      scope: 'openid email https://www.googleapis.com/auth/calendar', id_token: 'idt',
+    });
+    expect(mockSaveTokens).toHaveBeenCalledTimes(1);
+    const [conn, tokens] = mockSaveTokens.mock.calls[0];
+    expect(conn).toEqual({ userId: 'u1', orgId: 'org1' });
+    expect(tokens.access_token).toBe('at');
+    expect(tokens.refresh_token).toBe('rt');
+  });
+
+  it('never throws into the login flow on error', async () => {
+    prismaMock.membership.findFirst.mockRejectedValue(new Error('db down'));
+    await expect(
+      linkGoogleCalendarFromSSO('u1', { access_token: 'at', scope: 'https://www.googleapis.com/auth/calendar' }),
+    ).resolves.toBeUndefined();
   });
 });
