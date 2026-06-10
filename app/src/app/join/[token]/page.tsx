@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useTranslations, useLocale } from 'next-intl';
 import { Link2, Video, Globe, ChevronLeft, AlertCircle } from 'lucide-react';
 import { AvatarStack } from '@/components/ui/avatar';
@@ -23,6 +24,7 @@ export default function GuestJoinPage() {
   const locale = useLocale();
   const params = useParams<{ token: string }>();
   const router = useRouter();
+  const { data: session } = useSession();
   const token = params.token;
 
   const [step, setStep] = useState<Step>('landing');
@@ -41,6 +43,9 @@ export default function GuestJoinPage() {
         if (!res.ok) {
           if (res.status === 404) {
             setError(t('join.errorNotFound'));
+          } else if (res.status === 410) {
+            const d = await res.json().catch(() => ({}));
+            setError(d.reason === 'ended' ? t('join.errorEnded') : t('join.errorCancelled'));
           } else {
             setError(t('join.errorLoadFailed'));
           }
@@ -176,32 +181,46 @@ export default function GuestJoinPage() {
               </div>
             )}
 
-            <button className="btn btn-primary" style={{
-              width: '100%', justifyContent: 'center', padding: '13px 16px',
-              fontSize: 14, fontWeight: 600, marginBottom: 10,
-            }} onClick={() => setStep('name')}>
-              {t('join.joinAsGuest')}
-            </button>
+            {session?.user ? (
+              /* Signed-in colleague: skip the guest flow and go straight to the
+                 lobby for THIS meeting (same id → same room as everyone else). */
+              <button className="btn btn-primary" style={{
+                width: '100%', justifyContent: 'center', padding: '13px 16px',
+                fontSize: 14, fontWeight: 600,
+              }} onClick={() => router.push(`/lobby/${meeting.id}`)}>
+                <Video size={15} />
+                {t('join.joinMeeting')}
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-primary" style={{
+                  width: '100%', justifyContent: 'center', padding: '13px 16px',
+                  fontSize: 14, fontWeight: 600, marginBottom: 10,
+                }} onClick={() => setStep('name')}>
+                  {t('join.joinAsGuest')}
+                </button>
 
-            <button className="btn" style={{
-              width: '100%', justifyContent: 'center', padding: '13px 16px',
-              fontSize: 14, fontWeight: 600, marginBottom: 24,
-            }} onClick={() => router.push('/login')}>
-              <Globe size={15} />
-              {t('join.loginWithGoogle')}
-            </button>
+                <button className="btn" style={{
+                  width: '100%', justifyContent: 'center', padding: '13px 16px',
+                  fontSize: 14, fontWeight: 600, marginBottom: 24,
+                }} onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/lobby/${meeting.id}`)}`)}>
+                  <Globe size={15} />
+                  {t('join.loginWithGoogle')}
+                </button>
 
-            <div style={{
-              background: 'color-mix(in oklab, var(--amber) 10%, transparent)',
-              border: '1px solid color-mix(in oklab, var(--amber) 25%, transparent)',
-              borderRadius: 'var(--radius-sm)', padding: '12px 14px',
-              display: 'flex', gap: 10, alignItems: 'flex-start',
-            }}>
-              <AlertCircle size={15} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
-                {t('join.tokenWarning')}
-              </span>
-            </div>
+                <div style={{
+                  background: 'color-mix(in oklab, var(--amber) 10%, transparent)',
+                  border: '1px solid color-mix(in oklab, var(--amber) 25%, transparent)',
+                  borderRadius: 'var(--radius-sm)', padding: '12px 14px',
+                  display: 'flex', gap: 10, alignItems: 'flex-start',
+                }}>
+                  <AlertCircle size={15} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
+                    {t('join.tokenWarning')}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

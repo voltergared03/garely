@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
+import { syncMeetingToGoogle } from '@/lib/calendar-sync';
 import { listTasks } from '@/lib/tasks';
 import { withRoute } from '@/lib/with-route';
 
@@ -198,6 +199,10 @@ async function patchHandler(
     if (changed) void sendMeetingInvite(id, 'update');
   }
 
+  // Reflect the change into the creator's Google "Garely" calendar (no-op when
+  // not connected; cancellation deletes the event there).
+  void syncMeetingToGoogle(id, 'upsert');
+
   return NextResponse.json(updated);
 }
 
@@ -242,8 +247,10 @@ async function deleteHandler(
     return NextResponse.json({ error: t('meetingHasRecording') }, { status: 409 });
   }
 
-  // Tell attendees it's cancelled before the participant rows cascade away.
+  // Tell attendees it's cancelled before the participant rows cascade away,
+  // and remove the linked Google event while the row (externalId) still exists.
   await sendMeetingInvite(id, 'cancel').catch(() => {});
+  await syncMeetingToGoogle(id, 'delete').catch(() => {});
   await prisma.meeting.delete({ where: { id } });
 
   return NextResponse.json({ success: true });

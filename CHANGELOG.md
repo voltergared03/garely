@@ -4,6 +4,42 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.14.0-beta.1] — 2026-06-10
+
+**The "calendar that just works" release.** Garely now lives inside Google
+Calendar two ways, every meeting link is the same link everywhere, and
+colleagues who click "the same meeting" land in the same room.
+
+### Added
+- **Two-way Google Calendar sync.** Connect your Google account in Settings →
+  Profile: a dedicated **"Garely"** calendar is created in your account and kept
+  in sync both directions. Events you add, edit or delete there become Garely
+  meetings (with a room, join link and attendees mapped to members/guests); and
+  meetings you schedule, reschedule or cancel in Garely appear/update/disappear
+  there with the join link written into the event. Per-user OAuth (works for
+  password accounts too), tokens encrypted at rest, scoped to the one calendar —
+  personal events are never touched. Near-instant via Google push channels with
+  a 10-minute cron poller as a fallback; an etag loop-guard prevents echo loops.
+- **Send files to a remote server's clipboard from the RDP status pill** — an
+  upload button left of the server name uploads picked files straight into the
+  remote machine's clipboard (same path as drag-and-drop).
+
+### Fixed
+- **One canonical meeting link everywhere.** The calendar invite, the `.ics`,
+  the "Add to Google Calendar" button and the in-room "copy link" now all hand
+  out the same token-based `/join/<token>` URL. Signed-in colleagues land
+  straight in the lobby; guests get the guest flow; a raw `/room/<id>` is no
+  longer a dead end. Signing in from a `/join` link returns you to the lobby
+  (honours `callbackUrl`).
+- **Recurring meetings no longer split people across rooms.** The join token now
+  migrates to each new occurrence, so the link saved in a calendar always opens
+  the current room; recurring invites ship a single `RRULE` event instead of
+  copies. Finished/cancelled occurrences return 410 (and a recurring series
+  redirects to the next live occurrence) instead of resurrecting a dead room.
+- **Quick-meeting URLs are now shareable** — `/room/quick` rewrites to the real
+  meeting id once created, and the lazy room name is deterministic so two people
+  joining a legacy meeting in the same second can't end up in different rooms.
+
 ## [1.13.0-beta.1] — 2026-06-06
 
 **The "work OS" release.** Garely grows from a meeting app into a self-hosted

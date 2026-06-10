@@ -18,7 +18,7 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
       select: {
-        id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true,
+        id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true, recurrence: true,
         createdBy: { select: { name: true, email: true } },
         participants: { select: { guestName: true, guestEmail: true, user: { select: { name: true, email: true } } } },
       },
@@ -38,7 +38,12 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
     const start = meeting.scheduledAt;
     const end = new Date(start.getTime() + (meeting.durationMin || 60) * 60_000);
     const appUrl = await publicBaseUrl();
-    const joinUrl = `${appUrl}/room/${meeting.id}`;
+    // ONE canonical link everywhere (email body, .ics, Google Calendar): the
+    // token-based /join URL. It resolves the CURRENT occurrence of a series (the
+    // token migrates forward as recurrences materialize) and works for guests AND
+    // signed-in users alike. A raw /room/{id} link is a dead end for guests, so we
+    // only fall back to it when a meeting somehow has no joinToken.
+    const joinUrl = meeting.joinToken ? `${appUrl}/join/${meeting.joinToken}` : `${appUrl}/room/${meeting.id}`;
     const locale = await workspaceLocale();
     const t = getTranslator(locale);
 
@@ -49,6 +54,18 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
     const smtp = await getSmtpConfig();
     const organizerEmail = smtp?.from || meeting.createdBy?.email || null;
 
+    // Recurring meetings ship a single RRULE event so Google/Outlook draw ONE
+    // repeating entry (not N copies). Combined with the migrating joinToken, the
+    // same /join link always points at the next live occurrence.
+    const recType = (meeting.recurrence as { type?: string } | null)?.type;
+    const RRULE: Record<string, string> = {
+      daily: "FREQ=DAILY",
+      weekly: "FREQ=WEEKLY",
+      biweekly: "FREQ=WEEKLY;INTERVAL=2",
+      monthly: "FREQ=MONTHLY",
+    };
+    const rrule = recType ? RRULE[recType] : undefined;
+
     const method = kind === "cancel" ? "CANCEL" : "REQUEST";
     const event: IcsEvent = {
       uid: `meeting-${meeting.id}@ezmeet`,
@@ -58,6 +75,7 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
       location: joinUrl,
       url: joinUrl,
       stamp: new Date(),
+      rrule,
       // invite=0; later changes use a monotonically increasing unix-second SEQUENCE
       sequence: kind === "invite" ? 0 : Math.floor(Date.now() / 1000),
       status: kind === "cancel" ? "CANCELLED" : "CONFIRMED",

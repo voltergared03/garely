@@ -110,4 +110,28 @@ describe('POST /api/meetings/[id]/join-token', () => {
     expect(j.isAdmin).toBe(true);
     expect(j.canKick).toBe(true);
   });
+
+  it('410 when the meeting has ended (no resurrecting a dead room)', async () => {
+    mockAuth.mockResolvedValue(mockSession());
+    prismaMock.meeting.findUnique.mockResolvedValue(meeting({ status: 'ended' }) as any);
+    const r = await POST(jsonReq('POST', {}), ctx({ id: 'm1' }));
+    expect(r.status).toBe(410);
+    expect((await r.json()).ended).toBe(true);
+  });
+
+  it('410 when the meeting was cancelled', async () => {
+    mockAuth.mockResolvedValue(mockSession());
+    prismaMock.meeting.findUnique.mockResolvedValue(meeting({ status: 'cancelled' }) as any);
+    expect((await POST(jsonReq('POST', {}), ctx({ id: 'm1' }))).status).toBe(410);
+  });
+
+  it('410 on an ended occurrence returns the next live occurrence token', async () => {
+    mockAuth.mockResolvedValue(mockSession());
+    prismaMock.meeting.findUnique.mockResolvedValue(
+      meeting({ status: 'ended', recurrence: { type: 'weekly', seriesId: 's1' } }) as any,
+    );
+    prismaMock.meeting.findFirst.mockResolvedValue({ joinToken: 'next-jt' } as any);
+    const j = await (await POST(jsonReq('POST', {}), ctx({ id: 'm1' }))).json();
+    expect(j.nextToken).toBe('next-jt');
+  });
 });

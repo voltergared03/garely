@@ -84,6 +84,7 @@ model User {
   memberships           Membership[]
   taskAssignments       TaskAssignment[]
   baseMemberships       BaseMember[]
+  googleCalendar        GoogleCalendarConnection?
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
@@ -137,6 +138,13 @@ model Meeting {
   createdAt              DateTime     @default(now())
   endedAt                DateTime?
   reminderSent           Boolean      @default(false)
+  // Google Calendar two-way sync: the linked Google event (null = not synced).
+  // externalId = Google event id; externalCalendarId = the "Garely" calendar it
+  // lives in; externalEtag drives change-detection on inbound sync.
+  externalId             String? // Google Calendar event id
+  externalCalendarId     String?
+  externalEtag           String?
+  externalSyncedAt       DateTime?
   // Post-meeting AI report lifecycle (null = none yet)
   reportStatus           String? // generating | ready | failed
   reportError            String?      @db.Text
@@ -165,6 +173,7 @@ model Meeting {
   @@index([status, scheduledAt])
   @@index([departmentId])
   @@index([orgId, status, scheduledAt])
+  @@index([externalId])
 }
 
 model JoinRequest {
@@ -538,6 +547,40 @@ model Organization {
   emailLogs            EmailLog[]
   bases                Base[]
   serverConnections    ServerConnection[]
+  googleCalendarConns  GoogleCalendarConnection[]
+}
+
+// Per-user Google Calendar link for two-way sync. OAuth tokens are encrypted at
+// rest (lib/twofactor encryptSecret, AES-256-GCM, AUTH_SECRET-derived) — same
+// scheme as the RDP credential vault. All sync is scoped to ONE dedicated
+// "Garely" calendar (calendarId) in the user's account, so personal events are
+// never touched. `syncToken` drives incremental events.list; the channel* fields
+// hold the active events.watch push subscription (renewed before expiry).
+model GoogleCalendarConnection {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId              String
+  org                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  googleEmail        String? // connected Google account (display only)
+  accessTokenCipher  String?      @db.Text
+  refreshTokenCipher String?      @db.Text
+  tokenExpiry        DateTime?
+  scope              String?
+  calendarId         String? // the dedicated "Garely" calendar id
+  syncToken          String?      @db.Text // incremental events.list cursor
+  channelId          String? // events.watch channel uuid
+  resourceId         String? // events.watch resource id (for channels.stop)
+  channelToken       String? // our verification token echoed in the webhook
+  channelExpiry      DateTime?
+  status             String       @default("active") // active | error | revoked
+  lastError          String?      @db.Text
+  lastSyncedAt       DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([orgId])
+  @@index([channelId])
 }
 
 model Membership {

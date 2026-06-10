@@ -181,6 +181,7 @@ export default function RdpClient(props: RdpClientProps) {
   const uiRef = useRef<UserInteractionLike | null>(null);
   const elRef = useRef<IronElement | null>(null);
   const fileProviderRef = useRef<FileTransferProviderLike | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const exitedRef = useRef(false);
   // Wall-clock ms when the session last reached 'connected' (0 until then). Lets the
   // auto-reconnect effect tell a real drop from a never-connected / flapping failure.
@@ -213,6 +214,9 @@ export default function RdpClient(props: RdpClientProps) {
 
   const [phase, setPhase] = useState<Phase>('init');
   const [errMsg, setErrMsg] = useState<string>('');
+  // True once the RDP file-transfer provider is wired (CLIPRDR file copy available).
+  // Gates the pill's file-upload button so it only shows when uploads can actually work.
+  const [canUpload, setCanUpload] = useState(false);
 
   useEffect(() => {
     props.onPhase?.(phase);
@@ -517,6 +521,7 @@ export default function RdpClient(props: RdpClientProps) {
           });
           ui.enableFileTransfer?.(provider);
           fileProviderRef.current = provider as unknown as FileTransferProviderLike;
+          setCanUpload(true);
         } catch {
           /* backend without file transfer — display/clipboard still work */
         }
@@ -875,6 +880,25 @@ export default function RdpClient(props: RdpClientProps) {
     }
   };
 
+  // File-picker upload (the pill button): same destination as drag & drop — the files
+  // land on the SERVER's clipboard, ready to paste (Ctrl+V) into a Windows folder there.
+  // Gives a path to send files without dragging onto the canvas.
+  const onFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const provider = fileProviderRef.current;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = ''; // reset so re-picking the same file fires onChange again
+    if (phase !== 'connected' || !provider || !files.length) return;
+    try {
+      provider.uploadFiles(files);
+      // Suppress our local→remote clipboard pushes briefly so they don't overwrite the
+      // file FormatList before the user pastes it on the server (mirrors onDrop).
+      clobberUntilRef.current = Date.now() + 8000;
+      flash(t('fileUploadHint'), 13_000);
+    } catch {
+      /* noop */
+    }
+  };
+
   // Focus the canvas so keystrokes land + the async Clipboard API is unblocked, and
   // push the freshest Mac clipboard to the remote so a paste there is ready. Suppressed
   // briefly after a file drop so it doesn't clobber the file FormatList.
@@ -1054,6 +1078,9 @@ export default function RdpClient(props: RdpClientProps) {
         )}
       </div>
 
+      {/* hidden file picker behind the pill's upload button → server clipboard */}
+      <input ref={fileInputRef} type="file" multiple onChange={onFilesPicked} style={{ display: 'none' }} aria-hidden />
+
       {/* floating, draggable status pill — grab anywhere on the body to reposition;
           the disconnect button stays clickable. Position persists in localStorage. */}
       <div
@@ -1088,6 +1115,12 @@ export default function RdpClient(props: RdpClientProps) {
         {liveControls && (
           <GripVertical size={14} style={{ color: 'rgba(255,255,255,.4)', flexShrink: 0 }} aria-hidden />
         )}
+        {liveControls && canUpload &&
+          toolBtn(
+            () => fileInputRef.current?.click(),
+            t('uploadFiles'),
+            <Upload size={15} />,
+          )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#e7e9ee', maxWidth: 240, paddingLeft: liveControls ? 0 : 7 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: liveControls ? '#10b981' : phase === 'error' ? '#f87171' : 'var(--accent)' }} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{props.serverName}</span>

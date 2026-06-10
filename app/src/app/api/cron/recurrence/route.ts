@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { generateMeetingSlug } from '@/lib/utils';
+import { syncMeetingToGoogle } from '@/lib/calendar-sync';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/cron/recurrence?secret=XXX — materialize recurring meetings (hourly).
@@ -59,8 +60,17 @@ async function getHandler(req: NextRequest) {
     const seriesId = rec.seriesId || generateMeetingSlug();
     const nextAt = nextOccurrenceAfter(m.scheduledAt, type, now);
     const roomSlug = generateMeetingSlug();
+    // The joinToken is the STABLE link shared in calendar invites — it migrates
+    // forward to each new occurrence so the same /join URL always lands in the
+    // current room. The just-passed occurrence rotates to a fresh token first
+    // (keeps the @unique constraint happy); update MUST run before create.
+    const stableToken = m.joinToken || generateMeetingSlug();
     try {
-      await prisma.$transaction([
+      const [, spawned] = await prisma.$transaction([
+        prisma.meeting.update({
+          where: { id: m.id },
+          data: { recurrenceMaterialized: true, joinToken: generateMeetingSlug() },
+        }),
         prisma.meeting.create({
           data: {
             title: m.title,
@@ -70,7 +80,7 @@ async function getHandler(req: NextRequest) {
             durationMin: m.durationMin,
             recurrence: { type, seriesId },
             livekitRoom: `meet-${roomSlug}`,
-            joinToken: generateMeetingSlug(),
+            joinToken: stableToken,
             transcriptionEnabled: m.transcriptionEnabled,
             aiReportEnabled: m.aiReportEnabled,
             allowGuests: m.allowGuests,
@@ -88,8 +98,9 @@ async function getHandler(req: NextRequest) {
             },
           },
         }),
-        prisma.meeting.update({ where: { id: m.id }, data: { recurrenceMaterialized: true } }),
       ]);
+      // Mirror the fresh occurrence into the creator's Google calendar.
+      void syncMeetingToGoogle(spawned.id, 'upsert');
       created++;
     } catch (e) {
       console.error(`recurrence materialize failed for ${m.id}:`, e);

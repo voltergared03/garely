@@ -15,6 +15,8 @@ export interface IcsEvent {
   url?: string;
   /** DTSTAMP (last-modified-ish); defaults to `start`. */
   stamp?: Date;
+  /** Recurrence rule body without the "RRULE:" prefix, e.g. "FREQ=WEEKLY". */
+  rrule?: string;
   /** Invite extras (METHOD:REQUEST/CANCEL events). */
   sequence?: number;
   status?: string; // CONFIRMED | CANCELLED
@@ -89,6 +91,7 @@ export function buildCalendar(opts: { name: string; events: IcsEvent[]; prodId?:
       L.push(`DTSTART:${fmtUtc(e.start)}`);
       if (e.end) L.push(`DTEND:${fmtUtc(e.end)}`);
     }
+    if (e.rrule) L.push(`RRULE:${e.rrule}`);
     L.push(fold(`SUMMARY:${esc(e.summary)}`));
     if (e.description) L.push(fold(`DESCRIPTION:${esc(e.description)}`));
     if (e.location) L.push(fold(`LOCATION:${esc(e.location)}`));

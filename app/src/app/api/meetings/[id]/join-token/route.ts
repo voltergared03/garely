@@ -41,12 +41,37 @@ export async function POST(
     } else {
       meeting = await prisma.meeting.findUnique({
         where: { id },
-        select: { id: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true, scheduledAt: true },
+        select: { id: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true, scheduledAt: true, recurrence: true },
       });
     }
 
     if (!meeting) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
+    }
+
+    // A finished or cancelled occurrence is NOT joinable — re-entering would
+    // resurrect a dead LiveKit room (and split colleagues across the live one).
+    // For a recurring series, point the caller at the next live/upcoming
+    // occurrence (which now holds the migrated joinToken) so they land together.
+    if (id !== 'quick' && (meeting.status === 'ended' || meeting.status === 'cancelled')) {
+      let nextToken: string | null = null;
+      const seriesId = (meeting.recurrence as { seriesId?: string } | null)?.seriesId;
+      if (seriesId) {
+        const next = await prisma.meeting.findFirst({
+          where: {
+            id: { not: meeting.id },
+            status: { in: ['scheduled', 'live'] },
+            recurrence: { path: ['seriesId'], equals: seriesId },
+          },
+          orderBy: { scheduledAt: 'asc' },
+          select: { joinToken: true },
+        }).catch(() => null);
+        nextToken = next?.joinToken ?? null;
+      }
+      return NextResponse.json(
+        { error: t('meetingEnded'), ended: true, nextToken },
+        { status: 410 },
+      );
     }
 
     // Entry time gate: a still-scheduled meeting opens 5 minutes before its start.
@@ -75,7 +100,9 @@ export async function POST(
     }
 
     if (!meeting.livekitRoom) {
-      const roomName = `meet-${meeting.id.slice(0, 8)}-${Date.now()}`;
+      // Deterministic name (NOT Date.now()) so two people clicking "join" in the
+      // same second on a legacy room can't race into two different LiveKit rooms.
+      const roomName = `meet-${meeting.id}`;
       meeting = await prisma.meeting.update({
         where: { id: meeting.id },
         data: { livekitRoom: roomName, status: 'live' },

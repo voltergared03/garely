@@ -1180,6 +1180,13 @@ export default function MeetingRoomPage() {
         }
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
+          // 410 = this occurrence ended/cancelled. If the series has a live
+          // successor, bounce straight there so the user lands with everyone
+          // else instead of hitting a dead room.
+          if (res.status === 410 && errData.nextToken) {
+            if (!cancelled) router.replace(`/join/${errData.nextToken}`);
+            return;
+          }
           throw new Error(errData.denied ? t('room.accessDenied') : (errData.error || t('room.tokenFailed')));
         }
         const data = await res.json();
@@ -1188,7 +1195,15 @@ export default function MeetingRoomPage() {
         setToken(data.token);
         setWsUrl(data.wsUrl);
         if (data.joinToken) setJoinToken(data.joinToken);
-        if (data.meetingId) setMeetingIdReal(data.meetingId);
+        if (data.meetingId) {
+          setMeetingIdReal(data.meetingId);
+          // Quick meetings live at /room/quick; once the real meeting exists,
+          // rewrite the address bar to its id so a copied URL is shareable.
+          // history.replaceState (not router) keeps it cosmetic — no refetch.
+          if (id === 'quick' && typeof window !== 'undefined') {
+            window.history.replaceState(null, '', `/room/${data.meetingId}${window.location.search}`);
+          }
+        }
         if (data.canKick) setCanKick(true);
         if (typeof data.recordingActive === 'boolean') setRecordingActive(data.recordingActive);
       } catch (e: any) {

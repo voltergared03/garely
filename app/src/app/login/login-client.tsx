@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { Logo } from '@/components/ui/logo';
@@ -21,7 +21,13 @@ export function LoginClient({
   selfReg: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations();
+  // Post-login destination. Only same-origin relative paths are honoured (a
+  // single leading slash, not "//host") so the param can't become an open
+  // redirect. Lets a /join link send a signed-in colleague back to the lobby.
+  const raw = searchParams.get('callbackUrl') || '/';
+  const callbackUrl = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,7 +65,7 @@ export function LoginClient({
         setBusy(false);
         return;
       }
-      router.push('/');
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setErr(t('auth.errNetwork'));
@@ -142,7 +148,7 @@ export function LoginClient({
 
           {googleEnabled && (
             <button
-              onClick={() => signIn('google', { callbackUrl: '/' })}
+              onClick={() => signIn('google', { callbackUrl })}
               className="btn"
               style={{ width: '100%', padding: '14px 16px', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}
             >

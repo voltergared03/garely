@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     select: {
-      id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true,
+      id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true, recurrence: true,
       createdBy: { select: { name: true, email: true } },
     },
   });
@@ -33,9 +33,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   if (!meeting.scheduledAt) return new NextResponse("Meeting is not scheduled", { status: 404 });
 
   const appUrl = await publicBaseUrl();
-  const joinUrl = `${appUrl}/room/${meeting.id}`;
+  // Canonical token link (guest-safe, migrates with the series); /room fallback.
+  const joinUrl = meeting.joinToken ? `${appUrl}/join/${meeting.joinToken}` : `${appUrl}/room/${meeting.id}`;
   const start = meeting.scheduledAt;
   const end = new Date(start.getTime() + (meeting.durationMin || 60) * 60_000);
+  const recType = (meeting.recurrence as { type?: string } | null)?.type;
+  const RRULE: Record<string, string> = {
+    daily: "FREQ=DAILY", weekly: "FREQ=WEEKLY", biweekly: "FREQ=WEEKLY;INTERVAL=2", monthly: "FREQ=MONTHLY",
+  };
   const event: IcsEvent = {
     uid: `meeting-${meeting.id}@ezmeet`,
     start, end,
@@ -44,6 +49,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     location: joinUrl,
     url: joinUrl,
     stamp: new Date(),
+    rrule: recType ? RRULE[recType] : undefined,
     organizer: meeting.createdBy?.email ? { email: meeting.createdBy.email, name: meeting.createdBy.name } : undefined,
   };
   const ics = buildCalendar({ name: meeting.title, method: "PUBLISH", events: [event] });

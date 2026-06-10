@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
+import { syncMeetingToGoogle } from '@/lib/calendar-sync';
 import { generateMeetingSlug } from '@/lib/utils';
 import { readConfig, num } from '@/lib/config';
 import { getCurrentOrgId, requireCurrentOrgId } from '@/lib/org';
@@ -165,8 +166,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Scheduled meeting → email everyone a calendar invite (.ics + add buttons).
-    if (meeting.scheduledAt) void sendMeetingInvite(meeting.id, 'invite');
+    // Scheduled meeting → email everyone a calendar invite (.ics + add buttons)
+    // + mirror it into the creator's Google "Garely" calendar when connected.
+    if (meeting.scheduledAt) {
+      void sendMeetingInvite(meeting.id, 'invite');
+      void syncMeetingToGoogle(meeting.id, 'upsert');
+    }
 
     return NextResponse.json(meeting, { status: 201 });
   } catch (e) {

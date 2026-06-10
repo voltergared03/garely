@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       scheduledAt: { gte: from, lte: to },
       OR: [{ createdById: user.id }, { participants: { some: { userId: user.id } } }],
     },
-    select: { id: true, title: true, scheduledAt: true, durationMin: true },
+    select: { id: true, title: true, scheduledAt: true, durationMin: true, joinToken: true },
   });
 
   // The user's own open tasks (assignee or collaborator) that have a deadline —
@@ -51,7 +51,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (!m.scheduledAt) continue;
     const start = m.scheduledAt;
     const end = new Date(start.getTime() + (m.durationMin || 30) * 60_000);
-    const link = `${origin}/room/${m.id}`;
+    // Canonical token link (guest-safe, migrates with a recurring series); only
+    // legacy rows without a token fall back to the raw /room link.
+    const link = m.joinToken ? `${origin}/join/${m.joinToken}` : `${origin}/room/${m.id}`;
     events.push({ uid: `meeting-${m.id}@ezmeet`, start, end, summary: m.title, location: link, url: link, stamp: now });
   }
   for (const t of tasks) {
