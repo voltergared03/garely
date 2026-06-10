@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock, Download } from 'lucide-react';
+import { ChevronLeft, Plus, Table2, MoreHorizontal, Pencil, Trash2, Share2, Lock, Download, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { GridView } from '../components/GridView';
@@ -14,6 +14,7 @@ import { CalendarView } from '../components/CalendarView';
 import { ViewTabs } from '../components/ViewTabs';
 import { RecordModal } from '../components/RecordModal';
 import { ShareModal } from '../components/ShareModal';
+import { TransferModal } from '../components/TransferModal';
 import { PopMenu, MenuRow } from '../components/Menu';
 import { buildCsv, downloadCsv, fetchAllRows } from '../lib/export-csv';
 import { CHOICE_COLORS, type BaseDetail, type TableTab, type TableT, type RowT, type OrgMember, type FieldType, type FilterCond, type SortCond, type ViewT, type ViewConfig } from '../lib/types';
@@ -49,6 +50,7 @@ export default function BaseDetailPage() {
   const [renameTableT, setRenameTableT] = useState<TableTab | null>(null);
   const [renameTableVal, setRenameTableVal] = useState('');
   const [delTableT, setDelTableT] = useState<TableTab | null>(null);
+  const [transferTableT, setTransferTableT] = useState<TableTab | null>(null);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [renameViewT, setRenameViewT] = useState<ViewT | null>(null);
@@ -169,6 +171,15 @@ export default function BaseDetailPage() {
     setDelTableT(null);
     if (activeTableId === id) setActiveTableId(remaining[0]?.id ?? null);
     await fetch(`/api/tables/${id}`, { method: 'DELETE' });
+  }
+  async function transferTable(userId: string): Promise<boolean> {
+    if (!transferTableT) return false;
+    const id = transferTableT.id;
+    const res = await fetch(`/api/tables/${id}/transfer`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ userId }) });
+    if (!res.ok) return false;
+    setBase((b) => (b ? { ...b, tables: b.tables.map((x) => (x.id === id ? { ...x, createdById: userId } : x)) } : b));
+    setTable((t0) => (t0 && t0.id === id ? { ...t0, ownerId: userId } : t0));
+    return true;
   }
 
   // --- grid handlers (unchanged) ---
@@ -345,6 +356,10 @@ export default function BaseDetailPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto', overflowY: 'hidden' }}>
         {base.tables.map((tab) => {
           const active = tab.id === activeTableId;
+          const tabOwner = members.find((u) => u.id === tab.createdById) ?? null;
+          const ownsTab = !!base.currentUserId && tab.createdById === base.currentUserId;
+          const tabCanManage = !!base.canManage || ownsTab; // rename/delete/structure
+          const tabCanTransfer = !!base.canTransfer || ownsTab; // hand it to someone else
           return (
             <div key={tab.id} style={{ display: 'inline-flex', alignItems: 'center', borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, marginBottom: -1 }}>
               <button
@@ -354,11 +369,17 @@ export default function BaseDetailPage() {
                 <Table2 size={14} /> {tab.name}
               </button>
               {active ? (
-                <PopMenu trigger={<MoreHorizontal size={14} />} width={180} small label={t('menu')}>
+                <PopMenu trigger={<MoreHorizontal size={14} />} width={200} small label={t('menu')}>
                   {(close) => (
                     <>
+                      {tabOwner && (
+                        <div style={{ padding: '8px 12px 6px', fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t('tableOwner')}: <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{tabOwner.name || tabOwner.email}</span>
+                        </div>
+                      )}
                       <MenuRow icon={<Pencil size={14} />} label={t('renameTable')} onClick={() => { close(); setRenameTableVal(tab.name); setRenameTableT(tab); }} />
-                      <MenuRow icon={<Trash2 size={14} />} label={t('deleteTable')} danger onClick={() => { close(); setDelTableT(tab); }} />
+                      {tabCanTransfer && <MenuRow icon={<ArrowRightLeft size={14} />} label={t('transferTable')} onClick={() => { close(); setTransferTableT(tab); }} />}
+                      {tabCanManage && <MenuRow icon={<Trash2 size={14} />} label={t('deleteTable')} danger onClick={() => { close(); setDelTableT(tab); }} />}
                     </>
                   )}
                 </PopMenu>
@@ -471,7 +492,26 @@ export default function BaseDetailPage() {
         </div>
       </Modal>
 
-      {shareOpen && <ShareModal open={shareOpen} baseId={baseId} onClose={() => setShareOpen(false)} onVisibility={(v) => setBase((b) => (b ? { ...b, visibility: v } : b))} />}
+      {shareOpen && (
+        <ShareModal
+          open={shareOpen}
+          baseId={baseId}
+          onClose={() => setShareOpen(false)}
+          onVisibility={(v) => setBase((b) => (b ? { ...b, visibility: v } : b))}
+          onOwnerChanged={(ownerId) => setBase((b) => (b ? { ...b, ownerId, createdById: ownerId } : b))}
+        />
+      )}
+
+      <TransferModal
+        open={!!transferTableT}
+        title={t('transferTableTitle')}
+        subject={transferTableT?.name}
+        members={members}
+        currentOwnerId={transferTableT?.createdById ?? null}
+        hint={t('transferTableHint')}
+        onClose={() => setTransferTableT(null)}
+        onTransfer={transferTable}
+      />
 
       {copied && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 3000, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', boxShadow: '0 10px 30px rgba(0,0,0,.4)' }}>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
-import { normalizeFieldOptions, baseForOrg, tableForOrg, FIELD_TYPES } from '@/lib/base-engine';
+import { normalizeFieldOptions, baseForOrg, tableForOrg, tablePermission, gateTable, canTransferBase, canTransferTable, FIELD_TYPES } from '@/lib/base-engine';
 
 vi.mock('@/lib/prisma');
 beforeEach(() => mockReset(prismaMock));
@@ -106,5 +106,51 @@ describe('org access guards (cross-tenant isolation)', () => {
   it('tableForOrg REFUSES system tables — even for admins (never via the generic engine)', async () => {
     prismaMock.table.findUnique.mockResolvedValue({ id: 't1', system: true, base: { orgId: 'org-A', visibility: 'org', createdById: null } } as any);
     expect(await tableForOrg('t1', 'org-A', { user: { id: 'u1', role: 'admin' } } as any)).toBeNull();
+  });
+});
+
+describe('table ownership & ownership transfer', () => {
+  const sess = (id: string, role: 'admin' | 'member' = 'member') => ({ user: { id, role } } as any);
+  const base = (over: Record<string, unknown> = {}) =>
+    ({ id: 'b1', orgId: 'org-A', visibility: 'org', createdById: 'owner', ...over } as any);
+
+  it('tablePermission: a table owner is admin on THEIR table even as a base editor', async () => {
+    prismaMock.baseMember.findUnique.mockResolvedValue(null as any); // org-visible base ⇒ editor
+    expect(await tablePermission({ createdById: 'u1' }, base({ createdById: 'someoneElse' }), 'org-A', sess('u1'))).toBe('admin');
+  });
+
+  it('tablePermission: a non-owner on an org-visible base stays editor', async () => {
+    prismaMock.baseMember.findUnique.mockResolvedValue(null as any);
+    expect(await tablePermission({ createdById: 'owner' }, base(), 'org-A', sess('u1'))).toBe('editor');
+  });
+
+  it('tablePermission: a workspace admin is admin on any table', async () => {
+    expect(await tablePermission({ createdById: null }, base(), 'org-A', sess('x', 'admin'))).toBe('admin');
+  });
+
+  it('gateTable: blocks a restricted-base viewer from deleting a table they do NOT own', async () => {
+    prismaMock.baseMember.findUnique.mockResolvedValue({ role: 'viewer', hiddenFields: [] } as any);
+    const res = await gateTable({ createdById: 'owner' }, base({ visibility: 'restricted', createdById: 'owner' }), 'org-A', sess('u1'), 'admin');
+    expect(res).not.toBeNull(); // 403
+  });
+
+  it('gateTable: lets the table owner delete their table even as a restricted-base viewer', async () => {
+    prismaMock.baseMember.findUnique.mockResolvedValue({ role: 'viewer', hiddenFields: [] } as any);
+    const res = await gateTable({ createdById: 'u1' }, base({ visibility: 'restricted', createdById: 'owner' }), 'org-A', sess('u1'), 'admin');
+    expect(res).toBeNull(); // owner ⇒ admin on this table ⇒ allowed
+  });
+
+  it('canTransferBase: only the current owner or a workspace admin', () => {
+    expect(canTransferBase({ createdById: 'u1' }, sess('u1'))).toBe(true);
+    expect(canTransferBase({ createdById: 'owner' }, sess('u1'))).toBe(false);
+    expect(canTransferBase({ createdById: 'owner' }, sess('u1', 'admin'))).toBe(true);
+  });
+
+  it('canTransferTable: workspace admin, base owner, or the table owner', () => {
+    const b = base({ createdById: 'baseOwner' });
+    expect(canTransferTable({ createdById: 'tblOwner' }, b, sess('tblOwner'))).toBe(true);
+    expect(canTransferTable({ createdById: 'tblOwner' }, b, sess('baseOwner'))).toBe(true);
+    expect(canTransferTable({ createdById: 'tblOwner' }, b, sess('x', 'admin'))).toBe(true);
+    expect(canTransferTable({ createdById: 'tblOwner' }, b, sess('rando'))).toBe(false);
   });
 });

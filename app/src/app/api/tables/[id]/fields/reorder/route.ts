@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { tableForOrg, gate } from '@/lib/base-engine';
+import { tableForOrg, gateTable } from '@/lib/base-engine';
 import { computeReorder } from '@/lib/base-reorder';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -20,7 +20,7 @@ export const PATCH = withRoute('fields.reorder', async (req: NextRequest, ctx: C
   const { id: tableId } = await ctx.params;
   const t = await tableForOrg(tableId, r.orgId, r.session);
   if (!t) return jsonError('not_found', 404);
-  const g = await gate(t.base, r.orgId, r.session, 'editor');
+  const g = await gateTable(t, t.base, r.orgId, r.session, 'editor');
   if (g) return g;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);

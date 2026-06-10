@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
-import { tableForOrg, gate, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
+import { tableForOrg, gateTable, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
 import { ensureReverseLink } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -22,7 +22,7 @@ export const POST = withRoute('fields.create', async (req: NextRequest, ctx: Ctx
   const { id: tableId } = await ctx.params;
   const t = await tableForOrg(tableId, r.orgId, r.session);
   if (!t) return jsonError('not_found', 404);
-  const g = await gate(t.base, r.orgId, r.session, 'editor');
+  const g = await gateTable(t, t.base, r.orgId, r.session, 'editor');
   if (g) return g;
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);

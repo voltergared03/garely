@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { tableForOrg, gate, basePermission } from '@/lib/base-engine';
+import { tableForOrg, gateTable, basePermission, tablePermission, canTransferTable } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -21,7 +21,14 @@ export const GET = withRoute('tables.get', async (_req: NextRequest, ctx: Ctx) =
     prisma.view.findMany({ where: { tableId: id }, orderBy: [{ position: 'asc' }, { createdAt: 'asc' }] }),
   ]);
   const visibleFields = perm.hiddenFields.length ? fields.filter((f) => !perm.hiddenFields.includes(f.id)) : fields;
-  return NextResponse.json({ id: t.id, baseId: t.baseId, name: t.name, icon: t.icon, primaryFieldId: t.primaryFieldId, fields: visibleFields, views });
+  // canManage = can rename/delete/manage THIS table (base-admin or this table's owner);
+  // canTransfer = stricter (own it or workspace admin) → who may hand it to someone else.
+  const level = await tablePermission(t, t.base, r.orgId, r.session);
+  return NextResponse.json({
+    id: t.id, baseId: t.baseId, name: t.name, icon: t.icon, primaryFieldId: t.primaryFieldId,
+    ownerId: t.createdById, canManage: level === 'admin', canTransfer: canTransferTable(t, t.base, r.session),
+    fields: visibleFields, views,
+  });
 });
 
 const patchSchema = z
@@ -40,7 +47,7 @@ export const PATCH = withRoute('tables.update', async (req: NextRequest, ctx: Ct
   const { id } = await ctx.params;
   const t = await tableForOrg(id, r.orgId, r.session);
   if (!t) return jsonError('not_found', 404);
-  const g = await gate(t.base, r.orgId, r.session, 'editor');
+  const g = await gateTable(t, t.base, r.orgId, r.session, 'editor');
   if (g) return g;
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
@@ -52,14 +59,14 @@ export const PATCH = withRoute('tables.update', async (req: NextRequest, ctx: Ct
   return NextResponse.json(table);
 });
 
-// DELETE — admin only (cascades fields/rows/views).
+// DELETE — base-admin OR this table's owner (cascades fields/rows/views).
 export const DELETE = withRoute('tables.delete', async (_req: NextRequest, ctx: Ctx) => {
   const r = await requireOrg();
   if (r instanceof Response) return r;
   const { id } = await ctx.params;
   const t = await tableForOrg(id, r.orgId, r.session);
   if (!t) return jsonError('not_found', 404);
-  const g = await gate(t.base, r.orgId, r.session, 'admin');
+  const g = await gateTable(t, t.base, r.orgId, r.session, 'admin');
   if (g) return g;
   await prisma.table.delete({ where: { id } });
   return jsonOk();

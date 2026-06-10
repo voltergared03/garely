@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
-import { baseForOrg, basePermission } from '@/lib/base-engine';
+import { baseForOrg, basePermission, canTransferBase } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 const userSel = { id: true, name: true, image: true, email: true };
@@ -30,6 +30,7 @@ export const GET = withRoute('base.members.list', async (_req: NextRequest, ctx:
     visibility: base.visibility,
     ownerId: base.createdById,
     canManage: perm.level === 'admin',
+    canTransfer: canTransferBase(base, r.session),
     members: memberRows.map((m) => ({
       ...m.user,
       role: m.role,

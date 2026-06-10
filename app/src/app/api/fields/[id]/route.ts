@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { fieldForOrg, gate, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
+import { fieldForOrg, gateTable, fieldTypeSchema, normalizeFieldOptions } from '@/lib/base-engine';
 import { ensureReverseLink, unpairReverseLink } from '@/lib/base-link-sync';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -26,7 +26,7 @@ export const PATCH = withRoute('fields.update', async (req: NextRequest, ctx: Ct
   const { id } = await ctx.params;
   const field = await fieldForOrg(id, r.orgId, r.session);
   if (!field) return jsonError('not_found', 404);
-  const g = await gate(field.table.base, r.orgId, r.session, 'editor');
+  const g = await gateTable(field.table, field.table.base, r.orgId, r.session, 'editor');
   if (g) return g;
   const parsed = patchSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError('invalid_body', 400);
@@ -68,7 +68,7 @@ export const DELETE = withRoute('fields.delete', async (_req: NextRequest, ctx: 
   const { id } = await ctx.params;
   const field = await fieldForOrg(id, r.orgId, r.session);
   if (!field) return jsonError('not_found', 404);
-  const g = await gate(field.table.base, r.orgId, r.session, 'editor');
+  const g = await gateTable(field.table, field.table.base, r.orgId, r.session, 'editor');
   if (g) return g;
 
   await unpairReverseLink({ id: field.id, type: field.type, options: field.options });

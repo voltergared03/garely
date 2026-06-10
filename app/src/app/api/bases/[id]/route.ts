@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { baseForOrg, gate } from '@/lib/base-engine';
+import { baseForOrg, gate, basePermission, canTransferBase } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -20,9 +20,20 @@ export const GET = withRoute('bases.get', async (_req: NextRequest, ctx: Ctx) =>
     // through the generic Database UI; tasks are reached via /api/tasks.
     where: { baseId: id, system: false },
     orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true, name: true, icon: true, position: true, primaryFieldId: true },
+    select: { id: true, name: true, icon: true, position: true, primaryFieldId: true, createdById: true },
   });
-  return NextResponse.json({ ...base, tables });
+  // Ownership context for the UI: who owns the base, whether the caller can manage
+  // base settings (base-admin), whether they may transfer it (owner / workspace admin),
+  // and their own id (to resolve per-table owner/manage state client-side).
+  const perm = await basePermission(base, r.orgId, r.session);
+  return NextResponse.json({
+    ...base,
+    tables,
+    ownerId: base.createdById,
+    canManage: perm.level === 'admin',
+    canTransfer: canTransferBase(base, r.session),
+    currentUserId: r.session.user.id,
+  });
 });
 
 const patchSchema = z

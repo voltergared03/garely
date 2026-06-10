@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Globe, Lock, X, EyeOff, UserPlus, Check } from 'lucide-react';
+import { Globe, Lock, X, EyeOff, UserPlus, Check, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { Avatar } from '@/components/ui/avatar';
 import { Spinner } from '@/components/ui/spinner';
 import { Select } from '@/components/ui/select';
+import { TransferModal } from './TransferModal';
 import type { OrgMember, BaseMemberT, BaseFieldRef, BaseRole } from '../lib/types';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -17,23 +18,44 @@ export function ShareModal({
   baseId,
   onClose,
   onVisibility,
+  onOwnerChanged,
 }: {
   open: boolean;
   baseId: string;
   onClose: () => void;
   onVisibility?: (v: Vis) => void;
+  onOwnerChanged?: (ownerId: string) => void;
 }) {
   const t = useTranslations('database');
   const [loading, setLoading] = useState(true);
   const [visibility, setVisibility] = useState<Vis>('org');
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canTransfer, setCanTransfer] = useState(false);
   const [members, setMembers] = useState<BaseMemberT[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
   const [fields, setFields] = useState<BaseFieldRef[]>([]);
   const [query, setQuery] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [managingCols, setManagingCols] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    const [m, om] = await Promise.all([
+      fetch(`/api/bases/${baseId}/members`).then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/org/members').then((r) => (r.ok ? r.json() : [])),
+    ]);
+    if (m) {
+      setVisibility(m.visibility === 'restricted' ? 'restricted' : 'org');
+      setOwnerId(m.ownerId ?? null);
+      setCanManage(!!m.canManage);
+      setCanTransfer(!!m.canTransfer);
+      setMembers(m.members ?? []);
+      setFields(m.fields ?? []);
+    }
+    setOrgMembers(om ?? []);
+    setLoading(false);
+  }, [baseId]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,21 +63,19 @@ export function ShareModal({
     setErr(null);
     setQuery('');
     setManagingCols(null);
-    Promise.all([
-      fetch(`/api/bases/${baseId}/members`).then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/org/members').then((r) => (r.ok ? r.json() : [])),
-    ]).then(([m, om]) => {
-      if (m) {
-        setVisibility(m.visibility === 'restricted' ? 'restricted' : 'org');
-        setOwnerId(m.ownerId ?? null);
-        setCanManage(!!m.canManage);
-        setMembers(m.members ?? []);
-        setFields(m.fields ?? []);
-      }
-      setOrgMembers(om ?? []);
-      setLoading(false);
-    });
-  }, [open, baseId]);
+    load();
+  }, [open, load]);
+
+  async function transferBase(userId: string): Promise<boolean> {
+    const res = await fetch(`/api/bases/${baseId}/transfer`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ userId }) });
+    if (!res.ok) return false;
+    const d = await res.json().catch(() => ({}));
+    const newOwner: string = d.ownerId ?? userId;
+    setOwnerId(newOwner);
+    onOwnerChanged?.(newOwner);
+    await load(); // refresh members + canManage/canTransfer (old owner is now an admin member)
+    return true;
+  }
 
   const memberIds = new Set(members.map((m) => m.id));
   const owner = orgMembers.find((u) => u.id === ownerId) ?? null;
@@ -116,6 +136,7 @@ export function ShareModal({
   ];
 
   return (
+    <>
     <Modal open={open} onClose={onClose} title={t('shareBase')} width={520}>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spinner size={20} /></div>
@@ -167,6 +188,16 @@ export function ShareModal({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner.name || owner.email}</div>
                 </div>
+                {canTransfer && (
+                  <button
+                    onClick={() => setTransferOpen(true)}
+                    className="btn btn-ghost"
+                    title={t('transferOwnership')}
+                    style={{ fontSize: 12, padding: '4px 8px', gap: 5, color: 'var(--text-2)' }}
+                  >
+                    <ArrowRightLeft size={13} /> {t('transfer')}
+                  </button>
+                )}
                 <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{t('owner')}</span>
               </div>
             )}
@@ -229,6 +260,16 @@ export function ShareModal({
         </>
       )}
     </Modal>
+    <TransferModal
+      open={transferOpen}
+      title={t('transferBaseTitle')}
+      members={orgMembers}
+      currentOwnerId={ownerId}
+      hint={t('transferBaseHint')}
+      onClose={() => setTransferOpen(false)}
+      onTransfer={transferBase}
+    />
+    </>
   );
 }
 

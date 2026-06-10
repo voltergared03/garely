@@ -155,6 +155,40 @@ export async function gate(base: BaseAccess, orgId: string, session: Session, mi
   return atLeast(perm.level, min) ? null : jsonError('forbidden', 403);
 }
 
+// ---- Table-level ownership -------------------------------------------------
+// A table's owner (`Table.createdById`) manages THAT table — rename, delete,
+// structure (fields), and transfer — even when they're only a base `editor`.
+// Base-admins (workspace-admin / base creator / base-admin member) still
+// supersede everyone. Read access (who SEES the table) stays base-level: this
+// only elevates write/manage rights, so there are no private tables.
+type TableOwner = { createdById?: string | null };
+
+/** Effective permission on a single table: the base level, bumped to `admin` for the table owner. */
+export async function tablePermission(table: TableOwner, base: BaseAccess, orgId: string, session: Session): Promise<BaseLevel> {
+  const perm = await basePermission(base, orgId, session);
+  if (perm.level === 'admin') return 'admin';
+  if (table.createdById && table.createdById === session.user.id) return 'admin';
+  return perm.level;
+}
+
+/** Write gate that also grants a table's owner full rights on that table. */
+export async function gateTable(table: TableOwner, base: BaseAccess, orgId: string, session: Session, min: BaseLevel): Promise<Response | null> {
+  const level = await tablePermission(table, base, orgId, session);
+  return atLeast(level, min) ? null : jsonError('forbidden', 403);
+}
+
+/**
+ * Ownership transfer is stricter than admin: only the CURRENT owner or a
+ * workspace admin may hand a base/table to someone else (a base-admin *member*
+ * can manage but not give away what they don't own).
+ */
+export function canTransferBase(base: { createdById?: string | null }, session: Session): boolean {
+  return session.user.role === 'admin' || (!!base.createdById && base.createdById === session.user.id);
+}
+export function canTransferTable(table: TableOwner, base: BaseAccess, session: Session): boolean {
+  return session.user.role === 'admin' || base.createdById === session.user.id || (!!table.createdById && table.createdById === session.user.id);
+}
+
 /** Drop hidden-field keys from a row data object (per-member column hiding). */
 export function stripHidden<T extends Record<string, unknown>>(data: T, hidden: string[]): T {
   if (!hidden.length) return data;
@@ -184,7 +218,7 @@ export async function tableForOrg(tableId: string, orgId: string, session: Sessi
 export async function fieldForOrg(fieldId: string, orgId: string, session: Session) {
   const f = await prisma.field.findUnique({
     where: { id: fieldId },
-    include: { table: { select: { id: true, system: true, primaryFieldId: true, base: { select: baseSel } } } },
+    include: { table: { select: { id: true, system: true, createdById: true, primaryFieldId: true, base: { select: baseSel } } } },
   });
   return f && !f.table.system && (await canAccessBase(f.table.base, orgId, session)) ? f : null;
 }

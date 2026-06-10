@@ -28,7 +28,7 @@ export const POST = withRoute('tables.create', async (req: NextRequest, ctx: Ctx
 
   const count = await prisma.table.count({ where: { baseId } });
   const created = await prisma.$transaction(async (tx) => {
-    const table = await tx.table.create({ data: { baseId, name: parsed.data.name, icon: parsed.data.icon ?? null, position: count } });
+    const table = await tx.table.create({ data: { baseId, name: parsed.data.name, icon: parsed.data.icon ?? null, position: count, createdById: r.session.user.id } });
     const field = await tx.field.create({ data: { tableId: table.id, name: 'Name', type: 'text', position: 0 } });
     await tx.table.update({ where: { id: table.id }, data: { primaryFieldId: field.id } });
     const view = await tx.view.create({ data: { tableId: table.id, name: 'Grid', type: 'grid', position: 0, config: { visibleFieldIds: [field.id] } } });

@@ -123,6 +123,7 @@ export interface TableTab {
   icon?: string | null;
   position: number;
   primaryFieldId?: string | null;
+  createdById?: string | null;
 }
 
 export interface TableT {
@@ -131,6 +132,9 @@ export interface TableT {
   name: string;
   icon?: string | null;
   primaryFieldId?: string | null;
+  ownerId?: string | null;
+  canManage?: boolean;
+  canTransfer?: boolean;
   fields: FieldT[];
   views: ViewT[];
 }
@@ -153,6 +157,10 @@ export interface BaseDetail {
   color?: string | null;
   visibility?: string;
   createdById?: string | null;
+  ownerId?: string | null;
+  canManage?: boolean;
+  canTransfer?: boolean;
+  currentUserId?: string | null;
   tables: TableTab[];
 }
 

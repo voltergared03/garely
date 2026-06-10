@@ -646,6 +646,10 @@ model Table {
   name           String
   icon           String?
   primaryFieldId String? // soft ref → Field.id rendered as the row title
+  // Per-table owner (soft user ref, like Base.createdById). The owner manages
+  // THIS table — rename / delete / structure / transfer — even when they're only
+  // a base editor; base-admins still supersede. Read access stays base-level.
+  createdById    String?
   position       Int      @default(0)
   system         Boolean  @default(false) // app-managed (e.g. the per-org Tasks table) → not user-deletable
   createdAt      DateTime @default(now())
