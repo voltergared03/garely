@@ -22,7 +22,11 @@ interface ConfigBuilderLike {
 }
 interface UserInteractionLike {
   configBuilder(): ConfigBuilderLike;
-  connect(config: unknown): Promise<{ run(): Promise<{ reason(): string }> }>;
+  connect(config: unknown): Promise<{
+    run(): Promise<{ reason(): string }>;
+    /** Framebuffer the server actually granted (it clamps oversized HD requests). */
+    initialDesktopSize?: { width: number; height: number };
+  }>;
   setVisibility(v: boolean): void;
   setScale(scale: number): void;
   resize(width: number, height: number, scale?: number): void;
@@ -178,6 +182,13 @@ export default function RdpClient(props: RdpClientProps) {
   const elRef = useRef<IronElement | null>(null);
   const fileProviderRef = useRef<FileTransferProviderLike | null>(null);
   const exitedRef = useRef(false);
+  // Wall-clock ms when the session last reached 'connected' (0 until then). Lets the
+  // auto-reconnect effect tell a real drop from a never-connected / flapping failure.
+  const connectedAtRef = useRef(0);
+  // Framebuffer the server actually granted at connect. The server clamps an oversized
+  // HD request to its own max, so HD resizes are bounded to this AREA (aspect-preserving)
+  // — otherwise it re-clamps every resize and the picture stops re-fitting the window.
+  const grantedRef = useRef<{ w: number; h: number } | null>(null);
   // Timestamp (ms) until which a local→remote clipboard push is suppressed, so a
   // freshly-dropped file's FormatList on the remote clipboard isn't overwritten by a
   // text/image push before the user can Ctrl+V it. Time-based + self-expiring so it
@@ -346,6 +357,49 @@ export default function RdpClient(props: RdpClientProps) {
     const id = setInterval(ping, 30_000);
     return () => clearInterval(id);
   }, [phase, props.connectionId, props.sessionId]);
+
+  /* ─── Auto-reconnect after an UNEXPECTED drop ─────────────────────────────────
+   * On macOS, Chrome/Safari freeze or discard a backgrounded tab (Memory Saver) and
+   * an idle reverse-proxy can close the WebSocket when the remote desktop is static —
+   * either one kills the session while the user works in another window, stranding
+   * them on the manual reconnect screen. Instead we resume automatically the moment
+   * the tab is focused again. RDP keeps the Windows session alive across a disconnect,
+   * so the desktop returns exactly as it was.
+   *
+   * Guard rails so this can never spin: only a session that stayed live for 10s+ is
+   * retried (a connect failure never reaches 'connected'; a session that flaps within
+   * seconds falls back to the manual button), never after a user Disconnect or HD
+   * toggle (exitedRef), and at most once per mount — doConnect remounts us, which
+   * re-arms it for the next drop. */
+  const onReconnectRef = useRef(props.onRequestReconnect);
+  onReconnectRef.current = props.onRequestReconnect;
+  useEffect(() => {
+    if (phase === 'connected') {
+      connectedAtRef.current = Date.now();
+      return;
+    }
+    if (phase !== 'closed' && phase !== 'error') return;
+    if (exitedRef.current || !onReconnectRef.current) return;
+    const uptimeMs = connectedAtRef.current ? Date.now() - connectedAtRef.current : 0;
+    if (uptimeMs < 10_000) return; // never connected, or flapping → leave the manual button
+    let done = false;
+    const resume = () => {
+      if (done || exitedRef.current) return;
+      done = true;
+      onReconnectRef.current?.();
+    };
+    if (document.visibilityState === 'visible') {
+      const id = setTimeout(resume, 1_000); // foreground blip — let the network settle first
+      return () => clearTimeout(id);
+    }
+    // Backgrounded drop (the common macOS case): wait until the user comes back, so we
+    // don't reconnect into a still-throttled tab that would just drop again.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') resume();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [phase]);
 
   /* ─── Mount the web component + run the session lifecycle (once) ─── */
   useEffect(() => {
@@ -518,6 +572,13 @@ export default function RdpClient(props: RdpClientProps) {
 
         const info = await ui.connect(config);
         if (cancelled) return;
+        // Remember the framebuffer the server actually granted (it clamps oversized HD
+        // requests to its own max). The resize effect never asks for more area than this,
+        // so the server keeps honoring resizes instead of re-clamping to a fixed size.
+        const granted = info.initialDesktopSize;
+        if (granted && granted.width >= 640 && granted.height >= 480) {
+          grantedRef.current = { w: granted.width, h: granted.height };
+        }
         ui.setVisibility(true);
         setPhase('connected');
         // Focus the canvas so clipboard read/write (gated on document focus + the
@@ -658,12 +719,17 @@ export default function RdpClient(props: RdpClientProps) {
     };
   }, [phase]);
 
-  // Dynamic resolution — match the remote desktop to the browser window 1:1 and
-  // re-negotiate it (via the DisplayControl channel, ui.resize) whenever the window
-  // settles after a resize, exactly like the native RDP client. DEBOUNCED: the codec
-  // redraws once per settle, NOT continuously — continuous per-pixel resize was the
-  // earlier tear cause. During the drag, scale='full' keeps the canvas CSS-stretched
-  // for instant feedback; the crisp reflow lands ~350ms after the window stops moving.
+  // Dynamic resolution — match the remote desktop to the browser window and re-negotiate
+  // it (DisplayControl channel, ui.resize) whenever the window settles after a resize,
+  // like the native RDP client. DEBOUNCED so the legacy-bitmap codec redraws once per
+  // settle, not continuously (continuous per-pixel resize was the earlier tear cause);
+  // scale='full' keeps the canvas CSS-stretched for instant feedback until the crisp
+  // reflow lands ~350ms after the window stops moving.
+  //
+  // HD caveat: the server clamps a 2×-density framebuffer to its own max area, which
+  // pins the resolution so the picture merely CSS-stretches instead of re-fitting the
+  // window. computeTarget() never requests more pixels than the server granted at
+  // connect (grantedRef) — it trades density for a correctly-shaped, re-fitting picture.
   useEffect(() => {
     if (phase !== 'connected') return;
     try {
@@ -671,23 +737,43 @@ export default function RdpClient(props: RdpClientProps) {
     } catch {
       /* noop */
     }
+    const computeTarget = () => {
+      const iw = window.innerWidth;
+      const ih = window.innerHeight;
+      // Re-read the factor each time: devicePixelRatio changes when the window moves to a
+      // display with a different density. 1 in standard mode, up to 2 in HD on Retina.
+      let f = dprFactor();
+      const g = grantedRef.current;
+      if (f > 1 && g) {
+        // Bound HD to the area the server proved it accepts (its connect-time grant),
+        // keeping the window's aspect ratio. Below that ceiling f stays at full density.
+        const fit = Math.sqrt((g.w * g.h) / (iw * ih));
+        if (fit < f) f = Math.max(1, fit);
+      }
+      const w = align4(iw * f);
+      const h = align4(ih * f);
+      // 3rd arg is DesktopScaleFactor in PERCENT (valid 100–500, NOT a 1.0 multiplier —
+      // passing 1 throws "out of range"). Match the density we actually render at.
+      const scale = Math.min(500, Math.max(100, Math.round(f * 100)));
+      return { w, h, scale };
+    };
     let timer: ReturnType<typeof setTimeout> | null = null;
-    let lastW = align4(window.innerWidth * dprFactor());
-    let lastH = align4(window.innerHeight * dprFactor());
+    // Seed from the framebuffer we're actually showing (the server's grant) so the first
+    // aspect-changing resize corrects it — even a small one.
+    let last: { w: number; h: number };
+    const g0 = grantedRef.current;
+    if (g0) {
+      last = { w: g0.w, h: g0.h };
+    } else {
+      const t = computeTarget();
+      last = { w: t.w, h: t.h };
+    }
     const applyResize = () => {
-      // Re-read the factor each time: devicePixelRatio changes when the window
-      // moves to a display with a different density.
-      const f = dprFactor();
-      const w = align4(window.innerWidth * f);
-      const h = align4(window.innerHeight * f);
-      if (w === lastW && h === lastH) return; // no real change
-      lastW = w;
-      lastH = h;
+      const next = computeTarget();
+      if (next.w === last.w && next.h === last.h) return; // no real change
+      last = { w: next.w, h: next.h };
       try {
-        // 3rd arg is DesktopScaleFactor in PERCENT (valid 100–500, NOT a 1.0 multiplier
-        // — passing 1 throws "Desktop scale factor is out of range"). Matches the
-        // density we render at: 100 in standard mode, ~200 in HD mode on Retina.
-        uiRef.current?.resize(w, h, Math.round(f * 100));
+        uiRef.current?.resize(next.w, next.h, next.scale);
       } catch {
         /* noop */
       }
@@ -702,6 +788,51 @@ export default function RdpClient(props: RdpClientProps) {
       if (timer) clearTimeout(timer);
       window.removeEventListener('resize', onResize);
       document.removeEventListener('fullscreenchange', onResize);
+    };
+  }, [phase]);
+
+  // Pin the remote <canvas> to the window's CSS size. Our debounced ui.resize() drives a
+  // DisplayControl reactivation that swaps the canvas BACKING STORE (set_width) underneath
+  // the web component, but the component does not re-apply the CSS downscale afterwards — so
+  // on a Retina display the canvas renders at its intrinsic 2× pixel size and overflows the
+  // window ("the picture zooms in"). Forcing the canvas to fill the window makes the browser
+  // downscale the high-density buffer by devicePixelRatio: crisp AND correctly fit. Verified
+  // live: without this, after a resize css==fb (e.g. 1976px) while the window is 1190px.
+  useEffect(() => {
+    if (phase !== 'connected') return;
+    const root = elRef.current?.shadowRoot;
+    if (!root) return;
+    const fit = () => {
+      const canvas = root.querySelector('canvas') as HTMLCanvasElement | null;
+      if (!canvas) return;
+      const w = `${window.innerWidth}px`;
+      const h = `${window.innerHeight}px`;
+      // The component sizes the canvas's WRAPPER (not the canvas's own inline style) to a
+      // fit-box that goes stale after a reactivation; pin it to the window so nothing clips.
+      const wrap = canvas.parentElement;
+      if (wrap && (wrap.style.width !== w || wrap.style.height !== h)) {
+        wrap.style.setProperty('width', w, 'important');
+        wrap.style.setProperty('height', h, 'important');
+        wrap.style.setProperty('max-width', w, 'important');
+        wrap.style.setProperty('max-height', h, 'important');
+        wrap.style.setProperty('min-width', '0', 'important');
+        wrap.style.setProperty('min-height', '0', 'important');
+      }
+      if (canvas.style.width !== '100%' || canvas.style.height !== '100%') {
+        canvas.style.setProperty('width', '100%', 'important');
+        canvas.style.setProperty('height', '100%', 'important');
+      }
+    };
+    // Re-fit whenever the backing store changes (reactivation), the canvas node is replaced,
+    // or the wrapper is re-sized by the component. The diff-guard above stops a set→observe
+    // feedback loop. Also re-fit on window resize, ahead of the debounced reactivation.
+    const observer = new MutationObserver(fit);
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height', 'style'] });
+    window.addEventListener('resize', fit);
+    fit();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fit);
     };
   }, [phase]);
 
