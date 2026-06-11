@@ -6,9 +6,23 @@ ships `beta` tags ahead of a 1.0 public release.
 
 ## [1.14.1-beta.1] — 2026-06-11
 
-Follow-up to the two-way Google Calendar release.
+Google Calendar auto-connect, database ownership transfer, and an iOS 26 Liquid
+Glass mobile navigation bar.
+
+### Added
+- **Transfer ownership of databases and individual tables.** A base owner or a
+  workspace admin can hand a database to another member (the outgoing owner is
+  kept on with admin access); each table now has its own owner who can rename,
+  delete and manage that table even without base-admin rights, transferable from
+  the table's ⋯ menu. Who can *see* a table stays at the base level.
 
 ### Changed
+- **Mobile navigation rebuilt as an iOS 26 Liquid Glass tab bar.** A translucent
+  floating capsule — four tabs (Dashboard, Calendar, Tasks, Decisions) plus a
+  detached circular **More** button that morphs the tabs to the rest (Database,
+  Servers, Archive, Settings). Content scrolls through the glass, the selection
+  capsule springs between tabs, and the bar minimizes on scroll. It stays on
+  every screen, so any section is one tap away.
 - **Google Calendar connects automatically on Google sign-in.** Signing in with
   Google now also enables two-way calendar sync — no separate "Connect" step.
   The Settings → Profile connect/disconnect card stays for password accounts and
