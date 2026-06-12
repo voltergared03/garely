@@ -36,6 +36,32 @@ Glass mobile navigation bar.
   Outlook/Apple Calendar via that feed is no longer available; the two-way Google
   sync covers meetings.
 
+### Fixed
+- **Rescheduling a missed meeting reopens it instead of leaving it "completed".**
+  An overdue meeting that someone briefly opened (so it was marked ended) and
+  then moved to a new time now returns to the upcoming state — no more phantom
+  "report" on a meeting that never happened. Genuine meetings with a real report
+  are never touched.
+- **The dashboard stops showing finished meetings as "next".** Once a meeting's
+  scheduled end time passes (start + duration), it no longer appears as the next
+  meeting or in the upcoming list; meetings in progress still show.
+- **Deleting a meeting that has a recording no longer fails silently.** The
+  archive now explains that a recording is attached and offers a single
+  "delete the meeting and its recording" action, with a clear error otherwise.
+- **Task status now syncs between the Tasks board and the AI report.** Ticking an
+  action item in a report persists like the board does (and reverts if the server
+  rejects it); an in-progress task is shown distinctly instead of as not-started.
+  Board status changes also revert on failure rather than appearing to succeed.
+- **View-only database access is now truly read-only.** Members shared a database
+  with the *viewer* role can no longer edit cells, set or replace 2FA codes and
+  passwords, upload files, or add/remove rows, fields and records — while still
+  being able to read everything (including viewing a 2FA code or revealing a
+  password). The whole grid, kanban, calendar and record view respect the role.
+- **2FA codes stay in sync with your authenticator.** The rotating code now
+  anchors to an absolute window boundary from the server and re-fetches at each
+  rotation (and when you return to the tab), so a backgrounded tab no longer
+  shows a code from a window that already expired.
+
 ## [1.14.0-beta.1] — 2026-06-10
 
 **The "calendar that just works" release.** Garely now lives inside Google

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { baseForOrg, gate, basePermission, canTransferBase } from '@/lib/base-engine';
+import { baseForOrg, gate, basePermission, canTransferBase, atLeast } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -31,6 +31,7 @@ export const GET = withRoute('bases.get', async (_req: NextRequest, ctx: Ctx) =>
     tables,
     ownerId: base.createdById,
     canManage: perm.level === 'admin',
+    canEdit: atLeast(perm.level, 'editor'),
     canTransfer: canTransferBase(base, r.session),
     currentUserId: r.session.user.id,
   });

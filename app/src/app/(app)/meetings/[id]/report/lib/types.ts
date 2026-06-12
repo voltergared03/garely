@@ -36,6 +36,9 @@ export interface ActionItem {
   assignees: { id: string | null; name: string; image: string | null; registered: boolean }[];
   dueDate: string | null;
   priority: 'high' | 'medium' | 'low';
+  // Canonical 3-state task status (mirrors the Tasks board); `done` is the
+  // derived shortcut (status === 'done') kept for the checkbox/PDF/export.
+  status: 'open' | 'in_progress' | 'done';
   done: boolean;
 }
 

@@ -35,6 +35,7 @@ export function FieldCell({
   baseId,
   rowId,
   onCommit,
+  readOnly = false,
 }: {
   field: FieldT;
   value: unknown;
@@ -42,6 +43,9 @@ export function FieldCell({
   baseId?: string;
   rowId?: string;
   onCommit: (value: unknown) => void;
+  /** Viewer mode: render the value but block ALL edits (reads like totp code /
+   *  password reveal / file open stay available in the sub-components). */
+  readOnly?: boolean;
 }) {
   switch (field.type) {
     case 'text':
@@ -49,9 +53,10 @@ export function FieldCell({
       return (
         <input
           style={cellInput}
+          readOnly={readOnly}
           defaultValue={typeof value === 'string' ? value : ''}
           key={String(value ?? '')}
-          onBlur={(e) => { if (e.target.value !== (value ?? '')) onCommit(e.target.value); }}
+          onBlur={readOnly ? undefined : (e) => { if (e.target.value !== (value ?? '')) onCommit(e.target.value); }}
           onKeyDown={enterBlur}
         />
       );
@@ -60,9 +65,10 @@ export function FieldCell({
         <input
           type="number"
           style={cellInput}
+          readOnly={readOnly}
           defaultValue={typeof value === 'number' ? String(value) : ''}
           key={String(value ?? '')}
-          onBlur={(e) => {
+          onBlur={readOnly ? undefined : (e) => {
             const v = e.target.value === '' ? '' : Number(e.target.value);
             if (v !== (value ?? '')) onCommit(v === '' ? '' : v);
           }}
@@ -73,8 +79,9 @@ export function FieldCell({
       return (
         <button
           type="button"
-          onClick={() => onCommit(!value)}
-          style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={readOnly ? undefined : () => onCommit(!value)}
+          disabled={readOnly}
+          style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', cursor: readOnly ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           aria-pressed={!!value}
         >
           <span
@@ -93,9 +100,10 @@ export function FieldCell({
         <input
           type="date"
           style={cellInput}
+          readOnly={readOnly}
           defaultValue={isoToDateInput(value)}
           key={isoToDateInput(value)}
-          onChange={(e) => onCommit(e.target.value || '')}
+          onChange={readOnly ? undefined : (e) => onCommit(e.target.value || '')}
         />
       );
     case 'singleSelect':
@@ -106,6 +114,7 @@ export function FieldCell({
           value={value}
           multiple={field.type === 'multiSelect'}
           onCommit={onCommit}
+          readOnly={readOnly}
         />
       );
     case 'person':
@@ -115,26 +124,27 @@ export function FieldCell({
           value={value}
           multiple={!!field.options?.multiple}
           onCommit={onCommit}
+          readOnly={readOnly}
         />
       );
     case 'currency':
-      return <AdornedNumberCell value={value} prefix={field.options?.symbol || '₴'} onCommit={onCommit} />;
+      return <AdornedNumberCell value={value} prefix={field.options?.symbol || '₴'} onCommit={onCommit} readOnly={readOnly} />;
     case 'percent':
-      return <AdornedNumberCell value={value} suffix="%" onCommit={onCommit} />;
+      return <AdornedNumberCell value={value} suffix="%" onCommit={onCommit} readOnly={readOnly} />;
     case 'rating':
-      return <RatingCell value={value} max={field.options?.max ?? 5} onCommit={onCommit} />;
+      return <RatingCell value={value} max={field.options?.max ?? 5} onCommit={onCommit} readOnly={readOnly} />;
     case 'url':
     case 'email':
     case 'phone':
-      return <LinkCell kind={field.type} value={value} onCommit={onCommit} />;
+      return <LinkCell kind={field.type} value={value} onCommit={onCommit} readOnly={readOnly} />;
     case 'file':
-      return <FileCell value={value} baseId={baseId} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
+      return <FileCell value={value} baseId={baseId} rowId={rowId} fieldId={field.id} onCommit={onCommit} readOnly={readOnly} />;
     case 'totp':
-      return <TotpCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
+      return <TotpCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} readOnly={readOnly} />;
     case 'password':
-      return <PasswordCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} />;
+      return <PasswordCell value={value} rowId={rowId} fieldId={field.id} onCommit={onCommit} readOnly={readOnly} />;
     case 'link':
-      return <RelationCell value={value} field={field} onCommit={onCommit} />;
+      return <RelationCell value={value} field={field} onCommit={onCommit} readOnly={readOnly} />;
     default:
       return null;
   }
@@ -146,11 +156,13 @@ function AdornedNumberCell({
   prefix,
   suffix,
   onCommit,
+  readOnly = false,
 }: {
   value: unknown;
   prefix?: string;
   suffix?: string;
   onCommit: (value: unknown) => void;
+  readOnly?: boolean;
 }) {
   const has = typeof value === 'number';
   return (
@@ -159,9 +171,10 @@ function AdornedNumberCell({
       <input
         type="number"
         style={{ ...cellInput, paddingLeft: prefix && has ? 4 : 10 }}
+        readOnly={readOnly}
         defaultValue={has ? String(value) : ''}
         key={String(value ?? '')}
-        onBlur={(e) => {
+        onBlur={readOnly ? undefined : (e) => {
           const v = e.target.value === '' ? '' : Number(e.target.value);
           if (v !== (value ?? '')) onCommit(v === '' ? '' : v);
         }}
@@ -173,7 +186,7 @@ function AdornedNumberCell({
 }
 
 /** Star rating, 1..max. Click the current value to step it down (0 clears). */
-function RatingCell({ value, max, onCommit }: { value: unknown; max: number; onCommit: (value: unknown) => void }) {
+function RatingCell({ value, max, onCommit, readOnly = false }: { value: unknown; max: number; onCommit: (value: unknown) => void; readOnly?: boolean }) {
   const cur = typeof value === 'number' ? value : 0;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: '0 8px', height: '100%', overflow: 'hidden' }}>
@@ -181,10 +194,11 @@ function RatingCell({ value, max, onCommit }: { value: unknown; max: number; onC
         <button
           key={n}
           type="button"
-          onClick={() => onCommit(cur === n ? n - 1 : n)}
+          onClick={readOnly ? undefined : () => onCommit(cur === n ? n - 1 : n)}
+          disabled={readOnly}
           aria-label={`${n}`}
           style={{
-            border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, display: 'inline-flex',
+            border: 'none', background: 'transparent', cursor: readOnly ? 'default' : 'pointer', padding: 0, display: 'inline-flex',
             color: n <= cur ? 'var(--amber, #f59e0b)' : 'var(--border-2, var(--border))',
           }}
         >
@@ -196,7 +210,7 @@ function RatingCell({ value, max, onCommit }: { value: unknown; max: number; onC
 }
 
 /** URL / email / phone: editable inline, with a trailing icon that opens the link. */
-function LinkCell({ kind, value, onCommit }: { kind: 'url' | 'email' | 'phone'; value: unknown; onCommit: (value: unknown) => void }) {
+function LinkCell({ kind, value, onCommit, readOnly = false }: { kind: 'url' | 'email' | 'phone'; value: unknown; onCommit: (value: unknown) => void; readOnly?: boolean }) {
   const v = typeof value === 'string' ? value : '';
   const href = !v
     ? ''
@@ -210,9 +224,10 @@ function LinkCell({ kind, value, onCommit }: { kind: 'url' | 'email' | 'phone'; 
     <div style={{ display: 'flex', alignItems: 'center', width: '100%', height: '100%' }}>
       <input
         style={cellInput}
+        readOnly={readOnly}
         defaultValue={v}
         key={v}
-        onBlur={(e) => { if (e.target.value !== v) onCommit(e.target.value); }}
+        onBlur={readOnly ? undefined : (e) => { if (e.target.value !== v) onCommit(e.target.value); }}
         onKeyDown={enterBlur}
       />
       {v && (
@@ -253,11 +268,13 @@ function ChoiceCell({
   value,
   multiple,
   onCommit,
+  readOnly = false,
 }: {
   choices: SelectChoice[];
   value: unknown;
   multiple: boolean;
   onCommit: (v: string | string[] | null) => void;
+  readOnly?: boolean;
 }) {
   const ids = Array.isArray(value)
     ? (value.filter((v) => typeof v === 'string') as string[])
@@ -328,13 +345,14 @@ function ChoiceCell({
       <button
         type="button"
         ref={btnRef}
-        onClick={toggle}
-        style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, padding: '0 8px', cursor: 'pointer', overflow: 'hidden' }}
+        onClick={readOnly ? undefined : toggle}
+        disabled={readOnly}
+        style={{ width: '100%', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, padding: '0 8px', cursor: readOnly ? 'default' : 'pointer', overflow: 'hidden' }}
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden', flexWrap: 'nowrap' }}>
           {selected.map((c) => <Chip key={c.id} choice={c} />)}
         </span>
-        <ChevronDown size={13} style={{ color: 'var(--muted)', flexShrink: 0, opacity: 0.6 }} />
+        {!readOnly && <ChevronDown size={13} style={{ color: 'var(--muted)', flexShrink: 0, opacity: 0.6 }} />}
       </button>
 
       {open && pos && typeof document !== 'undefined' &&

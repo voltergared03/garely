@@ -18,6 +18,7 @@ export function KanbanView({
   onCellChange,
   onAddRow,
   onOpenRecord,
+  readOnly = false,
 }: {
   table: TableT;
   rows: RowT[];
@@ -27,6 +28,8 @@ export function KanbanView({
   onCellChange: (rowId: string, fieldId: string, value: unknown) => void;
   onAddRow: (initial?: Record<string, unknown>) => void;
   onOpenRecord: (rowId: string) => void;
+  /** Viewer mode: no card drag, no add-row, no stack-by reconfigure. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const [dragId, setDragId] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export function KanbanView({
   if (!field) {
     return (
       <div>
-        {stackPicker}
+        {!readOnly && stackPicker}
         <div className="card" style={{ textAlign: 'center', padding: '36px 24px', fontSize: 13, color: 'var(--muted)' }}>{t('kanbanPickField')}</div>
       </div>
     );
@@ -80,7 +83,7 @@ export function KanbanView({
 
   return (
     <div>
-      {stackPicker}
+      {!readOnly && stackPicker}
       <div style={{ display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'flex-start', paddingBottom: 10 }}>
         {stacks.map((s) => {
           const over = overStack === s.id && dragId !== null;
@@ -113,9 +116,9 @@ export function KanbanView({
                   return (
                     <div
                       key={r.id}
-                      draggable
-                      onDragStart={() => setDragId(r.id)}
-                      onDragEnd={() => { setDragId(null); setOverStack(undefined); }}
+                      draggable={!readOnly}
+                      onDragStart={readOnly ? undefined : () => setDragId(r.id)}
+                      onDragEnd={readOnly ? undefined : () => { setDragId(null); setOverStack(undefined); }}
                       onClick={() => onOpenRecord(r.id)}
                       style={{
                         background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 11px',
@@ -140,14 +143,16 @@ export function KanbanView({
                   );
                 })}
 
-                <button
-                  onClick={() => onAddRow(s.id ? { [field.id]: s.id } : undefined)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 8px', border: '1px dashed var(--border)', borderRadius: 9, background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 12.5 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; }}
-                >
-                  <Plus size={14} /> {t('addRow')}
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => onAddRow(s.id ? { [field.id]: s.id } : undefined)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 8px', border: '1px dashed var(--border)', borderRadius: 9, background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontSize: 12.5 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; }}
+                  >
+                    <Plus size={14} /> {t('addRow')}
+                  </button>
+                )}
               </div>
             </div>
           );

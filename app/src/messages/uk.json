@@ -428,6 +428,10 @@
     "deleteConfirmBody": "Ви впевнені що хочете видалити «{title}»? Всі дані мітингу (транскрипти, звіти, таски) будуть видалені назавжди.",
     "deleting": "Видалення...",
     "deleteMeeting": "Видалити мітинг",
+    "deleteFailed": "Не вдалося видалити мітинг. Спробуйте ще раз.",
+    "deleteHasRecordingTitle": "Цей мітинг має запис",
+    "deleteHasRecordingBody": "«{title}» має збережений запис. Видалення мітингу назавжди видалить і запис. Продовжити?",
+    "deleteWithRecording": "Видалити мітинг і запис",
     "recurringBadge": "Регулярний",
     "aiReportBadge": "AI звіт",
     "foundInTranscript": "Знайдено в transcript ({count}):"

@@ -6,6 +6,9 @@ import { rowForOrg, basePermission } from '@/lib/base-engine';
 import { totpCellView } from '@/lib/base-totp';
 
 export const runtime = 'nodejs';
+// A rotating code must never be cached by a proxy/browser (would serve a stale
+// code+countdown after the window rotated).
+export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string; fieldId: string }> };
 
@@ -21,5 +24,5 @@ export const GET = withRoute('rows.totp', async (_req: NextRequest, ctx: Ctx) =>
   const perm = await basePermission(row.table.base, r.orgId, r.session);
   if (perm.hiddenFields.includes(fieldId)) return jsonError('forbidden', 403);
   const cell = (row.data as Record<string, unknown> | null)?.[fieldId];
-  return NextResponse.json(totpCellView(cell));
+  return NextResponse.json(totpCellView(cell), { headers: { 'Cache-Control': 'no-store' } });
 });

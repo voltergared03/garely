@@ -44,6 +44,7 @@ export function GridView({
   onDuplicateRows,
   onBulkDelete,
   onCopyRowLink,
+  readOnly = false,
 }: {
   table: TableT;
   rows: RowT[];
@@ -64,6 +65,8 @@ export function GridView({
   onDuplicateRows?: (ids: string[]) => void;
   onBulkDelete?: (ids: string[]) => void;
   onCopyRowLink?: (rowId: string) => void;
+  /** Viewer mode: cells become read-only and ALL edit/structure affordances are hidden. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const [editor, setEditor] = useState<{ field: FieldT | null } | null>(null);
@@ -86,7 +89,7 @@ export function GridView({
   const widthOf = (f: FieldT) => widths[f.id] ?? f.width ?? (f.id === table.primaryFieldId ? 240 : 180);
   const template = `${GUTTER}px ${fields.map((f) => `${widthOf(f)}px`).join(' ')} 160px`;
   const detailRow = detail ? rows.find((r) => r.id === detail.id) ?? null : null;
-  const rowsDraggable = canReorderRows && !!onReorderRows && rows.length > 1;
+  const rowsDraggable = !readOnly && canReorderRows && !!onReorderRows && rows.length > 1;
   const anySelected = selected.size > 0;
   const allSelected = rows.length > 0 && selected.size === rows.length;
 
@@ -137,7 +140,7 @@ export function GridView({
             onMouseEnter={() => setHeaderHover(true)}
             onMouseLeave={() => setHeaderHover(false)}
           >
-            {headerHover || anySelected
+            {!readOnly && (headerHover || anySelected)
               ? <Checkbox checked={allSelected} indeterminate={anySelected && !allSelected} onToggle={toggleAll} ariaLabel={t('selectAll')} />
               : <span>#</span>}
           </div>
@@ -155,7 +158,8 @@ export function GridView({
               onSetPrimary={() => onSetPrimary(f.id)}
               onResize={(w) => setWidths((prev) => ({ ...prev, [f.id]: w }))}
               onResizeEnd={(w) => onResizeField(f.id, w)}
-              draggable={!!onReorderFields && fields.length > 1}
+              readOnly={readOnly}
+              draggable={!readOnly && !!onReorderFields && fields.length > 1}
               dragging={dragField === f.id}
               overSide={dragField && dragField !== f.id && overField?.id === f.id ? (overField.after ? 'r' : 'l') : null}
               onDragStartCol={(e) => {
@@ -179,12 +183,14 @@ export function GridView({
             />
           ))}
           <div style={headerCell}>
-            <button
-              onClick={() => setEditor({ field: null })}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}
-            >
-              <Plus size={14} /> {t('addField')}
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setEditor({ field: null })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}
+              >
+                <Plus size={14} /> {t('addField')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -196,7 +202,7 @@ export function GridView({
             key={row.id}
             className="db-grid-row"
             style={{ display: 'grid', gridTemplateColumns: template, position: 'relative', opacity: dragRow === row.id ? 0.4 : 1, background: isSelected ? 'color-mix(in oklab, var(--accent) 10%, var(--bg))' : undefined }}
-            onContextMenu={(e) => { e.preventDefault(); setCtx({ rowId: row.id, x: e.clientX, y: e.clientY }); }}
+            onContextMenu={readOnly ? undefined : (e) => { e.preventDefault(); setCtx({ rowId: row.id, x: e.clientX, y: e.clientY }); }}
             onDragOver={dragRow ? (e) => {
               if (dragRow === row.id) return;
               e.preventDefault();
@@ -215,6 +221,7 @@ export function GridView({
               style={bodyCell}
               selected={isSelected}
               anySelected={anySelected}
+              readOnly={readOnly}
               onToggle={() => toggleRow(row.id)}
               draggable={rowsDraggable}
               onDragStartRow={(e) => {
@@ -226,7 +233,7 @@ export function GridView({
             />
             {fields.map((f, ci) => (
               <div key={f.id} style={ci === 0 ? { ...bodyCell, position: 'sticky', left: GUTTER, zIndex: 1, background: 'inherit', boxShadow: '2px 0 5px -2px rgba(0,0,0,.35)' } : bodyCell}>
-                <FieldCell field={f} value={row.data[f.id]} members={members} baseId={table.baseId} rowId={row.id} onCommit={(v) => onCellChange(row.id, f.id, v)} />
+                <FieldCell field={f} value={row.data[f.id]} members={members} baseId={table.baseId} rowId={row.id} onCommit={(v) => onCellChange(row.id, f.id, v)} readOnly={readOnly} />
               </div>
             ))}
             <div style={{ ...bodyCell, justifyContent: 'flex-end', paddingRight: 6 }}>
@@ -255,18 +262,20 @@ export function GridView({
         )}
       </div>
 
-      <button
-        onClick={() => onAddRow()}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '10px 14px', flexShrink: 0,
-          border: 'none', borderTop: '1px solid var(--border)',
-          background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13,
-        }}
-      >
-        <Plus size={15} /> {t('addRow')}
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => onAddRow()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '10px 14px', flexShrink: 0,
+            border: 'none', borderTop: '1px solid var(--border)',
+            background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: 13,
+          }}
+        >
+          <Plus size={15} /> {t('addRow')}
+        </button>
+      )}
 
-      {anySelected && (
+      {anySelected && !readOnly && (
         <BulkBar
           count={selected.size}
           label={t('selectedCount', { count: selected.size })}
@@ -314,6 +323,7 @@ export function GridView({
           onCellChange={onCellChange}
           onClose={() => setDetail(null)}
           initialFocus={detail?.focus}
+          readOnly={readOnly}
         />
       )}
     </div>
@@ -340,6 +350,7 @@ function RowGutter({
   style,
   selected,
   anySelected,
+  readOnly,
   onToggle,
   draggable,
   onDragStartRow,
@@ -349,6 +360,7 @@ function RowGutter({
   style: CSSProperties;
   selected: boolean;
   anySelected: boolean;
+  readOnly?: boolean;
   onToggle: () => void;
   draggable: boolean;
   onDragStartRow: (e: React.DragEvent) => void;
@@ -356,7 +368,7 @@ function RowGutter({
 }) {
   const t = useTranslations('database');
   const [hover, setHover] = useState(false);
-  const showControls = hover || selected || anySelected;
+  const showControls = !readOnly && (hover || selected || anySelected);
   return (
     <div
       style={{ ...style, gap: 4, padding: '0 8px', color: 'var(--muted)', fontSize: 12, position: 'sticky', left: 0, zIndex: 1, background: 'inherit' }}
@@ -424,6 +436,7 @@ function FieldHeaderCell({
   onResizeEnd,
   frozen,
   leftOffset,
+  readOnly,
   draggable,
   dragging,
   overSide,
@@ -443,6 +456,7 @@ function FieldHeaderCell({
   onResizeEnd: (w: number) => void;
   frozen?: boolean;
   leftOffset?: number;
+  readOnly?: boolean;
   draggable: boolean;
   dragging: boolean;
   overSide: 'l' | 'r' | null;
@@ -503,19 +517,21 @@ function FieldHeaderCell({
         {isPrimary ? <Star size={13} style={{ color: 'var(--amber, #f59e0b)', flexShrink: 0 }} /> : <Icon size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{field.name}</span>
       </span>
-      <button
-        ref={ref}
-        aria-label={t('menu')}
-        onClick={(e) => {
-          e.stopPropagation();
-          const r = ref.current!.getBoundingClientRect();
-          setPos({ left: r.right - 188, top: r.bottom });
-          setMenu((m) => !m);
-        }}
-        style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
-      >
-        <MoreHorizontal size={15} />
-      </button>
+      {!readOnly && (
+        <button
+          ref={ref}
+          aria-label={t('menu')}
+          onClick={(e) => {
+            e.stopPropagation();
+            const r = ref.current!.getBoundingClientRect();
+            setPos({ left: r.right - 188, top: r.bottom });
+            setMenu((m) => !m);
+          }}
+          style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+        >
+          <MoreHorizontal size={15} />
+        </button>
+      )}
       {menu && pos && typeof document !== 'undefined' &&
         createPortal(
           <div
@@ -531,15 +547,17 @@ function FieldHeaderCell({
       {overSide && (
         <div style={{ position: 'absolute', top: 0, bottom: 0, width: 2, background: 'var(--accent)', zIndex: 6, pointerEvents: 'none', ...(overSide === 'r' ? { right: -1 } : { left: -1 }) }} />
       )}
-      <div
-        className="col-resize-handle"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t('resizeColumn')}
-        onMouseDown={startResize}
-        onClick={(e) => e.stopPropagation()}
-        style={{ position: 'absolute', top: 0, right: -4, width: 8, height: '100%', cursor: 'col-resize', zIndex: 3 }}
-      />
+      {!readOnly && (
+        <div
+          className="col-resize-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t('resizeColumn')}
+          onMouseDown={startResize}
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: 'absolute', top: 0, right: -4, width: 8, height: '100%', cursor: 'col-resize', zIndex: 3 }}
+        />
+      )}
     </div>
   );
 }

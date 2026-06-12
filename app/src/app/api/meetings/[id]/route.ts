@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
 import { syncMeetingToGoogle } from '@/lib/calendar-sync';
 import { listTasks } from '@/lib/tasks';
+import { shouldReopenOnReschedule } from '@/lib/meeting-lifecycle';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
@@ -132,10 +133,49 @@ async function patchHandler(
     }
   }
 
+  // Re-open a rescheduled meeting. If an already-done meeting (an overdue one
+  // that was briefly opened then left → marked `ended`, or a cancelled one) is
+  // moved to a FUTURE time, it hasn't happened yet, so it must return to the
+  // upcoming state instead of staying "completed". Only when it produced nothing
+  // real (no report, no transcript) — a genuine past report is never discarded.
+  let reopened = false;
+  if (existing.status === 'ended' || existing.status === 'cancelled') {
+    const newSched = allowedFields.scheduledAt instanceof Date ? allowedFields.scheduledAt : null;
+    const scheduledAtChanged = 'scheduledAt' in meetingData && newSched != null
+      && (!existing.scheduledAt || existing.scheduledAt.getTime() !== newSched.getTime());
+    const [reportCount, transcriptCount] = await Promise.all([
+      prisma.meetingReport.count({ where: { meetingId: id } }),
+      prisma.transcriptSegment.count({ where: { meetingId: id } }),
+    ]);
+    reopened = shouldReopenOnReschedule({
+      currentStatus: existing.status,
+      statusExplicitlySet: 'status' in meetingData,
+      newScheduledAt: newSched,
+      scheduledAtChanged,
+      hasRealContent: reportCount > 0 || transcriptCount > 0,
+    });
+    if (reopened) {
+      allowedFields.status = 'scheduled';
+      allowedFields.endedAt = null;
+      allowedFields.reportStatus = null;
+      allowedFields.reportError = null;
+    }
+  }
+
   const meeting = await prisma.meeting.update({
     where: { id },
     data: allowedFields,
   });
+
+  // A re-opened meeting hasn't happened yet — clear the stale attendance stamps
+  // from the brief earlier open so the next real session records joins fresh
+  // (participant_joined only stamps joinedAt where it is still null).
+  if (reopened) {
+    await prisma.meetingParticipant.updateMany({
+      where: { meetingId: id },
+      data: { joinedAt: null, leftAt: null },
+    });
+  }
 
   // Update participants if provided
   if (Array.isArray(participants)) {

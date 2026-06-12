@@ -428,6 +428,10 @@
     "deleteConfirmBody": "Are you sure you want to delete «{title}»? All meeting data (transcripts, reports, tasks) will be deleted permanently.",
     "deleting": "Deleting...",
     "deleteMeeting": "Delete meeting",
+    "deleteFailed": "Couldn't delete the meeting. Please try again.",
+    "deleteHasRecordingTitle": "This meeting has a recording",
+    "deleteHasRecordingBody": "«{title}» has a saved recording. Deleting the meeting will permanently delete the recording too. Continue?",
+    "deleteWithRecording": "Delete meeting and recording",
     "recurringBadge": "Recurring",
     "aiReportBadge": "AI report",
     "foundInTranscript": "Found in transcript ({count}):"

@@ -21,11 +21,14 @@ export function PasswordCell({
   rowId,
   fieldId,
   onCommit,
+  readOnly = false,
 }: {
   value: unknown;
   rowId?: string;
   fieldId: string;
   onCommit: (value: unknown) => void;
+  /** Viewer mode: can still reveal/copy (reads), but cannot set/replace. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const tc = useTranslations('common');
@@ -72,8 +75,8 @@ export function PasswordCell({
     if (raw.length) onCommit(raw); // do NOT trim — whitespace can be significant
   };
 
-  // ── Set / replace mode ───────────────────────────────────────────
-  if (editing || !view.set) {
+  // ── Set / replace mode ── only when editable (viewers never set values) ──
+  if (!readOnly && (editing || !view.set)) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', height: '100%', padding: '0 8px' }}>
         <Lock size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
@@ -103,6 +106,11 @@ export function PasswordCell({
     );
   }
 
+  // Viewer looking at an empty cell — nothing to reveal.
+  if (!view.set) {
+    return <span style={{ padding: '0 10px', color: 'var(--muted)', fontSize: 13 }}>—</span>;
+  }
+
   // ── Display mode ─────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', height: '100%', padding: '0 8px', overflow: 'hidden' }}>
@@ -122,9 +130,11 @@ export function PasswordCell({
       <button type="button" aria-label={t('passwordCopy')} title={t('passwordCopy')} onClick={copy} style={iconBtn}>
         {copied ? <Check size={13} style={{ color: 'var(--green, #10b981)' }} /> : <Copy size={13} />}
       </button>
-      <button type="button" aria-label={t('passwordReplace')} title={t('passwordReplace')} onClick={() => setEditing(true)} style={iconBtn}>
-        <Pencil size={13} />
-      </button>
+      {!readOnly && (
+        <button type="button" aria-label={t('passwordReplace')} title={t('passwordReplace')} onClick={() => setEditing(true)} style={iconBtn}>
+          <Pencil size={13} />
+        </button>
+      )}
     </div>
   );
 }

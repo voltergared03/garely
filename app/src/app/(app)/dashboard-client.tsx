@@ -125,14 +125,24 @@ export function DashboardClient({
       image: p.user?.image || null,
     }));
 
-  const today = upcoming.filter(
+  // Hide a meeting once its scheduled END time (scheduledAt + duration) has
+  // passed — e.g. a 13:00–13:45 meeting disappears as "next" right after 13:45.
+  // An overdue `scheduled` meeting that never started must not surface as next.
+  // `live` (in progress) and untimed meetings always stay.
+  const stillUpcoming = (m: Meeting) =>
+    m.status === 'live' ||
+    !m.scheduledAt ||
+    new Date(m.scheduledAt).getTime() + (m.durationMin || 60) * 60_000 >= nowMs;
+  const visibleUpcoming = upcoming.filter(stillUpcoming);
+
+  const today = visibleUpcoming.filter(
     (m) => m.scheduledAt && isToday(new Date(m.scheduledAt), tz, now)
   );
-  const later = upcoming.filter(
+  const later = visibleUpcoming.filter(
     (m) => !m.scheduledAt || !isToday(new Date(m.scheduledAt), tz, now)
   );
 
-  const nextMeeting = today[0] || upcoming[0];
+  const nextMeeting = today[0] || visibleUpcoming[0];
 
   const handleDelete = async () => {
     if (!deleteMeeting) return;

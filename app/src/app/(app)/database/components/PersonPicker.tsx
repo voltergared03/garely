@@ -21,11 +21,13 @@ export function PersonPicker({
   value,
   multiple,
   onCommit,
+  readOnly = false,
 }: {
   members: OrgMember[];
   value: unknown;
   multiple?: boolean;
   onCommit: (v: string | string[] | null) => void;
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const ids = asIds(value);
@@ -100,10 +102,10 @@ export function PersonPicker({
 
   return (
     <>
-      <button type="button" ref={btnRef} onClick={toggle} style={cellBtn}>
+      <button type="button" ref={btnRef} onClick={readOnly ? undefined : toggle} disabled={readOnly} style={{ ...cellBtn, cursor: readOnly ? 'default' : 'pointer' }}>
         {selected.length === 0 ? (
           <span style={{ color: 'var(--muted-2, var(--muted))', display: 'inline-flex' }}>
-            <UserPlus size={14} />
+            {readOnly ? <span style={{ fontSize: 13 }}>—</span> : <UserPlus size={14} />}
           </span>
         ) : (
           selected.map((m) => (

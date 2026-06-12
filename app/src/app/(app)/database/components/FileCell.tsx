@@ -29,12 +29,15 @@ export function FileCell({
   rowId,
   fieldId,
   onCommit,
+  readOnly = false,
 }: {
   value: unknown;
   baseId?: string;
   rowId?: string;
   fieldId: string;
   onCommit: (value: unknown) => void;
+  /** Viewer mode: can open/download files (reads), but cannot upload/remove. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const files = asFiles(value);
@@ -43,7 +46,8 @@ export function FileCell({
   const [err, setErr] = useState(false);
   const [preview, setPreview] = useState<FileRef | null>(null);
 
-  const canUpload = !!baseId && !!rowId;
+  // Gates BOTH the upload button and each chip's remove-X. Reads (open/download) stay.
+  const canUpload = !readOnly && !!baseId && !!rowId;
   const serveUrl = (f: FileRef) => `/api/bases/${baseId}/files/${f.id}?row=${rowId}&field=${fieldId}`;
 
   async function upload(list: FileList) {

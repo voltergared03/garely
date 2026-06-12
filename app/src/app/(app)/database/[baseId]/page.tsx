@@ -320,6 +320,10 @@ export default function BaseDetailPage() {
 
   const accent = base.color || '#3b82f6';
   const restricted = base.visibility === 'restricted';
+  // Whether the caller may edit this table's data. Prefer the table-scoped flag
+  // (per-table owners exist); fall back to the base flag. Fail-closed: a missing
+  // flag (e.g. an old cached response) yields read-only, never accidental edit.
+  const canEdit = table?.canEdit ?? base.canEdit ?? false;
   const activeView = table ? (table.views.find((v) => v.id === activeViewId) ?? [...table.views].sort((a, b) => a.position - b.position)[0] ?? null) : null;
   const detailRow = detailRowId ? rows.find((r) => r.id === detailRowId) ?? null : null;
 
@@ -418,13 +422,14 @@ export default function BaseDetailPage() {
             sorts={activeView.config?.sorts ?? []}
             rowCount={rows.length}
             onChange={(next) => patchViewConfig(next, true)}
+            readOnly={!canEdit}
           />
           {activeView.type === 'kanban' ? (
-            <KanbanView table={table} rows={rows} members={members} stackFieldId={activeView.config?.kanbanStackFieldId} onSetStackField={(fid) => patchViewConfig({ kanbanStackFieldId: fid })} onCellChange={updateCell} onAddRow={addRow} onOpenRecord={setDetailRowId} />
+            <KanbanView table={table} rows={rows} members={members} stackFieldId={activeView.config?.kanbanStackFieldId} onSetStackField={(fid) => patchViewConfig({ kanbanStackFieldId: fid })} onCellChange={updateCell} onAddRow={addRow} onOpenRecord={setDetailRowId} readOnly={!canEdit} />
           ) : activeView.type === 'calendar' ? (
-            <CalendarView table={table} rows={rows} members={members} dateFieldId={activeView.config?.calendarDateFieldId} onSetDateField={(fid) => patchViewConfig({ calendarDateFieldId: fid })} onAddRow={addRow} onOpenRecord={setDetailRowId} />
+            <CalendarView table={table} rows={rows} members={members} dateFieldId={activeView.config?.calendarDateFieldId} onSetDateField={(fid) => patchViewConfig({ calendarDateFieldId: fid })} onAddRow={addRow} onOpenRecord={setDetailRowId} readOnly={!canEdit} />
           ) : (
-            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} onReorderFields={reorderFields} onReorderRows={reorderRows} canReorderRows={!(activeView.config?.sorts?.length)} onInsertRow={insertRows} onDuplicateRows={duplicateRows} onBulkDelete={bulkDeleteRows} onCopyRowLink={copyRowLink} />
+            <GridView table={table} rows={rows} members={members} onCellChange={updateCell} onAddRow={addRow} onAddField={addField} onEditField={editField} onDeleteRow={deleteRow} onDeleteField={deleteField} onSetPrimary={setPrimary} onResizeField={resizeField} onReorderFields={reorderFields} onReorderRows={reorderRows} canReorderRows={!(activeView.config?.sorts?.length)} onInsertRow={insertRows} onDuplicateRows={duplicateRows} onBulkDelete={bulkDeleteRows} onCopyRowLink={copyRowLink} readOnly={!canEdit} />
           )}
         </>
       )}
@@ -473,7 +478,7 @@ export default function BaseDetailPage() {
       </Modal>
 
       {detailRow && table && (
-        <RecordModal table={table} row={detailRow} members={members} onCellChange={updateCell} onClose={() => setDetailRowId(null)} />
+        <RecordModal table={table} row={detailRow} members={members} onCellChange={updateCell} onClose={() => setDetailRowId(null)} readOnly={!canEdit} />
       )}
 
       <Modal open={!!renameViewT} onClose={() => setRenameViewT(null)} title={t('renameView')} width={420}>

@@ -96,6 +96,11 @@ export default function ArchivePage() {
   const [filter, setFilter] = useState<FilterTab>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Meeting | null>(null);
+  // When the meeting can't be deleted because it has a saved recording, the API
+  // returns 409 — surface that (instead of failing silently) and offer to remove
+  // the recording too.
+  const [recBlocked, setRecBlocked] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'admin';
   const isMobile = useIsMobile();
@@ -103,16 +108,60 @@ export default function ArchivePage() {
   const locale = useLocale();
   const tz = useWorkspaceTz();
 
+  const closeConfirm = () => { setConfirmDelete(null); setRecBlocked(false); setDeleteErr(null); };
+
   const handleDelete = async () => {
     if (!confirmDelete) return;
     setDeletingId(confirmDelete.id);
+    setDeleteErr(null);
     try {
       const res = await fetch('/api/meetings/' + confirmDelete.id, { method: 'DELETE' });
       if (res.ok) {
         setMeetings(prev => prev.filter(m => m.id !== confirmDelete.id));
+        closeConfirm();
+      } else if (res.status === 409) {
+        // Blocked because a recording is attached — keep the dialog open and offer
+        // to delete the recording along with the meeting.
+        setRecBlocked(true);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setDeleteErr(d.error || t('archive.deleteFailed'));
       }
-    } catch (e) { console.error(e); }
-    finally { setDeletingId(null); setConfirmDelete(null); }
+    } catch (e) {
+      console.error(e);
+      setDeleteErr(t('archive.deleteFailed'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Delete the saved recording first (the meeting-delete guard refuses while one
+  // exists), then the meeting itself.
+  const handleDeleteWithRecording = async () => {
+    if (!confirmDelete) return;
+    setDeletingId(confirmDelete.id);
+    setDeleteErr(null);
+    try {
+      const recRes = await fetch(`/api/meetings/${confirmDelete.id}/recording`, { method: 'DELETE' });
+      if (!recRes.ok && recRes.status !== 404) {
+        const d = await recRes.json().catch(() => ({}));
+        setDeleteErr(d.error || t('archive.deleteFailed'));
+        return;
+      }
+      const res = await fetch('/api/meetings/' + confirmDelete.id, { method: 'DELETE' });
+      if (res.ok) {
+        setMeetings(prev => prev.filter(m => m.id !== confirmDelete.id));
+        closeConfirm();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setDeleteErr(d.error || t('archive.deleteFailed'));
+      }
+    } catch (e) {
+      console.error(e);
+      setDeleteErr(t('archive.deleteFailed'));
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   useEffect(() => {
@@ -297,18 +346,25 @@ export default function ArchivePage() {
           <div style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 1000,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-          }} onClick={() => setConfirmDelete(null)}>
+          }} onClick={closeConfirm}>
             <div className="card" style={{ maxWidth: 420, width: '100%', padding: '28px 24px' }}
               onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{t('archive.deleteConfirmTitle')}</div>
-              <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
-                {t('archive.deleteConfirmBody', { title: confirmDelete.title })}
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                {recBlocked ? t('archive.deleteHasRecordingTitle') : t('archive.deleteConfirmTitle')}
               </div>
+              <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: deleteErr ? 12 : 20, lineHeight: 1.5 }}>
+                {recBlocked
+                  ? t('archive.deleteHasRecordingBody', { title: confirmDelete.title })
+                  : t('archive.deleteConfirmBody', { title: confirmDelete.title })}
+              </div>
+              {deleteErr && (
+                <div style={{ color: '#fca5a5', fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>{deleteErr}</div>
+              )}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button className="btn" onClick={() => setConfirmDelete(null)}>{t('common.cancel')}</button>
-                <button className="btn" onClick={handleDelete} disabled={!!deletingId}
+                <button className="btn" onClick={closeConfirm}>{t('common.cancel')}</button>
+                <button className="btn" onClick={recBlocked ? handleDeleteWithRecording : handleDelete} disabled={!!deletingId}
                   style={{ background: 'color-mix(in oklab, var(--red) 22%, var(--surface))', color: '#fca5a5', borderColor: 'color-mix(in oklab, var(--red) 40%, var(--border))' }}>
-                  <Trash2 size={14} /> {deletingId ? t('archive.deleting') : t('common.delete')}
+                  <Trash2 size={14} /> {deletingId ? t('archive.deleting') : (recBlocked ? t('archive.deleteWithRecording') : t('common.delete'))}
                 </button>
               </div>
             </div>
@@ -359,7 +415,7 @@ export default function ArchivePage() {
               {/* Meeting rows */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {group.meetings.map((m) => (
-                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => setConfirmDelete(m)} mobile={isMobile} tz={tz} />
+                  <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => { setRecBlocked(false); setDeleteErr(null); setConfirmDelete(m); }} mobile={isMobile} tz={tz} />
                 ))}
               </div>
             </div>

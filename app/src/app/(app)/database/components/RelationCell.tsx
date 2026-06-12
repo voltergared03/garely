@@ -39,7 +39,7 @@ function cellLabel(value: unknown, field: { type?: string; options?: { choices?:
 }
 
 /** A `link` (relation) cell: chips of linked records + a picker over the target table. */
-export function RelationCell({ value, field, onCommit }: { value: unknown; field: FieldT; onCommit: (value: unknown) => void }) {
+export function RelationCell({ value, field, onCommit, readOnly = false }: { value: unknown; field: FieldT; onCommit: (value: unknown) => void; readOnly?: boolean }) {
   const t = useTranslations('database');
   const targetTableId = field.options?.targetTableId || '';
   const multiple = !!field.options?.multiple;
@@ -127,9 +127,9 @@ export function RelationCell({ value, field, onCommit }: { value: unknown; field
 
   return (
     <>
-      <button ref={btnRef} type="button" onClick={toggle} style={cellBtn}>
+      <button ref={btnRef} type="button" onClick={readOnly ? undefined : toggle} disabled={readOnly} style={{ ...cellBtn, cursor: readOnly ? 'default' : 'pointer' }}>
         {items.length === 0 ? (
-          <span style={{ color: 'var(--muted-2, var(--muted))', display: 'inline-flex' }}><Plus size={14} /></span>
+          <span style={{ color: 'var(--muted-2, var(--muted))', display: 'inline-flex' }}>{readOnly ? <span style={{ fontSize: 13 }}>—</span> : <Plus size={14} />}</span>
         ) : (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
             {items.map((it) => (

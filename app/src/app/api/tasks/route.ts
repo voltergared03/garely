@@ -27,7 +27,7 @@ const taskUpdateSchema = z.object({
   taskId: z.string().trim().min(1),
   title: z.string().trim().min(1).optional(),
   description: z.string().nullish(),
-  status: z.string().optional(),
+  status: z.enum(["open", "in_progress", "done"]).optional(),
   priority: z.string().optional(),
   dueDate: z.string().nullish(),
   assigneeId: z.string().nullish(),

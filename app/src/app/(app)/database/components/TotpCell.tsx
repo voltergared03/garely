@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslations } from 'next-intl';
 import { KeyRound, Copy, Check, X } from 'lucide-react';
 import type { TotpView } from '../lib/types';
@@ -18,51 +18,75 @@ export function TotpCell({
   rowId,
   fieldId,
   onCommit,
+  readOnly = false,
 }: {
   value: unknown;
   rowId?: string;
   fieldId: string;
   onCommit: (value: unknown) => void;
+  /** Viewer mode: still shows the live code (a read), but cannot set/replace the key. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const tc = useTranslations('common');
   const [view, setView] = useState<TotpView>(() => asView(value));
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+  const fetchingRef = useRef(false);
 
   // Re-seed when the cell value changes (e.g. after a row refetch or a set).
   useEffect(() => {
     setView(asView(value));
   }, [value]);
 
-  // Tick down; when the window elapses, fetch the next code from the server.
+  const refresh = useCallback(async () => {
+    if (!rowId || fetchingRef.current) return;
+    fetchingRef.current = true;
+    try {
+      const res = await fetch(`/api/rows/${rowId}/totp/${fieldId}`, { cache: 'no-store' });
+      if (res.ok) setView(await res.json());
+    } catch {
+      /* keep last code */
+    } finally {
+      fetchingRef.current = false;
+    }
+  }, [rowId, fieldId]);
+
+  // Re-anchor on mount + whenever the tab regains focus. The bulk row-GET seed is
+  // already stale by network latency, and a backgrounded tab freezes the tick — so
+  // without this the cell can show a code from a window that already rotated.
+  // Deps intentionally EXCLUDE view.validUntil (it changes on every refresh →
+  // would loop).
   useEffect(() => {
     if (!view.set || !rowId || editing) return;
-    let fetching = false;
-    const refresh = async () => {
-      if (fetching) return;
-      fetching = true;
-      try {
-        const res = await fetch(`/api/rows/${rowId}/totp/${fieldId}`);
-        if (res.ok) setView(await res.json());
-      } catch {
-        /* keep last code; try again next tick */
-      }
-      fetching = false;
+    refresh();
+    const onVis = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
     };
-    const iv = setInterval(() => {
-      setView((cur) => {
-        const rem = (cur.remainingSec ?? 0) - 1;
-        if (rem <= 0) {
-          refresh();
-          return { ...cur, remainingSec: 0 };
-        }
-        return { ...cur, remainingSec: rem };
-      });
-    }, 1000);
+  }, [view.set, rowId, editing, refresh]);
+
+  // Tick wall-clock every second (remaining is derived from validUntil − now, so
+  // it self-corrects against setInterval drift).
+  useEffect(() => {
+    if (!view.set || !rowId || editing) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
-  }, [view.set, rowId, fieldId, editing]);
+  }, [view.set, rowId, editing]);
+
+  // When the current window has elapsed, fetch the next code.
+  useEffect(() => {
+    if (view.set && view.validUntil && !editing && now >= view.validUntil) refresh();
+  }, [now, view.set, view.validUntil, editing, refresh]);
+
+  const remaining = view.validUntil
+    ? Math.max(0, Math.round((view.validUntil - now) / 1000))
+    : (view.remainingSec ?? 0);
 
   const submit = (raw: string) => {
     const s = raw.trim();
@@ -81,8 +105,8 @@ export function TotpCell({
     }
   };
 
-  // ── Set / replace mode ───────────────────────────────────────────
-  if (editing || !view.set) {
+  // ── Set / replace mode ── only when editable (viewers never set keys) ──
+  if (!readOnly && (editing || !view.set)) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', height: '100%', padding: '0 8px' }}>
         <KeyRound size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
@@ -116,6 +140,11 @@ export function TotpCell({
     );
   }
 
+  // Viewer looking at an empty cell — nothing to show, no settable input.
+  if (!view.set) {
+    return <span style={{ padding: '0 10px', color: 'var(--muted)', fontSize: 13 }}>—</span>;
+  }
+
   // ── Display mode ─────────────────────────────────────────────────
   const code = view.code ?? '------';
   const pretty = code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
@@ -135,11 +164,13 @@ export function TotpCell({
         {pretty}
         {copied ? <Check size={13} style={{ color: 'var(--green, #10b981)' }} /> : <Copy size={12} style={{ color: 'var(--muted)' }} />}
       </button>
-      <Ring remaining={view.remainingSec ?? 0} period={view.period ?? 30} />
+      <Ring remaining={remaining} period={view.period ?? 30} />
       <div style={{ flex: 1 }} />
-      <button type="button" aria-label={t('totpReplaceKey')} title={t('totpReplaceKey')} onClick={() => setEditing(true)} style={iconBtn}>
-        <KeyRound size={13} />
-      </button>
+      {!readOnly && (
+        <button type="button" aria-label={t('totpReplaceKey')} title={t('totpReplaceKey')} onClick={() => setEditing(true)} style={iconBtn}>
+          <KeyRound size={13} />
+        </button>
+      )}
     </div>
   );
 }

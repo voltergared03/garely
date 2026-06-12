@@ -388,11 +388,29 @@ export default function MeetingReportPage() {
     .map((n) => ({ id: null, name: n, guest: true }));
   const assignOptions: AssignOption[] = [...regParticipants, ...guestOptions];
 
-  const toggleActionItem = useCallback((id: string) => {
+  // Toggle an action item done/open AND persist it to the same /api/tasks status
+  // the board uses, so the report and the Tasks board stay in sync (was local-only
+  // before — the report checkbox never wrote, so changes never reached the board).
+  const toggleActionItem = useCallback(async (id: string) => {
+    const item = actionItems.find((i) => i.id === id);
+    if (!item) return;
+    const nextStatus: 'open' | 'done' = item.done ? 'open' : 'done';
+    const prevItems = actionItems;
     setActionItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, done: !item.done } : item))
+      prev.map((i) => (i.id === id ? { ...i, done: nextStatus === 'done', status: nextStatus } : i))
     );
-  }, []);
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: id, status: nextStatus }),
+      });
+      if (!res.ok) setActionItems(prevItems); // revert on failure
+    } catch (e) {
+      console.error(e);
+      setActionItems(prevItems);
+    }
+  }, [actionItems]);
 
   const deleteActionItem = useCallback(async (id: string) => {
     if (!window.confirm(tr('report.deleteActionItemConfirm'))) return;
@@ -1107,7 +1125,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                           width: 20,
                           height: 20,
                           borderRadius: 6,
-                          border: item.done ? 'none' : '2px solid var(--border-2)',
+                          border: item.done ? 'none' : item.status === 'in_progress' ? '2px solid #f59e0b' : '2px solid var(--border-2)',
                           background: item.done ? 'var(--green)' : 'transparent',
                           cursor: 'pointer',
                           display: 'flex',
@@ -1118,7 +1136,11 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                           transition: 'all 0.15s',
                         }}
                       >
-                        {item.done && <Check size={12} style={{ color: '#fff' }} />}
+                        {item.done
+                          ? <Check size={12} style={{ color: '#fff' }} />
+                          : item.status === 'in_progress'
+                            ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+                            : null}
                       </button>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div

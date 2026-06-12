@@ -11,13 +11,15 @@ import type { TableT, RowT, OrgMember } from '../lib/types';
 /** Expanded single-record view — every field stacked with its editor (the same
  *  FieldCell as the grid, so edits persist through the same onCellChange path).
  *  Shared by GridView, KanbanView and CalendarView. */
-export function RecordModal({ table, row, members, onCellChange, onClose, initialFocus }: {
+export function RecordModal({ table, row, members, onCellChange, onClose, initialFocus, readOnly = false }: {
   table: TableT;
   row: RowT;
   members: OrgMember[];
   onCellChange: (rowId: string, fieldId: string, value: unknown) => void;
   onClose: () => void;
   initialFocus?: 'comments';
+  /** Viewer mode: fields are read-only (reads like totp/password/file still work). */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const fields = [...table.fields].sort((a, b) => a.position - b.position);
@@ -45,6 +47,7 @@ export function RecordModal({ table, row, members, onCellChange, onClose, initia
                   baseId={table.baseId}
                   rowId={row.id}
                   onCommit={(v) => onCellChange(row.id, f.id, v)}
+                  readOnly={readOnly}
                 />
               </div>
             </div>

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOrg } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError, jsonOk } from '@/lib/http';
-import { tableForOrg, gateTable, basePermission, tablePermission, canTransferTable } from '@/lib/base-engine';
+import { tableForOrg, gateTable, basePermission, tablePermission, canTransferTable, atLeast } from '@/lib/base-engine';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,7 +26,7 @@ export const GET = withRoute('tables.get', async (_req: NextRequest, ctx: Ctx) =
   const level = await tablePermission(t, t.base, r.orgId, r.session);
   return NextResponse.json({
     id: t.id, baseId: t.baseId, name: t.name, icon: t.icon, primaryFieldId: t.primaryFieldId,
-    ownerId: t.createdById, canManage: level === 'admin', canTransfer: canTransferTable(t, t.base, r.session),
+    ownerId: t.createdById, canManage: level === 'admin', canEdit: atLeast(level, 'editor'), canTransfer: canTransferTable(t, t.base, r.session),
     fields: visibleFields, views,
   });
 });

@@ -19,6 +19,7 @@ export function CalendarView({
   onSetDateField,
   onAddRow,
   onOpenRecord,
+  readOnly = false,
 }: {
   table: TableT;
   rows: RowT[];
@@ -27,6 +28,8 @@ export function CalendarView({
   onSetDateField: (fieldId: string) => void;
   onAddRow: (initial?: Record<string, unknown>) => void;
   onOpenRecord: (rowId: string) => void;
+  /** Viewer mode: no per-day add, no date-field reconfigure. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const locale = useLocale();
@@ -63,7 +66,7 @@ export function CalendarView({
   if (!field) {
     return (
       <div>
-        <div style={{ marginBottom: 12 }}>{picker}</div>
+        {!readOnly && <div style={{ marginBottom: 12 }}>{picker}</div>}
         <div className="card" style={{ textAlign: 'center', padding: '36px 24px', fontSize: 13, color: 'var(--muted)' }}>{t('calendarPickField')}</div>
       </div>
     );
@@ -91,7 +94,7 @@ export function CalendarView({
         <button className="btn btn-ghost btn-icon" onClick={next} aria-label={t('nextMonth')} style={{ width: 30, height: 30 }}><ChevronRight size={17} /></button>
         <button className="btn btn-ghost" onClick={goToday} style={{ fontSize: 12.5 }}>{t('today')}</button>
         <div style={{ flex: 1 }} />
-        {picker}
+        {!readOnly && picker}
       </div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg)' }}>
@@ -121,14 +124,16 @@ export function CalendarView({
                     background: isToday ? 'var(--accent)' : 'transparent',
                     width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   }}>{c.day}</span>
-                  <button
-                    className="db-cal-add"
-                    onClick={() => onAddRow({ [field.id]: c.key })}
-                    aria-label={t('addRow')}
-                    style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', padding: 2, borderRadius: 5, opacity: 0 }}
-                  >
-                    <Plus size={13} />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      className="db-cal-add"
+                      onClick={() => onAddRow({ [field.id]: c.key })}
+                      aria-label={t('addRow')}
+                      style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'inline-flex', padding: 2, borderRadius: 5, opacity: 0 }}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  )}
                 </div>
                 {dayRows.slice(0, MAX_CHIPS).map((r) => {
                   const title = (primary && cellText(primary, r.data[primary.id], members)) || t('untitled');

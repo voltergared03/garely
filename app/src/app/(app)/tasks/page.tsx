@@ -424,11 +424,15 @@ function SubtaskList({ parent, mobile, onOpen, onChange }: {
   const [adding, setAdding] = useState(false);
   const subs = parent.subtasks || [];
 
-  const toggle = (s: Subtask, e: React.MouseEvent) => {
+  const toggle = async (s: Subtask, e: React.MouseEvent) => {
     e.stopPropagation();
     const next = s.status === "done" ? "open" : "done";
+    const prev = subs;
     onChange(subs.map(x => x.id === s.id ? { ...x, status: next } : x));
-    fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id, status: next }) }).catch(() => {});
+    try {
+      const res = await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taskId: s.id, status: next }) });
+      if (!res.ok) onChange(prev); // revert on failure instead of silently diverging
+    } catch { onChange(prev); }
   };
   const del = (s: Subtask, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1884,11 +1888,18 @@ export default function TasksPage() {
   }), [tasks, userId]);
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
+    const prevTasks = tasks;
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    await fetch("/api/tasks", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId, status: newStatus }),
-    });
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, status: newStatus }),
+      });
+      if (!res.ok) setTasks(prevTasks); // server rejected → revert the optimistic change
+    } catch (e) {
+      console.error(e);
+      setTasks(prevTasks);
+    }
   };
 
   // Inline quick-add from a list group. Create defaults to status "open"; for a

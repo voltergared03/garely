@@ -42,6 +42,7 @@ export function GridToolbar({
   sorts: initialSorts,
   rowCount,
   onChange,
+  readOnly = false,
 }: {
   fields: FieldT[];
   members: OrgMember[];
@@ -49,6 +50,8 @@ export function GridToolbar({
   sorts: SortCond[];
   rowCount: number;
   onChange: (next: { filters: FilterCond[]; sorts: SortCond[] }) => void;
+  /** Viewer mode: hide the filter/sort builders (they persist to the shared view config). */
+  readOnly?: boolean;
 }) {
   const t = useTranslations('database');
   const tc = useTranslations('common');
@@ -115,14 +118,18 @@ export function GridToolbar({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-      <button className="btn btn-ghost" onClick={() => setFilterOpen(true)} style={{ gap: 6, fontWeight: 600, ...activeBtn(filters.length > 0) }}>
-        <Filter size={15} /> {t('filter')}
-        {filters.length > 0 && <span style={pill}>{filters.length}</span>}
-      </button>
-      <button className="btn btn-ghost" onClick={() => setSortOpen(true)} style={{ gap: 6, fontWeight: 600, ...activeBtn(sorts.length > 0) }}>
-        <ArrowUpDown size={15} /> {t('sort')}
-        {sorts.length > 0 && <span style={pill}>{sorts.length}</span>}
-      </button>
+      {!readOnly && (
+        <>
+          <button className="btn btn-ghost" onClick={() => setFilterOpen(true)} style={{ gap: 6, fontWeight: 600, ...activeBtn(filters.length > 0) }}>
+            <Filter size={15} /> {t('filter')}
+            {filters.length > 0 && <span style={pill}>{filters.length}</span>}
+          </button>
+          <button className="btn btn-ghost" onClick={() => setSortOpen(true)} style={{ gap: 6, fontWeight: 600, ...activeBtn(sorts.length > 0) }}>
+            <ArrowUpDown size={15} /> {t('sort')}
+            {sorts.length > 0 && <span style={pill}>{sorts.length}</span>}
+          </button>
+        </>
+      )}
       <div style={{ flex: 1 }} />
       <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{rowCount} {t('recordsShort')}</span>
 

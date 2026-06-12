@@ -29,6 +29,18 @@ describe('base-totp', () => {
     expect(view.remainingSec).toBeLessThanOrEqual(30);
   });
 
+  it('exposes an absolute window boundary (validUntil) the client can anchor to', () => {
+    const cell = totpCellFromSecret(SECRET);
+    const at = 1_700_000_000_000; // 20s into a 30s window
+    const view = totpCellView(cell, at);
+    // windowStart = floor(at/1000/30)*30 = 1_699_999_980 → boundary at +30s
+    expect(view.validUntil).toBe(1_700_000_010_000);
+    expect((view.validUntil ?? 0) - at).toBe((view.remainingSec ?? 0) * 1000); // 10s left
+    // The code is computed from the window start, so it equals what an
+    // authenticator app shows for the same window (no off-by-one).
+    expect(view.code).toBe(totp(SECRET, view.validUntil! - 30_000));
+  });
+
   it('SECURITY: the view never leaks the secret or the encrypted blob', () => {
     const cell = totpCellFromSecret(SECRET);
     const view = totpCellView(cell);

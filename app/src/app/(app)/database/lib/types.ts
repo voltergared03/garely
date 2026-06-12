@@ -34,6 +34,8 @@ export interface TotpView {
   code?: string;
   period?: number;
   remainingSec?: number;
+  /** Absolute epoch-ms when this code expires; client anchors its countdown here. */
+  validUntil?: number;
 }
 
 /** Client-safe view of a `password` cell — only whether a value is set, never the value. */
@@ -134,6 +136,8 @@ export interface TableT {
   primaryFieldId?: string | null;
   ownerId?: string | null;
   canManage?: boolean;
+  /** Caller may edit this table's data (base/table level ≥ editor). Viewers = false. */
+  canEdit?: boolean;
   canTransfer?: boolean;
   fields: FieldT[];
   views: ViewT[];
@@ -159,6 +163,7 @@ export interface BaseDetail {
   createdById?: string | null;
   ownerId?: string | null;
   canManage?: boolean;
+  canEdit?: boolean;
   canTransfer?: boolean;
   currentUserId?: string | null;
   tables: TableTab[];
