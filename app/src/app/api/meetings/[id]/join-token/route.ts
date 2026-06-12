@@ -41,7 +41,7 @@ export async function POST(
     } else {
       meeting = await prisma.meeting.findUnique({
         where: { id },
-        select: { id: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true, scheduledAt: true, recurrence: true },
+        select: { id: true, title: true, description: true, agenda: true, livekitRoom: true, joinToken: true, status: true, allowGuests: true, createdById: true, scheduledAt: true, recurrence: true },
       });
     }
 
@@ -193,6 +193,11 @@ export async function POST(
       isAdmin,
       canKick: isHost || isAdmin,
       recordingActive: !!activeRec,
+      // Meeting briefing — lets participants review the description + agenda
+      // ("питання") right inside the call via the Agenda side-panel.
+      title: meeting.title ?? null,
+      description: meeting.description ?? null,
+      agenda: Array.isArray(meeting.agenda) ? meeting.agenda : null,
     });
   } catch (error: any) {
     console.error('Join token error:', error);

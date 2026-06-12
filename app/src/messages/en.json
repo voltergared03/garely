@@ -789,6 +789,7 @@
     "deleteFailed": "Couldn't delete the quiz"
   },
   "room": {
+    "agenda": "Agenda",
     "guestWantsToJoin": "A guest wants to join",
     "deny": "Deny",
     "admit": "Admit",

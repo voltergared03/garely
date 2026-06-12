@@ -7,6 +7,14 @@ export interface TranscriptEntry {
   timestamp: number;
 }
 
+// Pre-meeting briefing surfaced inside the call (Agenda side-panel): the
+// description + agenda items ("питання") entered when the meeting was scheduled.
+export interface MeetingBriefing {
+  title: string | null;
+  description: string | null;
+  agenda: string[] | null;
+}
+
 export interface FloatingReaction {
   id: string;
   emoji: string;

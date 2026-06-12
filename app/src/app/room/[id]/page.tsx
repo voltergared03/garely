@@ -26,10 +26,10 @@ import {
   Phone, MessageSquare, FileText, X, Languages,
   Send, MoreVertical, Users, UserPlus, Link2, Check,
   LogOut, Shield, Crown, Volume2, ChevronDown,
-  Smile, StickyNote, Sparkles, Zap, Save, Sidebar,
+  Smile, StickyNote, Sparkles, Zap, Save, Sidebar, ListChecks,
 } from 'lucide-react';
 import {
-  TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, REACTIONS,
+  TranscriptEntry, FloatingReaction, LiveAiNote, DetectedActionItem, MeetingBriefing, REACTIONS,
 } from './lib/types';
 import { AdmissionPanel } from './components/AdmissionPanel';
 import { ParticipantTile } from './components/ParticipantTile';
@@ -40,8 +40,8 @@ import { useIsMobile } from '@/lib/use-is-mobile';
 /* ══════════════════════════════════════════════════════════
    ROOM CONTENT — rendered inside <LiveKitRoom>
    ══════════════════════════════════════════════════════════ */
-function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, recordingActive }: {
-  meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean; recordingActive?: boolean;
+function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, recordingActive, meetingInfo }: {
+  meetingId: string; joinToken?: string; isGuest?: boolean; canKick?: boolean; openTranscript?: boolean; recordingActive?: boolean; meetingInfo?: MeetingBriefing;
 }) {
   const tr = useTranslations();
   const locale = useLocale();
@@ -51,8 +51,15 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
   const router = useRouter();
 
   /* ── sidebar state ─────────────────── */
-  const [sidePanel, setSidePanel] = useState<'chat' | 'transcript' | 'participants' | 'notes' | 'ai-notes' | null>(openTranscript ? 'transcript' : null);
+  const [sidePanel, setSidePanel] = useState<'agenda' | 'chat' | 'transcript' | 'participants' | 'notes' | 'ai-notes' | null>(openTranscript ? 'transcript' : null);
   const [showMore, setShowMore] = useState(false);
+  /* ── meeting briefing (description + agenda "питання") ── */
+  const agendaItems = useMemo(
+    () => (meetingInfo?.agenda ?? []).filter((s): s is string => typeof s === 'string' && s.trim().length > 0),
+    [meetingInfo],
+  );
+  const briefingDescription = meetingInfo?.description?.trim() || '';
+  const hasBriefing = briefingDescription.length > 0 || agendaItems.length > 0;
   const isMobile = useIsMobile();
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState('');
@@ -738,6 +745,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             }}>
               <div style={{ display: 'flex', flex: 1, minWidth: 0, overflowX: 'auto' }}>
                 {([
+                  ...(hasBriefing ? [{ id: 'agenda' as const, label: tr('room.agenda'), icon: <ListChecks size={16} />, badge: agendaItems.length }] : []),
                   { id: 'participants', label: tr('room.participants'), icon: <Users size={16} />, badge: humanCount > 1 ? humanCount : 0 },
                   { id: 'chat', label: tr('room.chat'), icon: <MessageSquare size={16} />, badge: chatMessages.length },
                   { id: 'transcript', label: tr('room.text'), icon: <FileText size={16} />, badge: 0 },
@@ -773,6 +781,47 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                 borderLeft: '1px solid rgba(255,255,255,.06)',
               }}><X size={16} /></button>
             </div>
+
+            {/* ── Agenda panel (meeting briefing: description + питання) ── */}
+            {sidePanel === 'agenda' && (
+              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 24px', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                {meetingInfo?.title && (
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.35, letterSpacing: '-0.01em' }}>
+                    {meetingInfo.title}
+                  </div>
+                )}
+                {briefingDescription && (
+                  <div>
+                    <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', marginBottom: 7 }}>
+                      {tr('meetingForm.description')}
+                    </div>
+                    <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.8)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                      {briefingDescription}
+                    </div>
+                  </div>
+                )}
+                {agendaItems.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', marginBottom: 10 }}>
+                      <ListChecks size={13} /> {tr('schedule.agendaHeading')}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {agendaItems.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <span style={{
+                            flexShrink: 0, width: 22, height: 22, borderRadius: 6,
+                            background: 'rgba(59,130,246,.15)', color: '#93c5fd',
+                            fontSize: 11, fontWeight: 700,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
+                          }}>{idx + 1}</span>
+                          <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,.85)', lineHeight: 1.5 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Participants panel ── */}
             {sidePanel === 'participants' && (
@@ -1152,6 +1201,7 @@ export default function MeetingRoomPage() {
   const [meetingIdReal, setMeetingIdReal] = useState('');
   const [canKick, setCanKick] = useState(false);
   const [recordingActive, setRecordingActive] = useState(false);
+  const [meetingInfo, setMeetingInfo] = useState<MeetingBriefing>({ title: null, description: null, agenda: null });
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(false);
 
@@ -1206,6 +1256,11 @@ export default function MeetingRoomPage() {
         }
         if (data.canKick) setCanKick(true);
         if (typeof data.recordingActive === 'boolean') setRecordingActive(data.recordingActive);
+        setMeetingInfo({
+          title: typeof data.title === 'string' ? data.title : null,
+          description: typeof data.description === 'string' ? data.description : null,
+          agenda: Array.isArray(data.agenda) ? data.agenda.filter((x: unknown) => typeof x === 'string' && x.trim()) : null,
+        });
       } catch (e: any) {
         console.error('Join token error:', e);
         if (!cancelled) setError(e.message);
@@ -1282,7 +1337,7 @@ export default function MeetingRoomPage() {
         }}
         style={{ height: '100%' }}
       >
-        <RoomContent meetingId={meetingIdReal || id as string} joinToken={joinToken} isGuest={!!guestName} canKick={canKick} openTranscript={startWithTranscript} recordingActive={recordingActive} />
+        <RoomContent meetingId={meetingIdReal || id as string} joinToken={joinToken} isGuest={!!guestName} canKick={canKick} openTranscript={startWithTranscript} recordingActive={recordingActive} meetingInfo={meetingInfo} />
       </LiveKitRoom>
     </div>
   );

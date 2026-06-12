@@ -61,6 +61,11 @@ Glass mobile navigation bar.
   anchors to an absolute window boundary from the server and re-fetches at each
   rotation (and when you return to the tab), so a backgrounded tab no longer
   shows a code from a window that already expired.
+- **The meeting description and agenda are now visible during the call.** Notes
+  and discussion points added when scheduling a meeting now appear in an
+  **Agenda** side-panel inside the room, and in the lobby before you join — not
+  only on the calendar. The panel is shown whenever a meeting has a description
+  or agenda items.
 
 ## [1.14.0-beta.1] — 2026-06-10
 

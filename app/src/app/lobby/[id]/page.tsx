@@ -9,7 +9,7 @@ import { Logo } from '@/components/ui/logo';
 import { AvatarStack } from '@/components/ui/avatar';
 import {
   Mic, MicOff, Video, VideoOff, Settings,
-  X, Users, Clock, Lock, ChevronDown, Volume2, Speaker,
+  X, Users, Clock, Lock, ChevronDown, Volume2, Speaker, ListChecks,
 } from 'lucide-react';
 import { fmtRelative, fmtTime } from '@/lib/utils';
 
@@ -211,6 +211,27 @@ export default function LobbyPage() {
                     <Clock size={13} /> {t('common.minutes', { count: meeting.durationMin })}
                   </div>
                 </div>
+
+                {Array.isArray(meeting.agenda) && meeting.agenda.filter((x: unknown) => typeof x === 'string' && x.trim()).length > 0 && (
+                  <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                      <ListChecks size={13} /> {t('schedule.agendaHeading')}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {(meeting.agenda as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                          <span style={{
+                            flexShrink: 0, width: 20, height: 20, borderRadius: 6,
+                            background: 'var(--accent-soft, rgba(59,130,246,.12))', color: 'var(--accent, #3b82f6)',
+                            fontSize: 11, fontWeight: 700,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
+                          }}>{idx + 1}</span>
+                          <span style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {meeting.participants && meeting.participants.length > 0 && (
                   <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
