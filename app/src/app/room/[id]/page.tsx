@@ -736,14 +736,14 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
         {/* ── SIDE PANEL ─────────────────── */}
         {sidePanel && (
           <div className="room-side-panel" style={{
-            width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column',
+            width: 400, flexShrink: 0, display: 'flex', flexDirection: 'column',
             background: '#1a1d23', borderLeft: '1px solid rgba(255,255,255,.08)',
           }}>
             <div style={{
               display: 'flex', alignItems: 'stretch',
               borderBottom: '1px solid rgba(255,255,255,.08)', flexShrink: 0,
             }}>
-              <div style={{ display: 'flex', flex: 1, minWidth: 0, overflowX: 'auto' }}>
+              <div style={{ display: 'flex', flex: 1, minWidth: 0, overflowX: 'hidden' }}>
                 {([
                   ...(hasBriefing ? [{ id: 'agenda' as const, label: tr('room.agenda'), icon: <ListChecks size={16} />, badge: agendaItems.length }] : []),
                   { id: 'participants', label: tr('room.participants'), icon: <Users size={16} />, badge: humanCount > 1 ? humanCount : 0 },
@@ -755,14 +755,14 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                   const on = sidePanel === tab.id;
                   return (
                     <button key={tab.id} onClick={() => setSidePanel(tab.id)} title={tab.label} style={{
-                      position: 'relative', flex: '1 0 auto',
+                      position: 'relative', flex: '1 1 0', minWidth: 0,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                      padding: '10px 12px', cursor: 'pointer', background: 'none', border: 'none',
+                      padding: '10px 6px', cursor: 'pointer', background: 'none', border: 'none',
                       borderBottom: on ? '2px solid #3b82f6' : '2px solid transparent',
                       color: on ? '#fff' : 'rgba(255,255,255,.5)', transition: 'color .15s',
                     }}>
                       {tab.icon}
-                      <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap' }}>{tab.label}</span>
+                      <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.label}</span>
                       {tab.badge > 0 && (
                         <span style={{
                           position: 'absolute', top: 4, right: 6,
