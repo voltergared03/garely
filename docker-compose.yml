@@ -111,7 +111,14 @@ services:
         condition: service_healthy
       eam-meet-redis:
         condition: service_healthy
-    mem_limit: 768m
+    # Raised from 768m. Not a fix for an observed failure — the agent has never been
+    # OOM-killed (0 restarts in 26 days, nothing in the kernel log) — but it sits at
+    # ~430 MB while IDLE, the highest share of its own ceiling of anything here, and
+    # that is before a busy call adds a Deepgram stream and an audio buffer per
+    # speaker. A limit is a ceiling rather than a reservation, so the headroom is
+    # free until it is needed. Total limits across the stack stay under host RAM
+    # (8.6 GB of 10.9 GB) even after this.
+    mem_limit: 1536m
     logging: *default-logging
     networks:
       - eam-meet
