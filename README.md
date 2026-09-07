@@ -197,9 +197,11 @@ forward `/` → `127.0.0.1:3100` and `/livekit/` + `/twirp/` → LiveKit on
 - **TLS** — issued automatically by the installer's **Caddy** proxy, or bring your own (nginx + certbot)
 - A **Google OAuth 2.0 client** for SSO — *optional*, can be added later in `/setup`
 - **Deepgram** (STT) + **DeepSeek** (LLM) API keys for AI features — *optional*, add later in admin → Settings
-- **RAM**: ~2 GB for app + LiveKit + agent. **Recording adds ~2 GB** while a
-  recording is active (Egress runs headless Chrome). Plan for ≥ 4 GB if you
-  intend to enable recording, or keep it disabled.
+- **RAM**: ~2 GB for app + LiveKit + agent. The default recording (mixed audio +
+  screen-share tracks) adds well under 100 MB while active — since egress v1.13.0
+  the audio-only composite runs through the LiveKit SDK, not a browser. Only the
+  legacy video-grid recording still launches a headless Chrome (~2 GB); plan for
+  ≥ 4 GB if you intend to use that one.
 
 ---
 
@@ -360,8 +362,14 @@ through the app's report card (play / download / keep / delete).
   recording when a meeting goes live.
 - **Retention**: set `WS_RETENTION_DAYS` (0 = keep indefinitely). A daily cron
   (`/api/cron/recordings`) deletes expired, non-permanent recordings.
-- **Resource cost**: each active recording launches a headless Chrome
-  (~1.5–2 GB RAM, ~1–2 CPU). Size your server accordingly.
+- **Resource cost**: the default audio + screen-share recording costs about one
+  CPU core and tens of MB of RAM (egress v1.13.0 SDK source, no browser). The
+  legacy video-grid recording launches a headless Chrome (~1.5–2 GB RAM, ~2–3
+  CPU); its declared `room_composite_cpu_cost` must stay below the egress
+  service's `cpus:` cap in `docker-compose.yml`, or the job is never admitted.
+- **Versions are pinned** (`livekit/egress:v1.13.0`, `livekit/livekit-server:v1.12.0`):
+  egress and the server speak a versioned protocol — egress 1.14.x needs server
+  1.13.x — so bump them together, never one to `:latest`.
 - Egress requires the shared **Redis** (already wired in `docker-compose.yml` +
   the `redis:` blocks of `livekit.yaml` / `egress.yaml`).
 
