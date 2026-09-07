@@ -491,9 +491,17 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
   const hasScreenShare = screenTracks.length > 0;
   const mainScreen = screenTracks[0];
 
-  /* ── grid columns calculation ─────── */
+  /* ── grid shape ─────────────────────
+   * Columns and rows are chosen together so the grid never leaves a dead cell: with
+   * three people the old 2-column grid put one tile alone on a second row beside an
+   * empty quadrant, and the tiles kept a fixed 16:9 box instead of taking the space.
+   * Every tile now fills its cell (video is object-fit: cover), rows are equal, and an
+   * odd last tile is centred by spanning the remaining columns. */
   const tileCount = visibleCameraTracks.length;
-  const gridCols = tileCount <= 1 ? 1 : tileCount <= 4 ? 2 : tileCount <= 9 ? 3 : 4;
+  const gridCols = tileCount <= 1 ? 1 : tileCount <= 2 ? 2 : tileCount <= 6 ? 3 : 4;
+  const gridRows = Math.max(1, Math.ceil(tileCount / gridCols));
+  // Cells left empty in the last row, e.g. 3 tiles in 3 cols → 0; 4 in 3 → 2; 5 in 3 → 1.
+  const lastRowGap = gridCols * gridRows - tileCount;
 
   /* ── language flags ────────────────── */
   const langFlag: Record<string, string> = { uk: '🇺🇦', en: '🇬🇧', ru: '🇷🇺' };
@@ -681,15 +689,25 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             ) : (
               <div className="room-video-grid" style={{
                 flex: 1, display: 'grid',
-                gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
-                gridAutoRows: tileCount <= 2 ? '1fr' : 'auto',
-                gap: 10,
-                alignContent: tileCount <= 2 ? 'stretch' : 'center',
-                alignItems: 'center', maxHeight: '100%',
+                // Doubled columns let an odd last tile span two units and land centred.
+                gridTemplateColumns: `repeat(${gridCols * 2}, 1fr)`,
+                gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+                gap: 10, minHeight: 0,
               }}>
-                {visibleCameraTracks.map(track => (
-                  <ParticipantTile key={track.participant.sid} track={track} fill={tileCount <= 2} />
-                ))}
+                {visibleCameraTracks.map((track, i) => {
+                  const inLastRow = i >= (gridRows - 1) * gridCols;
+                  // Shift the whole last row right by the gap so it is centred rather
+                  // than left-aligned against an empty quadrant.
+                  const offset = inLastRow && lastRowGap > 0 && i === (gridRows - 1) * gridCols ? lastRowGap : 0;
+                  return (
+                    <div key={track.participant.sid} style={{
+                      gridColumn: `${offset ? `${offset + 1} / ` : ''}span 2`,
+                      minWidth: 0, minHeight: 0,
+                    }}>
+                      <ParticipantTile track={track} fill />
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
