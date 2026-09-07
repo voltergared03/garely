@@ -11,6 +11,10 @@ import {
 } from '@/lib/clickup';
 import { createHmac } from 'crypto';
 
+// The real 90/min window would make a long test file sleep. vi.hoisted runs before the
+// static imports above, which is where the module reads the knob.
+vi.hoisted(() => { process.env.CLICKUP_RATE_LIMIT_PER_MIN = '100000'; });
+
 vi.mock('@/lib/prisma');
 vi.mock('@/lib/config', () => ({
   readConfig: vi.fn(async () => ({})),
@@ -1317,5 +1321,189 @@ describe('ensureClickUpWebhook', () => {
 
     expect(await ensureClickUpWebhook()).toEqual({ ok: true });
     expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
+});
+
+describe('getClickUpListsCached', () => {
+  const failing = (status: number) => ({ ok: false, status, json: async () => ({}), text: async () => 'boom', headers: { get: () => null } }) as unknown as Response;
+
+  it('walks once and serves the next call from the cache', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const a = await getClickUpListsCached();
+    const walkCalls = fetchMock.mock.calls.length;
+    const b = await getClickUpListsCached();
+    expect(a.stale).toBe(false);
+    expect(a.lists.map((l) => l.listId)).toEqual(['L_IT', 'L_INBOX']);
+    expect(b).toEqual(a);
+    expect(fetchMock.mock.calls.length).toBe(walkCalls); // no second walk
+  });
+
+  it('serves the last good snapshot with stale=true when the walk fails outright', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, __awaitClickUpListsWalk } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const good = await getClickUpListsCached();
+    __resetClickUpListsCache({ expire: true });
+    const real = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      String(url).includes('/team/team1/space') ? failing(429) : real(url, init));
+    const r = await getClickUpListsCached(); // served at once, walk refreshing behind
+    expect(r.stale).toBe(true);
+    expect(r.lists).toEqual(good.lists);
+    await __awaitClickUpListsWalk(); // ...and that walk fails
+    const r2 = await getClickUpListsCached();
+    expect(r2.stale).toBe(true);
+    expect(r2.lists).toEqual(good.lists);
+    expect(r2.error).toMatch(/429/);
+  });
+
+  it('does not cache a partial walk as complete: stale now, a fresh walk once the short TTL passes', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, __awaitClickUpListsWalk } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const real = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      String(url).includes('/space/sp2/list') ? failing(500) : real(url, init));
+    const r1 = await getClickUpListsCached();
+    expect(r1.stale).toBe(true);
+    expect(r1.lists.map((l) => l.listId)).toEqual(['L_IT']);
+    // Within the 30 s partial TTL repeated mounts coalesce: no new walk, still flagged.
+    const before = fetchMock.mock.calls.length;
+    const r1b = await getClickUpListsCached();
+    expect(r1b.stale).toBe(true);
+    expect(fetchMock.mock.calls.length).toBe(before);
+    // TTL over, ClickUp recovered: the stale snapshot is served at once and a walk refreshes it.
+    __resetClickUpListsCache({ expire: true });
+    fetchMock.mockImplementation(real);
+    const r2 = await getClickUpListsCached();
+    expect(r2.stale).toBe(true);
+    await __awaitClickUpListsWalk();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(before);
+    const r3 = await getClickUpListsCached();
+    expect(r3.stale).toBe(false);
+    expect(r3.lists.map((l) => l.listId)).toEqual(['L_IT', 'L_INBOX']);
+  });
+
+  it('a rate-limited FOLDER makes the walk partial too — never cached as complete', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, __awaitClickUpListsWalk } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const real = fetchMock.getMockImplementation()!;
+    const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) }) as Response;
+    let folderDown = true;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/space/sp1/folder')) return json({ folders: [{ id: 'F1', name: 'Sprint' }] }); // no embedded lists
+      if (u.includes('/folder/F1/list')) return folderDown ? failing(429) : json({ lists: [{ id: 'L_F1', name: 'Backlog' }] });
+      return real(url, init);
+    });
+    const r1 = await getClickUpListsCached();
+    expect(r1.stale).toBe(true);
+    expect(r1.lists.map((l) => l.listId)).not.toContain('L_F1');
+    expect(r1.error).toMatch(/folders in space IT/);
+    folderDown = false;
+    __resetClickUpListsCache({ expire: true });
+    await getClickUpListsCached();
+    await __awaitClickUpListsWalk();
+    const r2 = await getClickUpListsCached();
+    expect(r2.stale).toBe(false);
+    expect(r2.lists.map((l) => l.listId)).toContain('L_F1');
+  });
+
+  it('a partial walk merges into the snapshot instead of replacing lists it did not see', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, __awaitClickUpListsWalk } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const good = await getClickUpListsCached(); // L_IT + L_INBOX, complete
+    expect(good.lists).toHaveLength(2);
+    __resetClickUpListsCache({ expire: true });
+    const real = fetchMock.getMockImplementation()!;
+    const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) }) as Response;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes('/team/team1/space') && (init?.method || 'GET') === 'GET') return json({ spaces: [{ id: 'sp1', name: 'IT' }, { id: 'sp2', name: 'Call Inbox' }, { id: 'sp3', name: 'New' }] });
+      if (u.includes('/space/sp1/list')) return failing(429); // IT unreadable this time
+      if (u.includes('/space/sp3/list')) return json({ lists: [{ id: 'L_N1', name: 'A' }, { id: 'L_N2', name: 'B' }] });
+      return real(url, init);
+    });
+    await getClickUpListsCached(); // serves stale, kicks the walk
+    await __awaitClickUpListsWalk();
+    const r = await getClickUpListsCached();
+    expect(r.stale).toBe(true);
+    expect(r.lists.map((l) => l.listId).sort()).toEqual(['L_INBOX', 'L_IT', 'L_N1', 'L_N2']); // union, nothing lost
+  });
+
+  it('caches nothing when there is no configuration to walk with', async () => {
+    mockReadConfig.mockResolvedValue({});
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    const off = await getClickUpListsCached();
+    expect(off).toEqual({ lists: [], stale: false, error: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+    mockReadConfig.mockResolvedValue(enabledConfig); // admin connects a token
+    const on = await getClickUpListsCached();
+    expect(on.stale).toBe(false);
+    expect(on.lists).toHaveLength(2); // walked — the empty answer was not cached
+  });
+
+  it('invalidateClickUpListsCache forces a fresh walk (a new token means another workspace)', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, invalidateClickUpListsCache } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    await getClickUpListsCached();
+    const n = fetchMock.mock.calls.length;
+    invalidateClickUpListsCache();
+    const r = await getClickUpListsCached();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(n);
+    expect(r.stale).toBe(false);
+  });
+
+  it('an expired complete snapshot is served immediately while the walk refreshes it', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { getClickUpListsCached, __resetClickUpListsCache, __awaitClickUpListsWalk } = await import('@/lib/clickup');
+    __resetClickUpListsCache();
+    await getClickUpListsCached();
+    __resetClickUpListsCache({ expire: true });
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const real = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => { await gate; return real(url, init); });
+    const t0 = Date.now();
+    const r = await getClickUpListsCached(); // must not wait for the gated walk
+    expect(Date.now() - t0).toBeLessThan(200);
+    expect(r.stale).toBe(true);
+    expect(r.lists).toHaveLength(2);
+    release();
+    await __awaitClickUpListsWalk();
+    expect((await getClickUpListsCached()).stale).toBe(false);
+  });
+});
+
+describe('deleteClickUpCopies deadline', () => {
+  it('gives up inside the budget under a persistent 429 instead of sleeping past the proxy', async () => {
+    mockReadConfig.mockResolvedValue(enabledConfig);
+    const { fetchMock } = installFetch();
+    const { deleteClickUpCopies } = await import('@/lib/clickup');
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 429, text: async () => 'slow down', headers: { get: () => '30' } }) as unknown as Response);
+    const t0 = Date.now();
+    const r = await deleteClickUpCopies(
+      [{ clickupTaskId: 'CU1' }, { clickupTaskId: 'CU2' }] as any,
+      { deadline: Date.now() + 50 }, // already too short for any 30 s Retry-After
+    );
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(r.deleted).toEqual([]);
+    expect(r.failed.map((f) => f.clickupTaskId)).toEqual(['CU1', 'CU2']);
+    expect(r.failed[0].error).toMatch(/429/);
+    expect(fetchMock.mock.calls.length).toBe(2); // one attempt each, no retries
   });
 });

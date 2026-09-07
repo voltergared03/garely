@@ -66,6 +66,7 @@ export function IntegrationsTab() {
   // ClickUp integration config (paste token → it works)
   const [clickup, setClickup] = useState<{ enabled: boolean; tokenSet: boolean; routingMode: 'department' | 'inbox'; teamId: string; personalRouting: boolean; fallbackListId: string; migration?: { state?: string; total?: number; migrated?: number } | null }>({ enabled: false, tokenSet: false, routingMode: 'department', teamId: '', personalRouting: false, fallbackListId: '' });
   const [clickupLists, setClickupLists] = useState<{ listId: string; label: string }[]>([]);
+  const [clickupListsStale, setClickupListsStale] = useState(false);
   const [clickupToken, setClickupToken] = useState('');
   const [clickupSaving, setClickupSaving] = useState(false);
   const [clickupSaved, setClickupSaved] = useState(false);
@@ -258,8 +259,8 @@ export function IntegrationsTab() {
     if (manage === 'ClickUp' && clickup.enabled && clickup.tokenSet && clickupLists.length === 0) {
       fetch('/api/settings/clickup/lists')
         .then(r => (r.ok ? r.json() : null))
-        .then(d => { if (Array.isArray(d?.lists)) setClickupLists(d.lists); })
-        .catch(() => {});
+        .then(d => { if (Array.isArray(d?.lists)) setClickupLists(d.lists); setClickupListsStale(!d || !!d.stale); })
+        .catch(() => setClickupListsStale(true));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manage]);
@@ -781,6 +782,9 @@ export function IntegrationsTab() {
           label={t('settings.clickupRouting')}
         />
       </FieldWrapper>
+      {clickupListsStale && (
+        <div className={css.listsWarn} role="status">{t('departments.clickupListsLimited')}</div>
+      )}
       <FieldWrapper label={t('settings.clickupFallbackList')}>
         <Select
           value={clickup.fallbackListId}

@@ -31,6 +31,7 @@ export function DepartmentsTab() {
   const [editVal, setEditVal] = useState('');
   const [lists, setLists] = useState<ListOpt[]>([]);
   const [clickupOn, setClickupOn] = useState(false);
+  const [listsStale, setListsStale] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,8 +54,10 @@ export function DepartmentsTab() {
         if (!alive || !s?.enabled || !s?.tokenSet) return;
         setClickupOn(true);
         const d = await fetch('/api/settings/clickup/lists').then((r) => (r.ok ? r.json() : null));
-        if (alive && Array.isArray(d?.lists)) setLists(d.lists);
-      } catch { /* the picker just stays hidden */ }
+        if (!alive) return;
+        if (Array.isArray(d?.lists)) setLists(d.lists);
+        setListsStale(!d || !!d.stale); // rate-limited or failed → say so instead of a blank picker
+      } catch { if (alive) setListsStale(true); }
     })();
     return () => { alive = false; };
   }, []);
@@ -195,6 +198,9 @@ export function DepartmentsTab() {
         </div>
       ) : (
         <div className={s.listWrap}>
+          {clickupOn && listsStale && (
+            <div className={s.listsWarn} role="status">{t('departments.clickupListsLimited')}</div>
+          )}
           {depts.map((d) => {
             const isOpen = expanded === d.id;
             const dot = d.color || 'var(--accent)';

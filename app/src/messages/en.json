@@ -987,6 +987,7 @@
     "clickupPick": "Pick a ClickUp list…",
     "clickupNoList": "Not mapped — send to the fallback list",
     "clickupListHint": "Tasks routed to this department are pushed to this list. Pick it yourself — nothing is matched by name.",
+    "clickupListsLimited": "ClickUp is temporarily limiting requests, so this list may be incomplete or a few minutes old. It refreshes on its own — nothing you have already mapped is affected.",
     "clickupUnmapped": "No list",
     "clickupUnmappedHint": "This department has no ClickUp list, so its tasks go to the fallback list. Open it and pick one."
   },

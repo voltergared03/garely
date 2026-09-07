@@ -38,6 +38,7 @@ export function UsersTab() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [lists, setLists] = useState<ListOpt[]>([]);
   const [clickupOn, setClickupOn] = useState(false);
+  const [listsStale, setListsStale] = useState(false);
   const [editNameId, setEditNameId] = useState<string | null>(null);
   const [editNameVal, setEditNameVal] = useState('');
   const saveName = async (u: UserRecord) => {
@@ -202,8 +203,10 @@ export function UsersTab() {
         if (!alive || !s?.enabled || !s?.tokenSet) return;
         setClickupOn(true);
         const d = await fetch('/api/settings/clickup/lists').then((r) => (r.ok ? r.json() : null));
-        if (alive && Array.isArray(d?.lists)) setLists(d.lists);
-      } catch { /* the column just stays hidden */ }
+        if (!alive) return;
+        if (Array.isArray(d?.lists)) setLists(d.lists);
+        setListsStale(!d || !!d.stale); // rate-limited or failed → say so instead of a blank picker
+      } catch { if (alive) setListsStale(true); }
     })();
     return () => { alive = false; };
   }, []);
@@ -282,6 +285,9 @@ export function UsersTab() {
 
       <div className={`card ${s.tableCard}`}>
         <div className={s.tableScroll}>
+        {clickupOn && listsStale && (
+          <div className={s.listsWarn} role="status">{t('departments.clickupListsLimited')}</div>
+        )}
         <div className={`admin-table-header${clickupOn ? ' has-clickup' : ''} ${s.tableHeader}`}>
           <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colLanguage')}</div>{clickupOn && <div>{t('settings.colClickup')}</div>}<div>{t('settings.colStatus')}</div><div />
         </div>

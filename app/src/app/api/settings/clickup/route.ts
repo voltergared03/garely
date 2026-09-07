@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { readConfig, writeConfig } from '@/lib/config';
 import { encryptSecret } from '@/lib/twofactor';
-import { enableClickUpSync, disableClickUpSync, decodeToken } from '@/lib/clickup';
+import { enableClickUpSync, disableClickUpSync, decodeToken, invalidateClickUpListsCache } from '@/lib/clickup';
 
 // GET /api/settings/clickup — current ClickUp integration settings (token never
 // returned to the browser; only whether one is set).
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
   await writeConfig(updates);
+  invalidateClickUpListsCache(); // a new token or team means another workspace's lists
 
   // React to connect / disconnect (fire-and-forget — never blocks the response).
   // Connect (enable, or a new token) → register the reverse webhook + migrate existing

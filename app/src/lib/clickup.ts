@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
+import { RateWindow, RateLimitedError, acquire } from './rate-window';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { readConfig, writeConfig, publicBaseUrl } from './config';
@@ -151,12 +152,55 @@ function cuHeaders(token: string): Record<string, string> {
   return { Authorization: token, 'Content-Type': 'application/json' };
 }
 
-async function cuFetch(token: string, path: string, init?: RequestInit): Promise<Response> {
+// ClickUp allows ~100 requests/minute per token, for EVERYTHING this process does with
+// it. One shared window keeps a burst from one place (a settings tab walking every
+// Space on each mount, a run of deletes) from getting the whole integration answered
+// with 429. 90 leaves headroom for the retries below. CLICKUP_RATE_LIMIT_PER_MIN exists
+// for tests and for a workspace on a plan with a different budget.
+const CU_RATE_LIMIT_PER_MIN = Number(process.env.CLICKUP_RATE_LIMIT_PER_MIN) || 90;
+const cuWindow = new RateWindow(CU_RATE_LIMIT_PER_MIN, 60_000);
+const RETRY_AFTER_CAP_S = 30;
+const DELETE_BUDGET_MS = 40_000;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * `deadline` (absolute ms) bounds the wait for a window slot. A browser-facing route
+ * passes one so it fails inside the proxy's 60 s budget instead of hanging and then
+ * finishing the work after the user has already seen a 504; background work omits it.
+ * Missing the deadline surfaces as a ClickUp-style 429, which every caller already
+ * treats as "rejected, nothing happened, safe to retry later".
+ */
+async function cuFetch(token: string, path: string, init?: RequestInit, deadline?: number): Promise<Response> {
+  try {
+    await acquire(cuWindow, deadline === undefined ? {} : { maxWaitMs: Math.max(0, deadline - Date.now()) });
+  } catch (e) {
+    if (e instanceof RateLimitedError) throw new ClickUpHttpError(init?.method || 'GET', path, 429, 'local rate window: no slot before the deadline');
+    throw e;
+  }
   return fetch(`${CLICKUP_API}${path}`, {
     ...init,
     headers: { ...cuHeaders(token), ...(init?.headers || {}) },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
+}
+
+/**
+ * cuFetch that waits out a 429 instead of giving up. A 429 means the request was
+ * REJECTED, so nothing was created and a retry is safe even for POST/DELETE. Honour
+ * Retry-After (capped) up to two more times: the old "wait 3 s once" turned a busy
+ * minute into user-visible 502s. A retry that would cross `deadline` is skipped and
+ * the 429 is returned as is.
+ */
+async function cuFetchPatient(token: string, path: string, init?: RequestInit, deadline?: number, attempts = 3): Promise<Response> {
+  let res = await cuFetch(token, path, init, deadline);
+  for (let i = 1; i < attempts && res.status === 429; i++) {
+    const retryAfter = Number(res.headers?.get?.('retry-after')) || 2;
+    const waitMs = Math.min(retryAfter, RETRY_AFTER_CAP_S) * 1000;
+    if (deadline !== undefined && Date.now() + waitMs > deadline) break;
+    await sleep(waitMs);
+    res = await cuFetch(token, path, init, deadline);
+  }
+  return res;
 }
 
 /**
@@ -175,15 +219,8 @@ export class ClickUpHttpError extends Error {
   }
 }
 
-async function cuJson<T = any>(token: string, path: string, init?: RequestInit): Promise<T> {
-  let res = await cuFetch(token, path, init);
-  if (res.status === 429) {
-    // Respect the rate limit (~100 req/min): wait out Retry-After once, then retry.
-    // Safe even for POST: a 429 means the request was rejected, so nothing was created.
-    const retryAfter = Math.min(Number(res.headers.get('retry-after')) || 1, 3);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    res = await cuFetch(token, path, init);
-  }
+async function cuJson<T = any>(token: string, path: string, init?: RequestInit, deadline?: number): Promise<T> {
+  const res = await cuFetchPatient(token, path, init, deadline);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     // Never include the token; truncate the body.
@@ -262,14 +299,34 @@ export interface ClickUpListOption {
  * alone is a coin flip.
  */
 export async function listAllClickUpLists(): Promise<ClickUpListOption[]> {
+  return (await walkClickUpLists()).lists;
+}
+
+/**
+ * The walk itself, on one deadline so a rate-limited ClickUp cannot hold a settings
+ * request for minutes. `partial` = at least one Space OR Folder could not be read (its
+ * lists are missing); `walked` = false when there was no configuration to walk with.
+ */
+const WALK_BUDGET_MS = 40_000;
+type Walk = { lists: ClickUpListOption[]; partial: boolean; error: string | null; walked: boolean };
+
+async function walkClickUpLists(): Promise<Walk> {
   const cfg = await getClickUpConfig();
-  if (!cfg) return [];
+  if (!cfg) return { lists: [], partial: false, error: null, walked: false };
+  const deadline = Date.now() + WALK_BUDGET_MS;
   const teamId = await resolveTeamId(cfg);
-  const spaces = await cuJson<{ spaces?: { id: string; name: string }[] }>(cfg.token, `/team/${teamId}/space?archived=false`);
+  const spaces = await cuJson<{ spaces?: { id: string; name: string }[] }>(cfg.token, `/team/${teamId}/space?archived=false`, undefined, deadline);
   const out: ClickUpListOption[] = [];
+  let partial = false;
+  let error: string | null = null;
   for (const space of spaces.spaces || []) {
     try {
-      for (const l of await listsInSpace(cfg.token, space.id)) {
+      const inSpace = await listsInSpace(cfg.token, space.id, deadline);
+      if (inSpace.partial) {
+        partial = true;
+        error = error ?? `ClickUp: some folders in space ${space.name} could not be read`;
+      }
+      for (const l of inSpace.lists) {
         out.push({
           listId: l.id,
           label: [space.name, l.folderName, l.name].filter(Boolean).join(' / '),
@@ -277,10 +334,84 @@ export async function listAllClickUpLists(): Promise<ClickUpListOption[]> {
         });
       }
     } catch (e) {
+      partial = true;
+      error = error ?? (e as Error).message.slice(0, 200);
       console.error('[clickup] list discovery failed for space', space.name, (e as Error).message);
     }
   }
-  return out;
+  return { lists: out, partial, error, walked: true };
+}
+
+/**
+ * The list picker's view of the walk — stale-while-revalidate, shared by every
+ * settings tab:
+ *  - a complete snapshot is served as fresh for five minutes;
+ *  - anything older (or a partial one) is served IMMEDIATELY with `stale: true` while
+ *    one walk refreshes it in the background (single-flight) — a rate-limited ClickUp
+ *    must never turn the picker into a spinner or a blank select;
+ *  - a partial walk is merged into the snapshot by listId (never replaces lists an
+ *    earlier walk saw) and counts as fresh for only 30 s, so repeated tab mounts during
+ *    a bad minute coalesce without freezing the incomplete answer for five minutes;
+ *  - a walk that could not happen (integration off, token undecryptable) caches nothing.
+ *
+ * Why: each walk is ~20 ClickUp calls, and three settings tabs each ran one on every
+ * mount. Nine mounts in thirty seconds (someone clicking between tabs) blew the
+ * 100/min budget and the picker answered 502 nine times in a row.
+ */
+const LISTS_TTL_MS = 5 * 60_000;
+const PARTIAL_TTL_MS = 30_000;
+let listsCache: { at: number; lists: ClickUpListOption[]; complete: boolean; lastError: string | null } | null = null;
+let listsInFlight: Promise<Walk> | null = null;
+
+function applyWalk(r: Walk): void {
+  if (!r.walked) return; // nothing was read — leave whatever we had, cache nothing new
+  if (!r.partial) {
+    listsCache = { at: Date.now(), lists: r.lists, complete: true, lastError: null };
+    return;
+  }
+  const merged = new Map((listsCache?.lists ?? []).map((l) => [l.listId, l]));
+  for (const l of r.lists) merged.set(l.listId, l);
+  listsCache = { at: Date.now(), lists: [...merged.values()], complete: false, lastError: r.error };
+}
+
+function startWalk(): Promise<Walk> {
+  if (!listsInFlight) {
+    const p = walkClickUpLists();
+    listsInFlight = p;
+    // Nobody may be awaiting this when it settles (stale-while-revalidate), so record
+    // the outcome and absorb a rejection here: an unhandled one kills the process.
+    void p.then(applyWalk, (e) => { if (listsCache) listsCache.lastError = (e as Error).message.slice(0, 200); })
+      .finally(() => { if (listsInFlight === p) listsInFlight = null; });
+  }
+  return listsInFlight;
+}
+
+export async function getClickUpListsCached(): Promise<{ lists: ClickUpListOption[]; stale: boolean; error: string | null }> {
+  const c = listsCache;
+  const age = c ? Date.now() - c.at : Infinity;
+  if (c && c.complete && age < LISTS_TTL_MS) return { lists: c.lists, stale: false, error: null };
+  if (c && !c.complete && age < PARTIAL_TTL_MS) return { lists: c.lists, stale: true, error: c.lastError };
+  const walk = startWalk();
+  if (c) return { lists: c.lists, stale: true, error: c.lastError }; // serve now, refresh behind
+  const r = await walk; // nothing to serve yet: this one waits (bounded by WALK_BUDGET_MS)
+  if (!r.walked) return { lists: [], stale: false, error: null };
+  return { lists: listsCache?.lists ?? r.lists, stale: r.partial, error: r.error };
+}
+
+/** Call after any ClickUp config write: a new token means another workspace's lists. */
+export function invalidateClickUpListsCache(): void {
+  listsCache = null;
+}
+
+/** Tests only. */
+export function __resetClickUpListsCache(opts?: { expire?: boolean }): void {
+  if (opts?.expire && listsCache) { listsCache = { ...listsCache, at: 0 }; return; }
+  listsCache = null;
+  listsInFlight = null;
+}
+/** Tests only: settle the background walk, if one is running. */
+export async function __awaitClickUpListsWalk(): Promise<void> {
+  if (listsInFlight) await listsInFlight.catch(() => {});
 }
 
 /**
@@ -295,15 +426,18 @@ export async function listAllClickUpLists(): Promise<ClickUpListOption[]> {
  */
 interface SpaceList { id: string; name: string; folderName?: string }
 
-async function listsInSpace(token: string, spaceId: string): Promise<SpaceList[]> {
+async function listsInSpace(token: string, spaceId: string, deadline?: number): Promise<{ lists: SpaceList[]; partial: boolean }> {
   const out: SpaceList[] = [];
+  let partial = false;
 
-  const folderless = await cuJson<{ lists?: { id: string; name: string }[] }>(token, `/space/${spaceId}/list?archived=false`);
+  const folderless = await cuJson<{ lists?: { id: string; name: string }[] }>(token, `/space/${spaceId}/list?archived=false`, undefined, deadline);
   out.push(...(folderless.lists || []));
 
   const folders = await cuJson<{ folders?: { id: string; name: string; lists?: { id: string; name: string }[] }[] }>(
     token,
     `/space/${spaceId}/folder?archived=false`,
+    undefined,
+    deadline,
   );
   for (const folder of folders.folders || []) {
     // The folder payload usually embeds its lists; fall back to a fetch if it doesn't.
@@ -312,14 +446,17 @@ async function listsInSpace(token: string, spaceId: string): Promise<SpaceList[]
       continue;
     }
     try {
-      const inFolder = await cuJson<{ lists?: { id: string; name: string }[] }>(token, `/folder/${folder.id}/list?archived=false`);
+      const inFolder = await cuJson<{ lists?: { id: string; name: string }[] }>(token, `/folder/${folder.id}/list?archived=false`, undefined, deadline);
       out.push(...(inFolder.lists || []).map((l) => ({ ...l, folderName: folder.name })));
     } catch (e) {
+      // A folder deleted mid-walk (404) is not missing data. Anything else — a 429, a
+      // 5xx, a timeout — means lists we could not see, and the caller must know.
+      if (!(e instanceof ClickUpHttpError && e.status === 404)) partial = true;
       console.error('[clickup] list discovery failed for folder', folder.name, (e as Error).message);
     }
   }
 
-  return out;
+  return { lists: out, partial };
 }
 
 /** Resolve a list's "Source" dropdown field id + the "Garely Call" option id. */
@@ -1526,18 +1663,13 @@ export async function clickUpCopiesForRows(rowIds: string[]): Promise<ClickUpCop
  * is exactly the state the caller wants. Anything else throws so the caller can keep
  * the Garely row rather than orphan a copy nobody can reach again.
  */
-export async function deleteClickUpTask(token: string, clickupTaskId: string): Promise<void> {
+export async function deleteClickUpTask(token: string, clickupTaskId: string, deadline?: number): Promise<void> {
   markSelfDeleted(clickupTaskId); // before the call: the echo can beat our own await
   // NOT cuJson: a successful DELETE returns an EMPTY body, and res.json() on that
   // throws "Unexpected end of JSON input". That read the task as a failed delete even
   // though ClickUp had already removed it — so the Garely row was kept and the copy
   // was orphaned the other way round. Only the status matters here.
-  let res = await cuFetch(token, `/task/${clickupTaskId}`, { method: 'DELETE' });
-  if (res.status === 429) {
-    const retryAfter = Math.min(Number(res.headers.get('retry-after')) || 1, 3);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    res = await cuFetch(token, `/task/${clickupTaskId}`, { method: 'DELETE' });
-  }
+  const res = await cuFetchPatient(token, `/task/${clickupTaskId}`, { method: 'DELETE' }, deadline);
   if (res.ok || res.status === 404) return; // 404 = already gone, which is the goal
   const body = await res.text().catch(() => '');
   throw new ClickUpHttpError('DELETE', `/task/${clickupTaskId}`, res.status, body);
@@ -1552,6 +1684,7 @@ export async function deleteClickUpTask(token: string, clickupTaskId: string): P
  */
 export async function deleteClickUpCopies(
   copies: ClickUpCopy[],
+  opts: { deadline?: number } = {},
 ): Promise<{ deleted: string[]; failed: { clickupTaskId: string; error: string }[] }> {
   const deleted: string[] = [];
   const failed: { clickupTaskId: string; error: string }[] = [];
@@ -1562,9 +1695,12 @@ export async function deleteClickUpCopies(
     // would strand every copy, and a later reconnect would re-adopt them as ghosts.
     return { deleted, failed: copies.map((c) => ({ clickupTaskId: c.clickupTaskId, error: 'clickup_disabled' })) };
   }
+  // One deadline for the whole task, inside the proxy's 60 s: the tasks page is
+  // waiting on this, and the local rows are only removed when nothing here failed.
+  const deadline = opts.deadline ?? Date.now() + DELETE_BUDGET_MS;
   for (const c of copies) {
     try {
-      await deleteClickUpTask(cfg.token, c.clickupTaskId);
+      await deleteClickUpTask(cfg.token, c.clickupTaskId, deadline);
       deleted.push(c.clickupTaskId);
     } catch (e) {
       failed.push({ clickupTaskId: c.clickupTaskId, error: (e as Error).message.slice(0, 200) });

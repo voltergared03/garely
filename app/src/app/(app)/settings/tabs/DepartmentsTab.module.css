@@ -67,3 +67,14 @@
 .iconBtn28 { width: 28px; height: 28px; }
 .removeBtn { width: 28px; height: 28px; color: var(--red); }
 .addMemberWrap { max-width: 320px; }
+
+/* ClickUp list picker: the walk was rate-limited or failed, so the options may be stale */
+.listsWarn {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 12.5px;
+  line-height: 1.4;
+}

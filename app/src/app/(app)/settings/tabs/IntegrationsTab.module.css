@@ -151,3 +151,14 @@
 .modalName { font-weight: 600; font-size: 15px; }
 .modalDesc { font-size: 12px; color: var(--muted); }
 .modalBody { padding: 18px 20px 22px; }
+
+/* ClickUp list picker: the walk was rate-limited or failed, so the options may be stale */
+.listsWarn {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
