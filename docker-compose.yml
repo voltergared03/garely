@@ -9,7 +9,9 @@ x-logging: &default-logging
 services:
   # --- LiveKit Server (WebRTC SFU) ---
   livekit:
-    image: livekit/livekit-server:latest
+    # Pinned on purpose. Egress and the server speak a versioned protocol; a stray
+    # `docker compose pull` moving one of them to :latest can break recording.
+    image: livekit/livekit-server:v1.12.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:7880:7880"
@@ -29,7 +31,11 @@ services:
 
   # --- LiveKit Egress (meeting recording → /recordings) ---
   egress:
-    image: livekit/egress:latest
+    # v1.13.0 records an audio-only room composite through the SDK (no headless Chrome),
+    # which is what dropped the audio recording from ~2.75 cores to ~1 and stopped the
+    # "CPU exhausted" kills. Protocol-compatible with livekit-server v1.12.0 above;
+    # 1.14.x is NOT (needs server 1.13.x) — bump both together.
+    image: livekit/egress:v1.13.0
     restart: unless-stopped
     environment:
       - EGRESS_CONFIG_FILE=/etc/egress.yaml
@@ -44,9 +50,10 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
-    # Each recording launches a headless Chrome (~1.5-2 GB). Cap it so a runaway
-    # (or a 2nd concurrent recording) can't OOM the rest of the host — the
-    # recording fails instead of taking down the box.
+    # A video room composite still launches a headless Chrome (~1.5-2 GB); the
+    # audio-only path no longer does. Cap it so a runaway (or a 2nd concurrent
+    # recording) can't OOM the rest of the host — the recording fails instead of
+    # taking down the box.
     mem_limit: 3g
     # The cap MUST sit above room_composite_cpu_cost in egress.yaml, with headroom.
     # LiveKit kills a handler that outgrows the cost it declared, so under-declaring
