@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, pad } from '@/lib/utils';
@@ -74,14 +74,37 @@ export function WeekView({
     return arr;
   }, []);
 
+  // The "now" line used to be a useMemo with no dependencies — computed once when
+  // the view mounted and never again, so it sat at the minute you opened the page
+  // until you reloaded. It ticks on the minute now, aligned to the wall clock so it
+  // moves exactly when the clock does, and re-checks on visibilitychange because a
+  // backgrounded tab's timers are throttled and can arrive late.
+  const [nowMins, setNowMins] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMins(d.getHours() * 60 + d.getMinutes());
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const msToNextMinute = 60_000 - (Date.now() % 60_000);
+    const timeout = setTimeout(() => { tick(); interval = setInterval(tick, 60_000); }, msToNextMinute);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearTimeout(timeout);
+      if (interval) clearInterval(interval);
+    };
+  }, []);
   const nowLineTop = useMemo(() => {
-    const now = new Date();
-    const mins = now.getHours() * 60 + now.getMinutes();
     const startMins = START_HOUR * 60;
     const endMins = END_HOUR * 60;
-    if (mins < startMins || mins > endMins) return null;
-    return ((mins - startMins) / (endMins - startMins)) * (TOTAL_HOURS * ROW_H);
-  }, []);
+    if (nowMins < startMins || nowMins > endMins) return null;
+    return ((nowMins - startMins) / (endMins - startMins)) * (TOTAL_HOURS * ROW_H);
+  }, [nowMins]);
 
   return (
     <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
