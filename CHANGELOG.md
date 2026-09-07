@@ -4,6 +4,27 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.11] — 2026-09-07
+
+ClickUp stopped answering twice in a day, and each time it was us asking too much at once.
+
+### Fixed
+- **The ClickUp list picker in Settings went blank, and task deletion failed, whenever
+  ClickUp was busy.** ClickUp allows about a hundred requests a minute, and everything
+  Garely did with it drew from that budget with no coordination. Clicking between the
+  Users, Departments and Integrations tabs re-read every Space, Folder and List on each
+  click — nine times in thirty seconds was enough for ClickUp to refuse, and the picker
+  showed an error for six minutes. A run of task deletions ran out the same way and came
+  back "deleted partially". Now every request goes through one shared queue, a refusal
+  is waited out rather than given up on, and the list of ClickUp lists is read once and
+  shared by every tab for five minutes. When ClickUp is limiting, the picker shows the
+  last known lists with a note that they may be incomplete, instead of nothing.
+- **A task deletion could time out in the browser and still finish on the server.**
+  Deleting waits for ClickUp first, and under load that wait could pass the sixty
+  seconds the proxy allows — the browser reported a failure while the server carried
+  on and removed the task anyway. Deletion now gives up within its budget and says so;
+  the task stays until a retry succeeds.
+
 ## [1.25.0-beta.10] — 2026-09-07
 
 Recording without a browser, and a meeting that could be moved out from under the
@@ -1152,6 +1173,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.11]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.11
 [1.25.0-beta.10]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.10
 [1.25.0-beta.9]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.9
 [1.25.0-beta.8]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.8
