@@ -790,3 +790,13 @@
   justify-content: space-between;
   align-items: center;
 }
+
+/* Edit-meeting modal: server-side save error (e.g. the meeting is live and cannot be moved) */
+.saveErr {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 13px;
+}

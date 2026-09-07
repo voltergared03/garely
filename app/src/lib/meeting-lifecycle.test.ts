@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldReopenOnReschedule } from './meeting-lifecycle';
+import { shouldReopenOnReschedule, liveRescheduleAction } from './meeting-lifecycle';
 
 const D = (s: string) => new Date(s);
 
@@ -45,5 +45,27 @@ describe('shouldReopenOnReschedule', () => {
 
   it('respects an explicit status in the request (caller intent wins)', () => {
     expect(shouldReopenOnReschedule({ ...base, statusExplicitlySet: true })).toBe(false);
+  });
+});
+
+describe('liveRescheduleAction', () => {
+  const live = { currentStatus: 'live', statusExplicitlySet: false, scheduledAtChanged: true } as const;
+
+  it('refuses to move a meeting that is really happening', () => {
+    expect(liveRescheduleAction({ ...live, verdict: 'held' })).toBe('conflict');
+  });
+  it('resets a false start (someone opened the room early, nothing said) so the move goes through', () => {
+    expect(liveRescheduleAction({ ...live, verdict: 'abandoned' })).toBe('reset');
+  });
+  it('does nothing when the time is not actually moving', () => {
+    expect(liveRescheduleAction({ ...live, scheduledAtChanged: false, verdict: 'abandoned' })).toBe('none');
+  });
+  it('does nothing when the caller set status itself', () => {
+    expect(liveRescheduleAction({ ...live, statusExplicitlySet: true, verdict: 'abandoned' })).toBe('none');
+  });
+  it('only applies to a live meeting', () => {
+    for (const s of ['scheduled', 'ended', 'cancelled']) {
+      expect(liveRescheduleAction({ ...live, currentStatus: s, verdict: 'abandoned' })).toBe('none');
+    }
   });
 });

@@ -5,7 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { sendMeetingInvite } from '@/lib/meeting-invite';
 import { syncMeetingToGoogle } from '@/lib/calendar-sync';
 import { listTasks } from '@/lib/tasks';
-import { shouldReopenOnReschedule } from '@/lib/meeting-lifecycle';
+import { shouldReopenOnReschedule, liveRescheduleAction } from '@/lib/meeting-lifecycle';
+import { classifyMeetingAttempt, discardAttemptRecordings } from '@/lib/meeting-attempt-facts';
+import { roomService } from '@/lib/livekit';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
@@ -162,10 +164,55 @@ async function patchHandler(
     }
   }
 
+  // Rescheduling a meeting that is LIVE right now — someone is already in the room.
+  // A real meeting in progress cannot be moved (409); a false start (an invitee opened
+  // the room early, nothing was said) is reset: the room is closed so the early visitor
+  // lands back in the lobby with the new time, and the meeting returns to `scheduled`
+  // as if the false start never happened. See liveRescheduleAction.
+  let resetLiveAttempt = false;
+  if (existing.status === 'live' && !('status' in meetingData)) {
+    const newSched = allowedFields.scheduledAt instanceof Date ? allowedFields.scheduledAt : null;
+    const scheduledAtChanged = 'scheduledAt' in meetingData && newSched != null
+      && (!existing.scheduledAt || existing.scheduledAt.getTime() !== newSched.getTime());
+    if (scheduledAtChanged) {
+      const { verdict } = await classifyMeetingAttempt(id);
+      const action = liveRescheduleAction({ currentStatus: existing.status, statusExplicitlySet: false, scheduledAtChanged, verdict });
+      if (action === 'conflict') {
+        const t = await getTranslations('errors');
+        return NextResponse.json({ error: t('meetingLiveCannotReschedule'), liveConflict: true }, { status: 409 });
+      }
+      if (action === 'reset') {
+        resetLiveAttempt = true;
+        reopened = true; // clears the false start's joinedAt/leftAt stamps below
+        allowedFields.status = 'scheduled';
+        allowedFields.startedAt = null;
+        allowedFields.endedAt = null;
+        allowedFields.reportStatus = null;
+        allowedFields.reportError = null;
+      }
+    }
+  }
+
   const meeting = await prisma.meeting.update({
     where: { id },
     data: allowedFields,
   });
+
+  if (resetLiveAttempt) {
+    // Status is already `scheduled`, so the room_finished webhook this triggers finds no
+    // live meeting and ignores it — nothing gets marked ended by the close itself.
+    await discardAttemptRecordings(id, existing.startedAt).catch(() => {});
+    if (existing.startedAt) {
+      await prisma.transcriptSegment.deleteMany({
+        where: { meetingId: id, startEpochMs: { gte: existing.startedAt.getTime() } },
+      }).catch(() => {});
+    }
+    if (existing.livekitRoom) {
+      await roomService.deleteRoom(existing.livekitRoom).catch((e: any) => {
+        console.error('[meetings.update] deleteRoom after reschedule failed', existing.livekitRoom, e?.message || e);
+      });
+    }
+  }
 
   // A re-opened meeting hasn't happened yet — clear the stale attendance stamps
   // from the brief earlier open so the next real session records joins fresh

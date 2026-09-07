@@ -1274,9 +1274,14 @@ export default function MeetingRoomPage() {
           audioOutput: spkDeviceId ? { deviceId: spkDeviceId } : undefined,
         }}
         onDisconnected={() => {
-          if (guestName) router.push('/');
-          else if (id === 'quick') router.push('/');
-          else router.push(`/meetings/${id}/report`);
+          if (guestName || id === 'quick') { router.push('/'); return; }
+          // The host may have moved the meeting while we were in the room: a false start
+          // that gets rescheduled goes back to `scheduled` and the room is closed. Land in
+          // the lobby, which shows the new time, instead of on an empty report page.
+          fetch(`/api/meetings/${id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((m: any) => router.push(m?.status === 'scheduled' ? `/lobby/${id}` : `/meetings/${id}/report`))
+            .catch(() => router.push(`/meetings/${id}/report`));
         }}
         style={{ height: '100%' }}
       >

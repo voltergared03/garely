@@ -81,12 +81,26 @@ export default function LobbyPage() {
 
   useEffect(() => { enumerateDevices(); }, []);
 
+  // Fetch once, then re-poll every 20 s: the host may move the meeting while someone is
+  // already waiting here, and the waiting person must see the new time, not the old one.
+  const firstSchedRef = useRef<string | null | undefined>(undefined);
+  const [timeMoved, setTimeMoved] = useState(false);
   useEffect(() => {
     if (id === 'quick') return;
-    fetch(`/api/meetings/${id}`)
+    let cancelled = false;
+    const load = () => fetch(`/api/meetings/${id}`)
       .then((r) => { if (!r.ok) throw new Error('Not found'); return r.json(); })
-      .then((m: any) => setMeeting(m))
+      .then((m: any) => {
+        if (cancelled) return;
+        const sched = m.scheduledAt ?? null;
+        if (firstSchedRef.current === undefined) firstSchedRef.current = sched;
+        else if (sched !== firstSchedRef.current) setTimeMoved(true);
+        setMeeting(m);
+      })
       .catch(console.error);
+    load();
+    const i = setInterval(load, 20000);
+    return () => { cancelled = true; clearInterval(i); };
   }, [id]);
 
   // Re-evaluate the "too early" gate on a timer so the join button unlocks once the
@@ -184,6 +198,11 @@ export default function LobbyPage() {
                   {meeting.scheduledAt && (
                     <div className={s.scheduledLabel}>
                       {fmtRelative(new Date(meeting.scheduledAt), locale)} &bull; {fmtTime(new Date(meeting.scheduledAt))}
+                    </div>
+                  )}
+                  {timeMoved && meeting.scheduledAt && (
+                    <div className={s.timeMoved} role="status">
+                      <Clock size={13} /> {t('lobby.timeChanged', { time: fmtTime(new Date(meeting.scheduledAt)) })}
                     </div>
                   )}
                   <h1 className={s.title}>

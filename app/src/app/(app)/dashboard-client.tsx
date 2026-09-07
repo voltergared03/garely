@@ -470,6 +470,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
   const [time, setTime] = useState(initFields?.time ?? '14:00');
   const [duration, setDuration] = useState(meeting.durationMin);
   const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
   const [agenda, setAgenda] = useState<string[]>(Array.isArray(meeting.agenda) ? meeting.agenda : []);
   const [newAgendaItem, setNewAgendaItem] = useState('');
   const [aiAgendaLoading, setAiAgendaLoading] = useState(false);
@@ -539,7 +540,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
 
   const save = async () => {
     if (!title.trim()) return;
-    setSaving(true);
+    setSaving(true); setSaveErr(null);
     try {
       const scheduledAt = date && time ? zonedWallTimeToUtcISO(date, time, tz) : null;
       const res = await fetch(`/api/meetings/${meeting.id}`, {
@@ -557,8 +558,12 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
       if (res.ok) {
         const updated = await res.json();
         onSave(updated);
+      } else {
+        // e.g. 409: the meeting is live with people in it and cannot be moved.
+        const d = await res.json().catch(() => ({}));
+        setSaveErr(d.error || t('meetingForm.saveFailed'));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setSaveErr(t('meetingForm.saveFailed')); }
     finally { setSaving(false); }
   };
 
@@ -691,6 +696,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
           </div>
         </div>
 
+        {saveErr && <div className={s.saveErr} role="alert">{saveErr}</div>}
         <div className={s.editActions}>
           <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !title.trim()}>

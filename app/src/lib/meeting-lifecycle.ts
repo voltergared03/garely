@@ -40,3 +40,40 @@ export function shouldReopenOnReschedule(input: ReopenInput): boolean {
   if (!input.newScheduledAt) return false;
   return input.scheduledAtChanged;
 }
+
+export type LiveRescheduleAction = 'none' | 'conflict' | 'reset';
+
+export interface LiveRescheduleInput {
+  /** The meeting's current status before this update. */
+  currentStatus: string;
+  /** True when the PATCH body explicitly carried a `status` (caller's intent wins). */
+  statusExplicitlySet: boolean;
+  /** True when scheduledAt is actually being moved (present in the body and != current). */
+  scheduledAtChanged: boolean;
+  /** classifyAttempt's verdict for the CURRENT attempt — `held` means it is really happening. */
+  verdict: 'held' | 'abandoned';
+}
+
+/**
+ * Rescheduling a meeting that is `live` right now — someone is already in the room.
+ *
+ * Two very different situations look identical in the database:
+ *   - a real meeting in progress: people are talking, a transcript is growing. Moving it
+ *     to another time makes no sense — the host should end it or create a new one.
+ *     → `conflict`: refuse with a clear message, change nothing.
+ *   - a false start: an invitee opened the room early (or the host clicked in and out),
+ *     nothing was said. The host now moves the meeting to when it will really happen.
+ *     → `reset`: allow the move, close the room so the early visitor lands back in the
+ *       lobby with the new time, and return the meeting to `scheduled` as if the false
+ *       start never happened (fresh startedAt on the real join, no phantom "ended").
+ *
+ * The line between the two is the same held/abandoned verdict the post-meeting pipeline
+ * uses, so a meeting is never wiped while it has real content. Never fires when the
+ * caller set `status` itself, and never when the time is not actually moving.
+ */
+export function liveRescheduleAction(input: LiveRescheduleInput): LiveRescheduleAction {
+  if (input.statusExplicitlySet) return 'none';
+  if (input.currentStatus !== 'live') return 'none';
+  if (!input.scheduledAtChanged) return 'none';
+  return input.verdict === 'held' ? 'conflict' : 'reset';
+}
