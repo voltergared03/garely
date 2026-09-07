@@ -152,6 +152,7 @@ export function WorkspaceTab() {
         <Toggle label={t('settings.allowGuestsByLink')} value={ws.WS_GUEST_ACCESS} onChange={v => set('WS_GUEST_ACCESS', v)} />
         <Toggle label={t('settings.aiSummaryAuto')} value={ws.WS_AI_SUMMARY} onChange={v => set('WS_AI_SUMMARY', v)} />
         <Toggle label={t('settings.liveTranscriptDefault')} value={ws.WS_LIVE_TRANSCRIPTION} onChange={v => set('WS_LIVE_TRANSCRIPTION', v)} />
+        <Toggle label={t('settings.taskCreationDefault')} value={ws.WS_TASK_CREATION} onChange={v => set('WS_TASK_CREATION', v)} />
         <Toggle label={t('settings.recordAllMeetings')} value={ws.WS_RECORD_ALL} onChange={v => set('WS_RECORD_ALL', v)} />
         <Toggle label={t('settings.require2faAdmins')} value={ws.WS_REQUIRE_2FA} onChange={v => set('WS_REQUIRE_2FA', v)} disabled={my2fa === false && !ws.WS_REQUIRE_2FA} />
         {my2fa === false && !ws.WS_REQUIRE_2FA && (

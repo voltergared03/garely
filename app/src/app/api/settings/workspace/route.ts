@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { readConfig, writeConfig, CONFIG_DEFAULTS, getAuthConfig } from '@/lib/config';
 import { withRoute } from '@/lib/with-route';
 
-const BOOL_KEYS = ['WS_GUEST_ACCESS', 'WS_AI_SUMMARY', 'WS_LIVE_TRANSCRIPTION', 'WS_RECORD_ALL', 'WS_REQUIRE_2FA'];
+const BOOL_KEYS = ['WS_GUEST_ACCESS', 'WS_AI_SUMMARY', 'WS_LIVE_TRANSCRIPTION', 'WS_TASK_CREATION', 'WS_RECORD_ALL', 'WS_REQUIRE_2FA'];
 const STR_KEYS = ['WS_NAME', 'WS_DOMAIN', 'WS_TIMEZONE', 'WS_LANGUAGE', 'WS_REPORT_LANGUAGE'];
 // Multi-line text: only edge-trimmed (line breaks separate terms, so no inner trim).
 const TEXT_KEYS = ['WS_GLOSSARY'];

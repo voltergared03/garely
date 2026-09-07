@@ -1252,7 +1252,8 @@
     "blockUser": "Block access",
     "unblockUser": "Unblock",
     "blockUserConfirm": "Block {name}? They will be signed out on every device and unable to sign in. Their meetings, tasks and reports stay where they are.",
-    "blocked": "blocked"
+    "blocked": "blocked",
+    "taskCreationDefault": "Create tasks from meetings automatically"
   },
   "setupChecklist": {
     "title": "Finish setup",

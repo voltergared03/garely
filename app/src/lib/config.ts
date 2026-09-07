@@ -183,6 +183,8 @@ export const CONFIG_DEFAULTS: Record<string, string> = {
   WS_GUEST_ACCESS: 'true',
   WS_AI_SUMMARY: 'true',
   WS_LIVE_TRANSCRIPTION: 'true',
+  // Off by default: automatic tasks from a meeting are an opt-in, not a surprise.
+  WS_TASK_CREATION: 'false',
   WS_RECORD_ALL: 'false',
   WS_REQUIRE_2FA: 'false',
   WS_MAX_PARTICIPANTS: '20',

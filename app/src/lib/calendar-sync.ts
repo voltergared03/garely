@@ -149,7 +149,7 @@ async function applyGoogleEvent(
   }
 
   // New event → new meeting, with workspace policy defaults (mirrors POST /api/meetings).
-  const wsCfg = await readConfig(['WS_LIVE_TRANSCRIPTION', 'WS_AI_SUMMARY', 'WS_GUEST_ACCESS', 'WS_MAX_DURATION_MIN']);
+  const wsCfg = await readConfig(['WS_LIVE_TRANSCRIPTION', 'WS_AI_SUMMARY', 'WS_GUEST_ACCESS', 'WS_TASK_CREATION', 'WS_MAX_DURATION_MIN']);
   const maxDur = num(wsCfg, 'WS_MAX_DURATION_MIN') || 240;
   let meeting: { id: string };
   try {
@@ -164,7 +164,7 @@ async function applyGoogleEvent(
         joinToken: generateMeetingSlug(),
         transcriptionEnabled: wsCfg.WS_LIVE_TRANSCRIPTION !== 'false',
         aiReportEnabled: wsCfg.WS_AI_SUMMARY !== 'false',
-        taskCreationEnabled: true,
+        taskCreationEnabled: wsCfg.WS_TASK_CREATION === 'true',
         allowGuests: wsCfg.WS_GUEST_ACCESS !== 'false',
         status: 'scheduled',
         orgId: conn.orgId,

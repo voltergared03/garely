@@ -3,6 +3,7 @@ import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
 import { gcalFetch, saveTokens, ensureGarelyCalendar, emailFromIdToken } from '@/lib/google-calendar';
 import { syncConnection, syncMeetingToGoogle, linkGoogleCalendarFromSSO } from '@/lib/calendar-sync';
+import { readConfig } from '@/lib/config';
 
 vi.mock('@/lib/prisma');
 vi.mock('@/lib/google-calendar', () => ({
@@ -34,6 +35,33 @@ const ok = (body: unknown, status = 200) =>
 beforeEach(() => {
   mockReset(prismaMock);
   mockFetch.mockReset();
+});
+
+describe('syncConnection: task-creation policy on imported meetings', () => {
+  const event = () => ok({
+    items: [{ id: 'ev1', etag: '"e1"', status: 'confirmed', summary: 'Planning',
+      start: { dateTime: '2026-06-15T10:00:00Z' }, end: { dateTime: '2026-06-15T11:00:00Z' } }],
+    nextSyncToken: 'st',
+  });
+  beforeEach(() => {
+    prismaMock.meeting.findFirst.mockResolvedValue(null as any);
+    prismaMock.meeting.create.mockResolvedValue({ id: 'm1' } as any);
+    prismaMock.meeting.findUnique.mockResolvedValue({ id: 'm1', joinToken: 'tok' } as any);
+    prismaMock.user.findMany.mockResolvedValue([] as any);
+    mockFetch.mockResolvedValueOnce(event()).mockResolvedValueOnce(ok({ etag: '"e2"' }));
+  });
+
+  it('defaults task creation OFF — it was hard-coded true here, bypassing the policy entirely', async () => {
+    vi.mocked(readConfig).mockResolvedValue({});
+    await syncConnection(conn());
+    expect((prismaMock.meeting.create.mock.calls[0][0] as any).data.taskCreationEnabled).toBe(false);
+  });
+
+  it('turns it on when the workspace policy does', async () => {
+    vi.mocked(readConfig).mockResolvedValue({ WS_TASK_CREATION: 'true' });
+    await syncConnection(conn());
+    expect((prismaMock.meeting.create.mock.calls[0][0] as any).data.taskCreationEnabled).toBe(true);
+  });
 });
 
 describe('syncConnection: the create race', () => {

@@ -116,11 +116,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Apply workspace policy defaults when the client doesn't explicitly set them
-    const wsCfg = await readConfig(['WS_LIVE_TRANSCRIPTION', 'WS_AI_SUMMARY', 'WS_GUEST_ACCESS', 'WS_MAX_DURATION_MIN']);
+    const wsCfg = await readConfig(['WS_LIVE_TRANSCRIPTION', 'WS_AI_SUMMARY', 'WS_GUEST_ACCESS', 'WS_TASK_CREATION', 'WS_MAX_DURATION_MIN']);
     const effTranscription = transcriptionEnabled ?? (wsCfg.WS_LIVE_TRANSCRIPTION !== 'false');
     const effAiReport = aiReportEnabled ?? (wsCfg.WS_AI_SUMMARY !== 'false');
     // No workspace-level key yet: tasks follow the report unless set per meeting.
-    const effTaskCreation = taskCreationEnabled ?? true;
+    // Was hard-coded `?? true` while the other three read the workspace policy —
+    // so tasks were the one default an admin could not turn off. Note the polarity:
+    // this one is OFF unless the setting says 'true'.
+    const effTaskCreation = taskCreationEnabled ?? (wsCfg.WS_TASK_CREATION === 'true');
     const effAllowGuests = allowGuests ?? (wsCfg.WS_GUEST_ACCESS !== 'false');
     const maxDur = num(wsCfg, 'WS_MAX_DURATION_MIN') || 240;
     const dur = Math.min(Math.max(parseInt(String(durationMin), 10) || 60, 5), maxDur);

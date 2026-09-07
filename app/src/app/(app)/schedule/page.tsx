@@ -39,11 +39,33 @@ export default function SchedulePage() {
     description: '',
     transcription: true,
     aiReport: true,
-    taskCreation: true,
+    taskCreation: false,
     allowGuests: true,
     departmentId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // The four switches used to be hard-coded `true`, which made the admin's meeting
+  // policies dead for this form — the API only applies them to OMITTED fields, and
+  // the form always sent all four. Seed them from the policy instead. Best-effort:
+  // if the request fails the hard-coded values stand, exactly as before.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/settings/meeting-defaults')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        setForm((f) => ({
+          ...f,
+          transcription: !!d.transcription,
+          aiReport: !!d.aiReport,
+          taskCreation: !!d.taskCreation,
+          allowGuests: !!d.allowGuests,
+        }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   // Form-level: a rejected POST belongs to no single field, but it still has to be
   // said. It used to go to console.error alone — the spinner stopped and nothing
   // else changed, so a failed submit was indistinguishable from a dead button.
