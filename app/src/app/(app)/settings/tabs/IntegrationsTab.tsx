@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup } from '@/components/ui/choice';
 import { LinearIcon, ClickUpIcon, DeepgramIcon, LiveKitIcon, PostgresIcon, S3Icon, GoogleIcon, HubSpotIcon } from '../components/BrandIcons';
+import css from './IntegrationsTab.module.css';
 
 // Which connectors open a config modal (the rest are read-only status cards).
 const MANAGEABLE = new Set(['Deepgram', 'AI model', 'SMTP Email', 'S3 Storage', 'ClickUp', 'Linear', 'Google OAuth', 'Chat', 'Webhooks', 'CRM']);
@@ -589,16 +590,16 @@ export function IntegrationsTab() {
   // ─────────────────────────── status pill ───────────────────────────
   const statusPill = (status: string) => {
     if (status === 'connected') return (
-      <span className="chip" style={{ background: 'var(--success-bg)', color: 'var(--success-fg)', borderColor: 'color-mix(in oklab, var(--green) 30%, transparent)' }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} /> {t('settings.statusConnected')}
+      <span className={`chip ${css.pillOk}`}>
+        <span className={`${css.dot} ${css.dotGreen}`} /> {t('settings.statusConnected')}
       </span>
     );
     if (status === 'error') return (
-      <span className="chip" style={{ background: 'color-mix(in oklab, var(--red) 14%, transparent)', color: 'var(--danger-fg)', borderColor: 'color-mix(in oklab, var(--red) 30%, transparent)' }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} /> {t('settings.statusError')}
+      <span className={`chip ${css.pillErr}`}>
+        <span className={`${css.dot} ${css.dotRed}`} /> {t('settings.statusError')}
       </span>
     );
-    return <span className="chip" style={{ color: 'var(--muted)' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border-2)' }} /> {t('settings.notConfigured')}</span>;
+    return <span className={`chip ${css.pillIdle}`}><span className={`${css.dot} ${css.dotIdle}`} /> {t('settings.notConfigured')}</span>;
   };
 
   // ─────────────────────────── per-key editor row (reused in Deepgram/DeepSeek modals) ───────────────────────────
@@ -607,20 +608,20 @@ export function IntegrationsTab() {
     const isEditing = editingKey === keyName;
     const isVisible = showKey[keyName];
     return (
-      <div key={keyName} style={{ padding: '12px 14px', background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEditing ? 10 : 0 }}>
+      <div key={keyName} className={css.keyCard}>
+        <div className={css.keyHead} style={{ marginBottom: isEditing ? 10 : 0 }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
+            <div className={css.keyLabel}>{label}</div>
             {!isEditing && (
-              <div className="mono" style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              <div className={`mono ${css.keyValue}`}>
                 {isVisible ? keyData?.value : keyData?.masked || t('settings.notConfigured')}
               </div>
             )}
           </div>
           {!isEditing && (
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className={css.rowGap6}>
               {keyData?.value && (
-                <button className="btn btn-ghost btn-icon" style={{ width: 30, height: 30 }}
+                <button className={`btn btn-ghost btn-icon ${css.iconBtn30}`}
                   onClick={() => setShowKey(p => ({ ...p, [keyName]: !p[keyName] }))}>
                   {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
                 </button>
@@ -630,8 +631,8 @@ export function IntegrationsTab() {
           )}
         </div>
         {isEditing && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="field" value={editValue} onChange={e => setEditValue(e.target.value)}
+          <div className={css.rowGap8}>
+            <input className={`field ${css.keyInput}`} value={editValue} onChange={e => setEditValue(e.target.value)}
               placeholder={
                 keyName === 'DEEPGRAM_MODEL' ? 'nova-3'
                 : keyName === 'DEEPGRAM_LANGUAGE' ? 'multi'
@@ -639,7 +640,6 @@ export function IntegrationsTab() {
                 : keyName === 'GOOGLE_CLIENT_SECRET' ? 'GOCSPX-…'
                 : t('settings.pasteNewKey')
               }
-              style={{ flex: 1, fontSize: 13, fontFamily: 'var(--font-mono)' }}
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter') saveKey(keyName); if (e.key === 'Escape') setEditingKey(null); }}
             />
@@ -648,7 +648,7 @@ export function IntegrationsTab() {
           </div>
         )}
         {keyData?.updatedAt && !isEditing && (
-          <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4 }}>
+          <div className={css.keyUpdated}>
             {t('settings.updated')} {new Date(keyData.updatedAt).toLocaleDateString(locale)}
           </div>
         )}
@@ -659,8 +659,8 @@ export function IntegrationsTab() {
   // ─────────────────────────── modal body per connector ───────────────────────────
   const renderKeysModal = (service: string) => (
     keysLoading
-      ? <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
-      : <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      ? <div className={css.loadingBox}>{t('common.loading')}</div>
+      : <div className={css.stack12}>
           {API_KEYS_CONFIG.filter(k => k.service === service).map(({ key, label }) => keyRow(key, label))}
         </div>
   );
@@ -668,10 +668,10 @@ export function IntegrationsTab() {
   const renderGoogleModal = () => {
     const redirect = typeof window !== 'undefined' ? `${window.location.origin}/api/auth/callback/google` : '/api/auth/callback/google';
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+      <div className={css.stack12}>
+        <div className={css.hint}>
           {t('settings.googleRedirectHint')}
-          <code className="mono" style={{ display: 'block', marginTop: 6, padding: '8px 10px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 11.5, wordBreak: 'break-all', color: 'var(--text)' }}>{redirect}</code>
+          <code className={`mono ${css.codeBlock}`}>{redirect}</code>
         </div>
         {renderKeysModal('Google OAuth')}
       </div>
@@ -680,9 +680,9 @@ export function IntegrationsTab() {
 
   const renderSmtpModal = () => (
     smtpLoading
-      ? <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>
-      : <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+      ? <div className={css.loadingBox}>{t('common.loading')}</div>
+      : <div className={css.stack14}>
+          <div className={css.grid21}>
             <FieldWrapper label={t('settings.smtpServer')}>
               <input className="field" value={smtp.host} placeholder="smtp.gmail.com" onChange={e => setSmtp(s => ({ ...s, host: e.target.value }))} />
             </FieldWrapper>
@@ -690,7 +690,7 @@ export function IntegrationsTab() {
               <input className="field" value={smtp.port} placeholder="587" inputMode="numeric" onChange={e => setSmtp(s => ({ ...s, port: e.target.value }))} />
             </FieldWrapper>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className={css.grid2}>
             <FieldWrapper label={t('settings.smtpUser')}>
               <input className="field" value={smtp.user} placeholder="admin@example.com" onChange={e => setSmtp(s => ({ ...s, user: e.target.value }))} />
             </FieldWrapper>
@@ -698,7 +698,7 @@ export function IntegrationsTab() {
               <input className="field" type="password" value={smtpPass} placeholder={smtp.passSet ? '••••••••••••' : 'App Password'} onChange={e => setSmtpPass(e.target.value)} />
             </FieldWrapper>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className={css.grid2}>
             <FieldWrapper label={t('settings.smtpFrom')}>
               <input className="field" value={smtp.from} placeholder="admin@example.com" onChange={e => setSmtp(s => ({ ...s, from: e.target.value }))} />
             </FieldWrapper>
@@ -707,28 +707,28 @@ export function IntegrationsTab() {
             </FieldWrapper>
           </div>
           <Toggle label={t('settings.smtpSsl')} value={smtp.secure} onChange={v => setSmtp(s => ({ ...s, secure: v }))} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary btn-sm" onClick={saveSmtp} disabled={smtpSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {smtpSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+          <div className={css.actions}>
+            <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveSmtp} disabled={smtpSaving}>
+              {smtpSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
             </button>
-            {smtpSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
+            {smtpSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
           </div>
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('settings.testEmail')}</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input className="field" value={testEmail} placeholder={t('settings.testEmailPlaceholder')} onChange={e => setTestEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
-              <button className="btn btn-sm" onClick={sendTest} disabled={testing} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {testing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />} {t('settings.sendTest')}
+          <div className={css.testSection}>
+            <div className={css.hintSm}>{t('settings.testEmail')}</div>
+            <div className={css.rowWrap8}>
+              <input className={`field ${css.testInput}`} value={testEmail} placeholder={t('settings.testEmailPlaceholder')} onChange={e => setTestEmail(e.target.value)} />
+              <button className={`btn btn-sm ${css.btnIco}`} onClick={sendTest} disabled={testing}>
+                {testing ? <Loader2 size={13} className={css.spin} /> : <Mail size={13} />} {t('settings.sendTest')}
               </button>
             </div>
-            {testResult && <div style={{ fontSize: 12.5, color: testResult.ok ? 'var(--green)' : 'var(--red)' }}>{testResult.msg}</div>}
+            {testResult && <div className={css.resultMsg} style={{ color: testResult.ok ? 'var(--green)' : 'var(--red)' }}>{testResult.msg}</div>}
           </div>
         </div>
   );
 
   const renderS3Modal = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+    <div className={css.stack14}>
+      <div className={css.grid2}>
         <FieldWrapper label="Bucket">
           <input className="field" value={s3.bucket} placeholder="eam-recordings" onChange={e => setS3(s => ({ ...s, bucket: e.target.value }))} />
         </FieldWrapper>
@@ -739,7 +739,7 @@ export function IntegrationsTab() {
       <FieldWrapper label={t('settings.s3Endpoint')}>
         <input className="field" value={s3.endpoint} placeholder="https://s3.eu-central-1.wasabisys.com" onChange={e => setS3(s => ({ ...s, endpoint: e.target.value }))} />
       </FieldWrapper>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className={css.grid2}>
         <FieldWrapper label="Access Key ID">
           <input className="field" value={s3.accessKeyId} placeholder="AKIA..." onChange={e => setS3(s => ({ ...s, accessKeyId: e.target.value }))} />
         </FieldWrapper>
@@ -748,25 +748,25 @@ export function IntegrationsTab() {
         </FieldWrapper>
       </div>
       <Toggle label={t('settings.s3ForcePathStyle')} value={s3.forcePathStyle} onChange={v => setS3(s => ({ ...s, forcePathStyle: v }))} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary btn-sm" onClick={saveS3} disabled={s3Saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {s3Saving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+      <div className={css.actions}>
+        <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveS3} disabled={s3Saving}>
+          {s3Saving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
         </button>
-        <button className="btn btn-sm" onClick={testS3Conn} disabled={s3Testing} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {s3Testing ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+        <button className={`btn btn-sm ${css.btnIco}`} onClick={testS3Conn} disabled={s3Testing}>
+          {s3Testing ? <Loader2 size={13} className={css.spin} /> : <Check size={13} />} {t('settings.testConnection')}
         </button>
-        {s3Saved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-        {s3Test && <span style={{ fontSize: 12.5, color: s3Test.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{s3Test.msg}</span>}
+        {s3Saved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+        {s3Test && <span className={css.resultMsg} style={{ color: s3Test.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{s3Test.msg}</span>}
       </div>
     </div>
   );
 
   const renderClickupModal = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className={css.stack14}>
       <Toggle label={t('settings.clickupEnabled')} value={clickup.enabled} onChange={v => setClickup(c => ({ ...c, enabled: v }))} />
       <FieldWrapper label={clickup.tokenSet ? t('settings.clickupTokenSet') : t('settings.clickupToken')}>
-        <input className="field" type="password" value={clickupToken} placeholder={clickup.tokenSet ? '••••••••••••' : 'pk_...'}
-          onChange={e => setClickupToken(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+        <input className={`field ${css.monoField}`} type="password" value={clickupToken} placeholder={clickup.tokenSet ? '••••••••••••' : 'pk_...'}
+          onChange={e => setClickupToken(e.target.value)} />
       </FieldWrapper>
       <FieldWrapper label={t('settings.clickupRouting')}>
         {/* Two answers, so both are shown. A dropdown here hid the entire choice
@@ -792,19 +792,16 @@ export function IntegrationsTab() {
           onChange={v => setClickup(c => ({ ...c, fallbackListId: v }))}
         />
       </FieldWrapper>
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.clickupFallbackListHint')}</div>
+      <div className={css.hint}>{t('settings.clickupFallbackListHint')}</div>
       <Toggle label={t('settings.clickupPersonalRouting')} value={clickup.personalRouting} onChange={v => setClickup(c => ({ ...c, personalRouting: v }))} />
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.clickupPersonalHint')}</div>
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.clickupHint')}</div>
+      <div className={css.hint}>{t('settings.clickupPersonalHint')}</div>
+      <div className={css.hint}>{t('settings.clickupHint')}</div>
       {clickup.enabled && clickup.tokenSet && (
-        <div style={{
-          fontSize: 12, lineHeight: 1.5, borderRadius: 10, padding: '9px 12px',
-          border: '1px solid var(--border)', background: 'var(--surface-2)',
+        <div className={css.fallbackBox} style={{
           color: clickupFallback && clickupFallback.last30d > 0 ? 'var(--amber, #d99a2b)' : 'var(--muted)',
-          display: 'inline-flex', alignItems: 'center', gap: 8,
         }}>
           {clickupFallbackLoading
-            ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> {t('settings.clickupFallbackChecking')}</>
+            ? <><Loader2 size={13} className={css.spin} /> {t('settings.clickupFallbackChecking')}</>
             : clickupFallback
               ? (clickupFallback.last30d > 0
                 ? t('settings.clickupFallbackActive', { count: clickupFallback.last30d, name: clickupFallback.listName })
@@ -813,7 +810,7 @@ export function IntegrationsTab() {
         </div>
       )}
       {clickup.migration?.state && (
-        <div style={{ fontSize: 12, color: clickup.migration.state === 'error' ? 'var(--danger-fg)' : 'var(--muted)' }}>
+        <div className={css.msg12} style={{ color: clickup.migration.state === 'error' ? 'var(--danger-fg)' : 'var(--muted)' }}>
           {clickup.migration.state === 'running'
             ? t('settings.clickupMigrating', { done: clickup.migration.migrated ?? 0, total: clickup.migration.total ?? 0 })
             : clickup.migration.state === 'done'
@@ -821,25 +818,25 @@ export function IntegrationsTab() {
               : t('settings.clickupMigrationError')}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary btn-sm" onClick={saveClickup} disabled={clickupSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {clickupSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+      <div className={css.actions}>
+        <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveClickup} disabled={clickupSaving}>
+          {clickupSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
         </button>
-        <button className="btn btn-sm" onClick={testClickup} disabled={clickupTesting || (!clickup.tokenSet && !clickupToken.trim())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {clickupTesting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+        <button className={`btn btn-sm ${css.btnIco}`} onClick={testClickup} disabled={clickupTesting || (!clickup.tokenSet && !clickupToken.trim())}>
+          {clickupTesting ? <Loader2 size={13} className={css.spin} /> : <Check size={13} />} {t('settings.testConnection')}
         </button>
-        {clickupSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-        {clickupTest && <span style={{ fontSize: 12.5, color: clickupTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{clickupTest.msg}</span>}
+        {clickupSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+        {clickupTest && <span className={css.resultMsg} style={{ color: clickupTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{clickupTest.msg}</span>}
       </div>
     </div>
   );
 
   const renderLinearModal = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className={css.stack14}>
       <Toggle label={t('settings.linearEnabled')} value={linear.enabled} onChange={v => setLinear(c => ({ ...c, enabled: v }))} />
       <FieldWrapper label={linear.tokenSet ? t('settings.linearTokenSet') : t('settings.linearToken')}>
-        <input className="field" type="password" value={linearToken} placeholder={linear.tokenSet ? '••••••••••••' : 'lin_api_...'}
-          onChange={e => setLinearToken(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+        <input className={`field ${css.monoField}`} type="password" value={linearToken} placeholder={linear.tokenSet ? '••••••••••••' : 'lin_api_...'}
+          onChange={e => setLinearToken(e.target.value)} />
       </FieldWrapper>
       <FieldWrapper label={t('settings.linearRouting')}>
         {/* Two answers, so both are shown. A dropdown here hid the entire choice
@@ -854,9 +851,9 @@ export function IntegrationsTab() {
           label={t('settings.linearRouting')}
         />
       </FieldWrapper>
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.linearHint')}</div>
+      <div className={css.hint}>{t('settings.linearHint')}</div>
       {linear.migration?.state && (
-        <div style={{ fontSize: 12, color: linear.migration.state === 'error' ? 'var(--danger-fg)' : 'var(--muted)' }}>
+        <div className={css.msg12} style={{ color: linear.migration.state === 'error' ? 'var(--danger-fg)' : 'var(--muted)' }}>
           {linear.migration.state === 'running'
             ? t('settings.clickupMigrating', { done: linear.migration.migrated ?? 0, total: linear.migration.total ?? 0 })
             : linear.migration.state === 'done'
@@ -864,15 +861,15 @@ export function IntegrationsTab() {
               : t('settings.clickupMigrationError')}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary btn-sm" onClick={saveLinear} disabled={linearSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {linearSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+      <div className={css.actions}>
+        <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveLinear} disabled={linearSaving}>
+          {linearSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
         </button>
-        <button className="btn btn-sm" onClick={testLinear} disabled={linearTesting || (!linear.tokenSet && !linearToken.trim())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {linearTesting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+        <button className={`btn btn-sm ${css.btnIco}`} onClick={testLinear} disabled={linearTesting || (!linear.tokenSet && !linearToken.trim())}>
+          {linearTesting ? <Loader2 size={13} className={css.spin} /> : <Check size={13} />} {t('settings.testConnection')}
         </button>
-        {linearSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-        {linearTest && <span style={{ fontSize: 12.5, color: linearTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{linearTest.msg}</span>}
+        {linearSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+        {linearTest && <span className={css.resultMsg} style={{ color: linearTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{linearTest.msg}</span>}
       </div>
     </div>
   );
@@ -880,7 +877,7 @@ export function IntegrationsTab() {
   const renderChatModal = () => {
     const isTelegram = chat.provider === 'telegram';
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className={css.stack14}>
         <Toggle label={t('settings.chatEnabled')} value={chat.enabled} onChange={v => setChat(c => ({ ...c, enabled: v }))} />
         <FieldWrapper label={t('settings.chatProvider')}>
           <Select
@@ -897,30 +894,30 @@ export function IntegrationsTab() {
         {isTelegram ? (
           <>
             <FieldWrapper label={chat.botTokenSet ? t('settings.chatBotTokenSet') : t('settings.chatBotToken')}>
-              <input className="field" type="password" value={chatBotToken} placeholder={chat.botTokenSet ? '••••••••••••' : '123456:ABC-…'}
-                onChange={e => setChatBotToken(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+              <input className={`field ${css.monoField}`} type="password" value={chatBotToken} placeholder={chat.botTokenSet ? '••••••••••••' : '123456:ABC-…'}
+                onChange={e => setChatBotToken(e.target.value)} />
             </FieldWrapper>
             <FieldWrapper label={t('settings.chatChatId')}>
-              <input className="field" value={chat.chatId} placeholder="-1001234567890"
-                onChange={e => setChat(c => ({ ...c, chatId: e.target.value }))} style={{ fontFamily: 'var(--font-mono)' }} />
+              <input className={`field ${css.monoField}`} value={chat.chatId} placeholder="-1001234567890"
+                onChange={e => setChat(c => ({ ...c, chatId: e.target.value }))} />
             </FieldWrapper>
           </>
         ) : (
           <FieldWrapper label={chat.webhookSet ? t('settings.chatWebhookSet') : t('settings.chatWebhook')}>
-            <input className="field" type="password" value={chatWebhook} placeholder={chat.webhookSet ? '••••••••••••' : 'https://…'}
-              onChange={e => setChatWebhook(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+            <input className={`field ${css.monoField}`} type="password" value={chatWebhook} placeholder={chat.webhookSet ? '••••••••••••' : 'https://…'}
+              onChange={e => setChatWebhook(e.target.value)} />
           </FieldWrapper>
         )}
-        <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.chatHint')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary btn-sm" onClick={saveChat} disabled={chatSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {chatSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+        <div className={css.hint}>{t('settings.chatHint')}</div>
+        <div className={css.actions}>
+          <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveChat} disabled={chatSaving}>
+            {chatSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
           </button>
-          <button className="btn btn-sm" onClick={testChat} disabled={chatTesting || (isTelegram ? (!chat.botTokenSet && !chatBotToken.trim()) : (!chat.webhookSet && !chatWebhook.trim()))} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {chatTesting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <MessageSquare size={13} />} {t('settings.sendTest')}
+          <button className={`btn btn-sm ${css.btnIco}`} onClick={testChat} disabled={chatTesting || (isTelegram ? (!chat.botTokenSet && !chatBotToken.trim()) : (!chat.webhookSet && !chatWebhook.trim()))}>
+            {chatTesting ? <Loader2 size={13} className={css.spin} /> : <MessageSquare size={13} />} {t('settings.sendTest')}
           </button>
-          {chatSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-          {chatTestRes && <span style={{ fontSize: 12.5, color: chatTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{chatTestRes.msg}</span>}
+          {chatSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+          {chatTestRes && <span className={css.resultMsg} style={{ color: chatTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{chatTestRes.msg}</span>}
         </div>
       </div>
     );
@@ -935,7 +932,7 @@ export function IntegrationsTab() {
     const extraModel = ai.model && !aiModels.some(m => m.id === ai.model) ? ai.model : '';
     const fmtTok = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}K` : String(n));
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className={css.stack14}>
         <FieldWrapper label={t('settings.aiProvider')}>
           <Select
             value={ai.provider}
@@ -945,20 +942,20 @@ export function IntegrationsTab() {
         </FieldWrapper>
         {!keyless && (
           <FieldWrapper label={ai.apiKeySet ? t('settings.aiKeySet') : t('settings.aiKey')}>
-            <input className="field" type="password" value={aiKey} placeholder={ai.apiKeySet ? '••••••••••••' : 'sk-…'}
-              onChange={e => setAiKey(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+            <input className={`field ${css.monoField}`} type="password" value={aiKey} placeholder={ai.apiKeySet ? '••••••••••••' : 'sk-…'}
+              onChange={e => setAiKey(e.target.value)} />
           </FieldWrapper>
         )}
         <FieldWrapper label={t('settings.aiBaseUrl')}>
-          <input className="field" value={ai.baseUrl} placeholder="https://api.deepseek.com"
-            onChange={e => setAi(a => ({ ...a, baseUrl: e.target.value }))} style={{ fontFamily: 'var(--font-mono)' }} />
+          <input className={`field ${css.monoField}`} value={ai.baseUrl} placeholder="https://api.deepseek.com"
+            onChange={e => setAi(a => ({ ...a, baseUrl: e.target.value }))} />
         </FieldWrapper>
         <FieldWrapper label={t('settings.aiModel')}>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className={css.rowGap8}>
             {showSelect ? (
               /* OpenRouter alone returns hundreds of models, which a plain dropdown
                  makes searchable only by scrolling. Typing filters the list. */
-              <div style={{ flex: 1 }}>
+              <div className={css.grow1}>
                 <Combobox
                   value={ai.model}
                   onChange={(v) => { if (v === '__custom') { setAiCustom(true); } else { setAi(a => ({ ...a, model: v })); } }}
@@ -975,70 +972,69 @@ export function IntegrationsTab() {
                 />
               </div>
             ) : (
-              <input className="field" value={ai.model} placeholder="deepseek-chat"
-                onChange={e => setAi(a => ({ ...a, model: e.target.value }))} style={{ flex: 1, fontFamily: 'var(--font-mono)' }} />
+              <input className={`field ${css.monoFieldFlex}`} value={ai.model} placeholder="deepseek-chat"
+                onChange={e => setAi(a => ({ ...a, model: e.target.value }))} />
             )}
-            <button className="btn btn-sm" onClick={loadAiModels} disabled={aiModelsLoading || (!keyless && !ai.apiKeySet && !aiKey.trim())} title={t('settings.aiLoadModels')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              {aiModelsLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={13} />} {t('settings.aiLoadModels')}
+            <button className={`btn btn-sm ${css.btnIcoFixed}`} onClick={loadAiModels} disabled={aiModelsLoading || (!keyless && !ai.apiKeySet && !aiKey.trim())} title={t('settings.aiLoadModels')}>
+              {aiModelsLoading ? <Loader2 size={13} className={css.spin} /> : <Download size={13} />} {t('settings.aiLoadModels')}
             </button>
           </div>
-          {aiModels.length > 0 && !aiCustom && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>{t('settings.aiModelsLoaded', { count: aiModels.length })}</div>}
-          {aiModels.length > 0 && aiCustom && <button className="btn btn-ghost" style={{ fontSize: 11, padding: '1px 0', marginTop: 4 }} onClick={() => setAiCustom(false)}>{t('settings.aiModelFromList')}</button>}
-          {aiModelsErr && <div style={{ fontSize: 11.5, color: 'var(--danger-fg)', marginTop: 4 }}>{aiModelsErr}</div>}
+          {aiModels.length > 0 && !aiCustom && <div className={css.noteSm}>{t('settings.aiModelsLoaded', { count: aiModels.length })}</div>}
+          {aiModels.length > 0 && aiCustom && <button className={`btn btn-ghost ${css.linkBtn}`} onClick={() => setAiCustom(false)}>{t('settings.aiModelFromList')}</button>}
+          {aiModelsErr && <div className={css.errSm}>{aiModelsErr}</div>}
         </FieldWrapper>
         <FieldWrapper label={t('settings.aiMaxTokens')}>
-          <input className="field" type="number" min={0} value={ai.maxTokens} placeholder={t('settings.aiMaxTokensAuto')}
-            onChange={e => setAi(a => ({ ...a, maxTokens: e.target.value }))} style={{ fontFamily: 'var(--font-mono)' }} />
+          <input className={`field ${css.monoField}`} type="number" min={0} value={ai.maxTokens} placeholder={t('settings.aiMaxTokensAuto')}
+            onChange={e => setAi(a => ({ ...a, maxTokens: e.target.value }))} />
           {modelMax && (
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <div className={css.noteSmRow}>
               {t('settings.aiModelMax', { n: modelMax.toLocaleString() })}
-              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '1px 7px' }} onClick={() => setAi(a => ({ ...a, maxTokens: String(modelMax) }))}>{t('settings.aiUseMax')}</button>
+              <button className={`btn btn-ghost ${css.linkBtnInline}`} onClick={() => setAi(a => ({ ...a, maxTokens: String(modelMax) }))}>{t('settings.aiUseMax')}</button>
             </div>
           )}
         </FieldWrapper>
-        <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.aiHint')}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary btn-sm" onClick={saveAi} disabled={aiSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {aiSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+        <div className={css.hint}>{t('settings.aiHint')}</div>
+        <div className={css.actions}>
+          <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveAi} disabled={aiSaving}>
+            {aiSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
           </button>
-          <button className="btn btn-sm" onClick={testAi} disabled={aiTesting || (!keyless && !ai.apiKeySet && !aiKey.trim())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {aiTesting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+          <button className={`btn btn-sm ${css.btnIco}`} onClick={testAi} disabled={aiTesting || (!keyless && !ai.apiKeySet && !aiKey.trim())}>
+            {aiTesting ? <Loader2 size={13} className={css.spin} /> : <Check size={13} />} {t('settings.testConnection')}
           </button>
-          {aiSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-          {aiTestRes && <span style={{ fontSize: 12.5, color: aiTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{aiTestRes.msg}</span>}
+          {aiSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+          {aiTestRes && <span className={css.resultMsg} style={{ color: aiTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{aiTestRes.msg}</span>}
         </div>
       </div>
     );
   };
 
   const renderWebhooksModal = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.webhooksHint')}</div>
+    <div className={css.stack14}>
+      <div className={css.hint}>{t('settings.webhooksHint')}</div>
 
       {webhooks.length === 0 && (
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', padding: '6px 0' }}>{t('settings.webhookNoEndpoints')}</div>
+        <div className={css.emptyNote}>{t('settings.webhookNoEndpoints')}</div>
       )}
 
       {webhooks.map(row => (
-        <div key={row.key} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--surface-2)' }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input className="field" value={row.url} placeholder="https://hooks.zapier.com/…"
-              onChange={e => patchWebhook(row.key, { url: e.target.value })} style={{ flex: 1, fontFamily: 'var(--font-mono)' }} />
-            <button className="btn btn-ghost btn-icon" style={{ width: 32, height: 32, flexShrink: 0 }} onClick={() => removeWebhook(row.key)} aria-label={t('common.delete')} title={t('common.delete')}><Trash2 size={15} /></button>
+        <div key={row.key} className={css.whRow}>
+          <div className={css.rowGap8Center}>
+            <input className={`field ${css.monoFieldFlex}`} value={row.url} placeholder="https://hooks.zapier.com/…"
+              onChange={e => patchWebhook(row.key, { url: e.target.value })} />
+            <button className={`btn btn-ghost btn-icon ${css.iconBtn32} ${css.noShrink}`} onClick={() => removeWebhook(row.key)} aria-label={t('common.delete')} title={t('common.delete')}><Trash2 size={15} /></button>
           </div>
           <FieldWrapper label={row.secretSet ? t('settings.webhookSecretSet') : t('settings.webhookSecret')}>
-            <input className="field" type="password" value={row.secret} placeholder={row.secretSet ? '••••••••••••' : 'whsec_…'}
-              onChange={e => patchWebhook(row.key, { secret: e.target.value })} style={{ fontFamily: 'var(--font-mono)' }} />
+            <input className={`field ${css.monoField}`} type="password" value={row.secret} placeholder={row.secretSet ? '••••••••••••' : 'whsec_…'}
+              onChange={e => patchWebhook(row.key, { secret: e.target.value })} />
           </FieldWrapper>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{t('settings.webhookEvents')}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div className={css.whLabel}>{t('settings.webhookEvents')}</div>
+            <div className={css.chipWrap}>
               {webhookEvents.map(ev => {
                 const on = row.events.includes(ev);
                 return (
-                  <button key={ev} type="button" onClick={() => toggleWebhookEvent(row.key, ev)} className="mono"
+                  <button key={ev} type="button" onClick={() => toggleWebhookEvent(row.key, ev)} className={`mono ${css.evChip}`}
                     style={{
-                      fontSize: 11.5, padding: '3px 9px', borderRadius: 999, cursor: 'pointer',
                       border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                       background: on ? 'color-mix(in oklab, var(--accent) 18%, transparent)' : 'transparent',
                       color: on ? 'var(--accent-2)' : 'var(--muted)',
@@ -1046,35 +1042,35 @@ export function IntegrationsTab() {
                 );
               })}
             </div>
-            {row.events.length === 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>{t('settings.webhookAllEvents')}</div>}
+            {row.events.length === 0 && <div className={css.noteXs}>{t('settings.webhookAllEvents')}</div>}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div className={css.rowBetweenWrap}>
             <Toggle label={t('settings.webhookEnabled')} value={row.enabled} onChange={v => patchWebhook(row.key, { enabled: v })} />
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-              {webhookTestRes && webhookTestRes.id === row.key && <span style={{ fontSize: 12, color: webhookTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{webhookTestRes.msg}</span>}
-              <button className="btn btn-sm" onClick={() => testWebhook(row)} disabled={webhookTestingId === row.id || !row.url.trim()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {webhookTestingId === row.id ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Webhook size={13} />} {t('settings.sendTest')}
+            <div className={css.inlineRow10}>
+              {webhookTestRes && webhookTestRes.id === row.key && <span className={css.msg12} style={{ color: webhookTestRes.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{webhookTestRes.msg}</span>}
+              <button className={`btn btn-sm ${css.btnIco}`} onClick={() => testWebhook(row)} disabled={webhookTestingId === row.id || !row.url.trim()}>
+                {webhookTestingId === row.id ? <Loader2 size={13} className={css.spin} /> : <Webhook size={13} />} {t('settings.sendTest')}
               </button>
             </div>
           </div>
         </div>
       ))}
 
-      <button className="btn btn-sm" onClick={addWebhook} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <button className={`btn btn-sm ${css.btnIcoStart}`} onClick={addWebhook}>
         <Plus size={14} /> {t('settings.webhookAddEndpoint')}
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-        <button className="btn btn-primary btn-sm" onClick={saveWebhooks} disabled={webhooksSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {webhooksSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+      <div className={css.actionsTop}>
+        <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveWebhooks} disabled={webhooksSaving}>
+          {webhooksSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
         </button>
-        {webhooksSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
+        {webhooksSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
       </div>
     </div>
   );
 
   const renderCrmModal = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className={css.stack14}>
       <Toggle label={t('settings.crmEnabled')} value={crm.enabled} onChange={v => setCrm(c => ({ ...c, enabled: v }))} />
       <FieldWrapper label={t('settings.crmProvider')}>
         <Select
@@ -1084,20 +1080,20 @@ export function IntegrationsTab() {
         />
       </FieldWrapper>
       <FieldWrapper label={crm.tokenSet ? t('settings.crmTokenSet') : t('settings.crmToken')}>
-        <input className="field" type="password" value={crmToken} placeholder={crm.tokenSet ? '••••••••••••' : 'pat-…'}
-          onChange={e => setCrmToken(e.target.value)} style={{ fontFamily: 'var(--font-mono)' }} />
+        <input className={`field ${css.monoField}`} type="password" value={crmToken} placeholder={crm.tokenSet ? '••••••••••••' : 'pat-…'}
+          onChange={e => setCrmToken(e.target.value)} />
       </FieldWrapper>
       <Toggle label={t('settings.crmCreateContact')} value={crm.createContact} onChange={v => setCrm(c => ({ ...c, createContact: v }))} />
-      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{t('settings.crmHint')}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary btn-sm" onClick={saveCrm} disabled={crmSaving} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {crmSaving ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={13} />} {t('common.save')}
+      <div className={css.hint}>{t('settings.crmHint')}</div>
+      <div className={css.actions}>
+        <button className={`btn btn-primary btn-sm ${css.btnIco}`} onClick={saveCrm} disabled={crmSaving}>
+          {crmSaving ? <Loader2 size={13} className={css.spin} /> : <Save size={13} />} {t('common.save')}
         </button>
-        <button className="btn btn-sm" onClick={testCrm} disabled={crmTesting || (!crm.tokenSet && !crmToken.trim())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {crmTesting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('settings.testConnection')}
+        <button className={`btn btn-sm ${css.btnIco}`} onClick={testCrm} disabled={crmTesting || (!crm.tokenSet && !crmToken.trim())}>
+          {crmTesting ? <Loader2 size={13} className={css.spin} /> : <Check size={13} />} {t('settings.testConnection')}
         </button>
-        {crmSaved && <span style={{ fontSize: 12.5, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={13} /> {t('common.saved')}</span>}
-        {crmTest && <span style={{ fontSize: 12.5, color: crmTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{crmTest.msg}</span>}
+        {crmSaved && <span className={css.savedNote}><Check size={13} /> {t('common.saved')}</span>}
+        {crmTest && <span className={css.resultMsg} style={{ color: crmTest.ok ? 'var(--green)' : 'var(--danger-fg)' }}>{crmTest.msg}</span>}
       </div>
     </div>
   );
@@ -1121,53 +1117,46 @@ export function IntegrationsTab() {
   const current = manage ? integrations.find(i => i.name === manage) : null;
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.connectorsSubtitle')}</div>
+    <div className={css.wrap}>
+      <div className={css.subtitle}>{t('settings.connectorsSubtitle')}</div>
 
       {/* Connector grid */}
       {integrations.length === 0 ? (
-        <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('settings.checkingIntegrations')}</div>
+        <div className={css.checking}>{t('settings.checkingIntegrations')}</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12 }}>
+        <div className={css.grid}>
           {integrations.map((it) => {
             const connected = it.status === 'connected';
             const manageable = MANAGEABLE.has(it.name);
             const open = manageable ? () => setManage(it.name) : undefined;
             return (
-              <div key={it.name} className="card"
+              <div key={it.name} className={`card ${css.connCard}`}
                 onClick={open}
                 role={manageable ? 'button' : undefined}
                 tabIndex={manageable ? 0 : undefined}
                 onKeyDown={manageable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setManage(it.name); } } : undefined}
-                style={{
-                  padding: 16, display: 'flex', flexDirection: 'column', gap: 14,
-                  cursor: manageable ? 'pointer' : 'default',
-                  transition: 'border-color .15s, transform .1s',
-                }}
+                style={{ cursor: manageable ? 'pointer' : 'default' }}
                 onMouseEnter={manageable ? (e) => { e.currentTarget.style.borderColor = 'var(--border-2, #3f3f46)'; e.currentTarget.style.transform = 'translateY(-1px)'; } : undefined}
                 onMouseLeave={manageable ? (e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; } : undefined}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                <div className={css.connHead}>
+                  <div className={css.connIcon} style={{
                     background: connected ? 'color-mix(in oklab, var(--accent) 16%, var(--surface-2))' : 'var(--surface-2)',
                     color: connected ? 'var(--accent-2)' : 'var(--muted)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>{INTEGRATION_ICONS[it.name] ?? <Plug size={20} />}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{it.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.45, marginTop: 2 }}>{it.desc}</div>
+                  <div className={css.grow}>
+                    <div className={css.connName}>{it.name}</div>
+                    <div className={css.connDesc}>{it.desc}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 'auto' }}>
+                <div className={css.connFoot}>
                   {statusPill(it.status)}
                   {manageable ? (
-                    <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setManage(it.name); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <button className={`btn btn-sm ${css.btnIco5}`} onClick={(e) => { e.stopPropagation(); setManage(it.name); }}>
                       {connected ? <><Settings2 size={12} /> {t('settings.manage')}</> : <><Plug size={12} /> {t('settings.connect')}</>}
                     </button>
                   ) : (
-                    it.metric && <span className="mono" style={{ fontSize: 11, color: 'var(--muted)' }}>{it.metric}</span>
+                    it.metric && <span className={`mono ${css.metric}`}>{it.metric}</span>
                   )}
                 </div>
               </div>
@@ -1179,23 +1168,20 @@ export function IntegrationsTab() {
       {/* Config modal */}
       {manage && current && (
         <div onClick={() => setManage(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(3,5,8,.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
-          <div onClick={(e) => e.stopPropagation()} className="card"
-            style={{ width: 'min(580px, 100%)', maxHeight: '88vh', overflowY: 'auto', padding: 0 }}>
-            <div style={{ position: 'sticky', top: 0, background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 1 }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          className={css.overlay} style={{ background: 'rgba(3,5,8,.6)' }}>
+          <div onClick={(e) => e.stopPropagation()} className={`card ${css.modal}`}>
+            <div className={css.modalHead}>
+              <div className={css.modalIcon} style={{
                 background: current.status === 'connected' ? 'color-mix(in oklab, var(--accent) 16%, var(--surface-2))' : 'var(--surface-2)',
                 color: current.status === 'connected' ? 'var(--accent-2)' : 'var(--muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>{INTEGRATION_ICONS[current.name]}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{current.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{current.desc}</div>
+              <div className={css.grow}>
+                <div className={css.modalName}>{current.name}</div>
+                <div className={css.modalDesc}>{current.desc}</div>
               </div>
-              <button className="btn btn-ghost btn-icon" style={{ width: 32, height: 32 }} onClick={() => setManage(null)} aria-label={t('common.close')}><X size={16} /></button>
+              <button className={`btn btn-ghost btn-icon ${css.iconBtn32}`} onClick={() => setManage(null)} aria-label={t('common.close')}><X size={16} /></button>
             </div>
-            <div style={{ padding: '18px 20px 22px' }}>{renderModalBody(current.name)}</div>
+            <div className={css.modalBody}>{renderModalBody(current.name)}</div>
           </div>
         </div>
       )}

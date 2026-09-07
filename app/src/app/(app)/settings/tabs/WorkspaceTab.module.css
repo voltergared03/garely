@@ -1,0 +1,181 @@
+/* Loading state */
+.loadingWrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Page shell */
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Cards */
+.cardPad {
+  padding: 18px 22px;
+}
+
+/* Section titles */
+.titleMb12 {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.titleNoMb {
+  font-weight: 600;
+  font-size: 15px;
+}
+.titleMb4 {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+/* Grids */
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+/* Sign-in methods header row */
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.spinIconMuted {
+  animation: spin 1s linear infinite;
+  color: var(--muted);
+}
+.spinIconPlain {
+  animation: spin 1s linear infinite;
+}
+.savedBadgeSm {
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+}
+.savedBadgeLg {
+  font-size: 13px;
+  color: var(--green);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Descriptive text */
+.desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.descLh {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.errorMsg {
+  font-size: 12.5px;
+  color: var(--red);
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+.errorMsgSm {
+  font-size: 13px;
+  color: var(--red);
+}
+
+.mt10 {
+  margin-top: 10px;
+}
+
+/* 2FA reminder box */
+.warnBox {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--amber) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--amber) 35%, var(--border));
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.warnIcon {
+  color: var(--amber);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.flex1 {
+  flex: 1;
+}
+.warnTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.warnDesc {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* Glossary textarea */
+.textareaGlossary {
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+/* Footer / save row */
+.footerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 2FA setup modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+.modalCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 22px 24px;
+  position: relative;
+}
+.closeBtn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+}
+
+/* CSS Modules localise animation names, so `animation: spin` above would resolve to a
+ * hashed name with no matching @keyframes. Declared here verbatim from the global
+ * definition (src/app/globals.css:383) so the spinners keep rotating. */
+@keyframes spin { to { transform: rotate(360deg); } }

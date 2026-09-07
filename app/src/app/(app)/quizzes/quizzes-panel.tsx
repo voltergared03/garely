@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ClipboardList, Check, X, ChevronDown, ChevronRight, Loader2, Users, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
+import s from './quizzes-panel.module.css';
 
 interface MyItem {
   id: string;
@@ -98,8 +99,8 @@ export function QuizzesPanel() {
 
   if (loading) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-        <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />
+      <div className={s.loadingWrap}>
+        <Loader2 size={24} className={s.spinner} />
       </div>
     );
   }
@@ -107,40 +108,42 @@ export function QuizzesPanel() {
   const empty = mine.length === 0 && managed.length === 0;
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '20px 16px 80px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div className={s.scroll}>
+      <div className={s.container}>
         {empty && (
-          <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-            <ClipboardList size={28} style={{ opacity: 0.4, margin: '0 auto 10px' }} />
-            <div style={{ fontSize: 14 }}>{tr('quiz.noMine')}</div>
+          <div className={`card ${s.emptyCard}`}>
+            <ClipboardList size={28} className={s.emptyIcon} />
+            <div className={s.emptyText}>{tr('quiz.noMine')}</div>
           </div>
         )}
 
         {/* My quizzes */}
         {mine.length > 0 && (
           <section>
-            <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 12px' }}>{tr('quiz.myQuizzes')}</h2>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <h2 className={s.sectionTitle}>{tr('quiz.myQuizzes')}</h2>
+            <div className={`card ${s.listCard}`}>
               {mine.map((it) => {
                 const done = it.status === 'completed';
                 return (
-                  <Link key={it.id} href={`/quiz/${it.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{
-                        width: 32, height: 32, flexShrink: 0, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: done ? 'color-mix(in oklab, var(--green) 16%, transparent)' : 'color-mix(in oklab, var(--accent) 16%, transparent)',
-                        color: done ? 'var(--green)' : 'var(--accent)',
-                      }}>
+                  <Link key={it.id} href={`/quiz/${it.id}`} className={s.rowLink}>
+                    <div className={s.row}>
+                      <span
+                        className={s.statusIcon}
+                        style={{
+                          background: done ? 'color-mix(in oklab, var(--green) 16%, transparent)' : 'color-mix(in oklab, var(--accent) 16%, transparent)',
+                          color: done ? 'var(--green)' : 'var(--accent)',
+                        }}
+                      >
                         {done ? <Check size={16} /> : <ClipboardList size={16} />}
                       </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.meetingTitle}</div>
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      <div className={s.grow}>
+                        <div className={s.rowTitle}>{it.meetingTitle}</div>
+                        <div className={s.rowSub}>
                           {done ? tr('quiz.completedLabel') : tr('quiz.questionsCount', { count: it.questionCount })}
                         </div>
                       </div>
                       {done ? (
-                        <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono, monospace)', color: 'var(--green)' }}>{it.score}/{it.maxScore}</span>
+                        <span className={s.scoreLabel}>{it.score}/{it.maxScore}</span>
                       ) : (
                         <span className="btn btn-sm btn-primary">{tr('quiz.take')}</span>
                       )}
@@ -155,54 +158,54 @@ export function QuizzesPanel() {
         {/* Assigned by me (admin / creator) */}
         {managed.length > 0 && (
           <section>
-            <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 12px' }}>{tr('quiz.tabManaged')}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <h2 className={s.sectionTitle}>{tr('quiz.tabManaged')}</h2>
+            <div className={s.managedList}>
               {managed.map((q) => {
                 const open = expanded.has(q.quizId);
                 const doneCount = q.assignments.filter((a) => a.status === 'completed').length;
                 return (
-                  <div key={q.quizId} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <div key={q.quizId} className={`card ${s.listCard}`}>
+                    <div className={s.rowHead}>
                       <button
                         onClick={() => toggle(q.quizId)}
-                        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+                        className={s.toggleBtn}
                       >
-                        {open ? <ChevronDown size={16} style={{ color: 'var(--muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--muted)' }} />}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.meetingTitle}</div>
-                          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{tr('quiz.progress', { done: doneCount, total: q.assignments.length })}</div>
+                        {open ? <ChevronDown size={16} className={s.mutedIcon} /> : <ChevronRight size={16} className={s.mutedIcon} />}
+                        <div className={s.grow}>
+                          <div className={s.managedTitle}>{q.meetingTitle}</div>
+                          <div className={s.rowSub}>{tr('quiz.progress', { done: doneCount, total: q.assignments.length })}</div>
                         </div>
-                        <Users size={14} style={{ color: 'var(--muted)' }} />
-                        <span style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--mono, monospace)' }}>{q.assignments.length}</span>
+                        <Users size={14} className={s.mutedIcon} />
+                        <span className={s.countLabel}>{q.assignments.length}</span>
                       </button>
                       <button onClick={() => deleteManaged(q)} title={tr('quiz.delete')} aria-label={tr('quiz.delete')}
-                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: '0 12px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                        className={s.deleteBtn}>
                         <Trash2 size={15} />
                       </button>
                     </div>
                     {open && (
-                      <div style={{ borderTop: '1px solid var(--border)' }}>
+                      <div className={s.expandedList}>
                         {q.assignments.map((a) => {
                           const adone = a.status === 'completed';
                           return (
-                            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px 10px 36px', borderBottom: '1px solid var(--border)' }}>
-                              <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div key={a.id} className={s.assignmentRow}>
+                              <span className={s.assignmentName}>
                                 {a.user?.name || a.user?.email || '—'}
                               </span>
                               {adone ? (
                                 <>
-                                  <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--mono, monospace)', color: 'var(--green)' }}>{a.score}/{a.maxScore}</span>
-                                  <button className="btn btn-ghost btn-sm" onClick={() => openReview(a.id)} style={{ color: 'var(--accent)' }}>
+                                  <span className={s.scoreLabel}>{a.score}/{a.maxScore}</span>
+                                  <button className={`btn btn-ghost btn-sm ${s.viewBtn}`} onClick={() => openReview(a.id)}>
                                     {tr('quiz.viewAnswers')}
                                   </button>
                                 </>
                               ) : (
-                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{tr('quiz.notTaken')}</span>
+                                <span className={s.notTakenLabel}>{tr('quiz.notTaken')}</span>
                               )}
                             </div>
                           );
                         })}
-                        <Link href={`/meetings/${q.meetingId}/report`} style={{ display: 'block', padding: '9px 14px', fontSize: 12.5, color: 'var(--muted)', textDecoration: 'none', textAlign: 'center' }}>
+                        <Link href={`/meetings/${q.meetingId}/report`} className={s.reportLink}>
                           {tr('quiz.openReport')} &rarr;
                         </Link>
                       </div>
@@ -218,20 +221,20 @@ export function QuizzesPanel() {
       {/* Review modal (admin) */}
       <Modal open={reviewOpen} onClose={() => { setReviewOpen(false); setReview(null); }} title={review?.user?.name ? tr('quiz.reviewOf', { name: review.user.name }) : tr('quiz.viewAnswers')} width={640}>
         {reviewLoading || !review ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-            {reviewLoading ? <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} /> : <span style={{ color: 'var(--muted)', fontSize: 13 }}>{tr('quiz.loadError')}</span>}
+          <div className={s.modalLoading}>
+            {reviewLoading ? <Loader2 size={20} className={s.spinner} /> : <span className={s.loadErrorText}>{tr('quiz.loadError')}</span>}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-              {review.meetingTitle} · <span style={{ color: 'var(--green)', fontWeight: 600 }}>{review.score}/{review.maxScore}</span>
+          <div className={s.reviewList}>
+            <div className={s.reviewMeta}>
+              {review.meetingTitle} · <span className={s.reviewScore}>{review.score}/{review.maxScore}</span>
             </div>
             {review.questions.map((q, qi) => {
               const sel = review.answers[q.id] || [];
               return (
-                <div key={q.id} className="card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{qi + 1}. {q.prompt}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div key={q.id} className={`card ${s.questionCard}`}>
+                  <div className={s.questionPrompt}>{qi + 1}. {q.prompt}</div>
+                  <div className={s.optionsList}>
                     {q.options.map((o) => {
                       const isCorrect = q.correctOptionIds.includes(o.id);
                       const picked = sel.includes(o.id);
@@ -240,10 +243,10 @@ export function QuizzesPanel() {
                       if (isCorrect) { color = 'var(--green)'; icon = <Check size={13} />; }
                       else if (picked) { color = 'var(--danger-fg)'; icon = <X size={13} />; }
                       return (
-                        <div key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color }}>
-                          <span style={{ width: 16, flexShrink: 0, display: 'inline-flex', justifyContent: 'center' }}>{icon}</span>
+                        <div key={o.id} className={s.optionRow} style={{ color }}>
+                          <span className={s.optionIconWrap}>{icon}</span>
                           <span style={{ fontWeight: picked ? 600 : 400 }}>{o.text}</span>
-                          {picked && <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>({tr('quiz.userPicked')})</span>}
+                          {picked && <span className={s.pickedNote}>({tr('quiz.userPicked')})</span>}
                         </div>
                       );
                     })}

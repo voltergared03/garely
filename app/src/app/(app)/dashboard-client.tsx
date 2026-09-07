@@ -15,6 +15,7 @@ import {
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { fmtTime, fmtRelative, isToday, dayDiff, zonedHour, zonedFormFields, zonedWallTimeToUtcISO } from '@/lib/utils';
+import s from './dashboard-client.module.css';
 
 type Tr = ReturnType<typeof useTranslations>;
 
@@ -164,107 +165,88 @@ export function DashboardClient({
   };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div className='page-container' style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className={s.root}>
+      <div className={`page-container ${s.page}`}>
         <SetupChecklist />
         <InstallAppCard />
         {/* ── Mobile-redesigned top: greeting + next-meeting hero + quick actions ── */}
         <div className="dash-mobile-top">
           {/* Greeting */}
-          <div style={{ marginBottom: 18 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
+          <div className={s.greetingBlock}>
+            <h1 className={s.greetingTitle}>
               {greetingText}{userName ? `, ${userName.split(' ')[0]}` : ''}
             </h1>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3, textTransform: 'capitalize' }}>
+            <div className={s.greetingDate}>
               {now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz })}
             </div>
           </div>
 
           {/* Next meeting */}
           {nextMeeting ? (
-            <div className="card" style={{
-              position: 'relative', overflow: 'hidden', padding: 20, marginBottom: 14,
-              display: 'flex', flexDirection: 'column', gap: 14,
-              background: 'linear-gradient(160deg, color-mix(in oklab, var(--accent) 20%, var(--surface)) 0%, var(--surface) 72%)',
-              borderColor: 'color-mix(in oklab, var(--accent) 34%, var(--border))',
-            }}>
-              <div aria-hidden style={{ position: 'absolute', top: -50, right: -40, width: 150, height: 150, borderRadius: '50%', background: 'color-mix(in oklab, var(--accent) 26%, transparent)', filter: 'blur(55px)', pointerEvents: 'none' }} />
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span className="chip" style={{ background: 'color-mix(in oklab, var(--accent) 22%, transparent)', borderColor: 'color-mix(in oklab, var(--accent) 45%, transparent)', color: 'var(--info-fg)' }}>
+            <div className={`card ${s.heroCard}`}>
+              <div aria-hidden className={s.heroGlow} />
+              <div className={s.heroTopRow}>
+                <span className={`chip ${s.heroChip}`}>
                   <Sparkles size={11} /> {tr('dashboard.next')}
                 </span>
                 {untilLabel(nextMeeting.scheduledAt, tr, nowMs) && (
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent)' }}>{untilLabel(nextMeeting.scheduledAt, tr, nowMs)}</span>
+                  <span className={s.heroUntil}>{untilLabel(nextMeeting.scheduledAt, tr, nowMs)}</span>
                 )}
               </div>
-              <div style={{ position: 'relative' }}>
-                <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: 6 }}>{nextMeeting.title}</div>
+              <div className={s.rel}>
+                <div className={s.heroTitle}>{nextMeeting.title}</div>
                 {nextMeeting.scheduledAt && (
-                  <div style={{ color: 'var(--text-2)', fontSize: 13 }}>
+                  <div className={s.heroMeta}>
                     {fmtRelative(new Date(nextMeeting.scheduledAt), locale, tz, now)} · {fmtTime(new Date(nextMeeting.scheduledAt), tz)} · {tr('common.minutes', { count: nextMeeting.durationMin })}
                   </div>
                 )}
               </div>
-              <div style={{ position: 'relative' }}>
+              <div className={s.rel}>
                 <AvatarStack users={getParticipantNames(nextMeeting)} max={5} size="md" />
               </div>
-              <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ position: 'relative', textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '14px', fontWeight: 600, gap: 8 }}>
+              <Link href={`/lobby/${nextMeeting.id}`} className={`btn btn-primary ${s.heroJoin}`}>
                 <Video size={16} /> {tr('common.join')}
               </Link>
             </div>
           ) : (
-            <div className="card" style={{ padding: 24, marginBottom: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 10 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CalendarIcon size={24} style={{ color: 'var(--accent)' }} />
+            <div className={`card ${s.emptyHero}`}>
+              <div className={s.emptyIcon}>
+                <CalendarIcon size={24} className={s.accentIcon} />
               </div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{tr('dashboard.noMeetingsToday')}</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{tr('dashboard.noMeetingsTodayHint')}</div>
-              <Link href="/schedule" className="btn btn-primary" style={{ textDecoration: 'none', width: '100%', justifyContent: 'center', padding: '13px', marginTop: 4, gap: 8 }}>
+              <div className={s.emptyTitle}>{tr('dashboard.noMeetingsToday')}</div>
+              <div className={s.emptyDesc}>{tr('dashboard.noMeetingsTodayHint')}</div>
+              <Link href="/schedule" className={`btn btn-primary ${s.emptyCta}`}>
                 <Plus size={15} /> {tr('dashboard.scheduleMeeting')}
               </Link>
             </div>
           )}
 
           {/* Quick actions — start now or schedule */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
-            <Link href="/lobby/quick" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Video size={18} style={{ color: 'var(--accent)' }} />
+          <div className={s.quickGrid}>
+            <Link href="/lobby/quick" className={`card ${s.quickCard}`}>
+              <div className={s.quickIcon}>
+                <Video size={18} className={s.accentIcon} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('sidebar.quickMeeting')}</span>
+              <span className={s.quickLabel}>{tr('sidebar.quickMeeting')}</span>
             </Link>
-            <Link href="/schedule" className="card" style={{ textDecoration: 'none', color: 'inherit', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'color-mix(in oklab, var(--green) 14%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Plus size={18} style={{ color: 'var(--green)' }} />
+            <Link href="/schedule" className={`card ${s.quickCard}`}>
+              <div className={s.quickIconGreen}>
+                <Plus size={18} className={s.greenIcon} />
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{tr('dashboard.scheduleMeeting')}</span>
+              <span className={s.quickLabel}>{tr('dashboard.scheduleMeeting')}</span>
             </Link>
           </div>
         </div>
 
         {/* ── Desktop top: original hero (unchanged) ── */}
         <div className="dash-desktop-top">
-          <div className='dash-hero' style={{ display: 'grid', gap: 18, marginBottom: 24 }}>
+          <div className={`dash-hero ${s.desktopHero}`}>
             <div
-              className="card"
-              style={{
-                padding: 24,
-                background:
-                  'linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--surface)) 0%, var(--surface) 60%)',
-                borderColor: 'color-mix(in oklab, var(--accent) 30%, var(--border))',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-              }}
+              className={`card ${s.deskHeroCard}`}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className={s.deskHeroRow}>
                 <span
-                  className="chip"
-                  style={{
-                    background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-                    borderColor: 'color-mix(in oklab, var(--accent) 40%, transparent)',
-                    color: 'var(--info-fg)',
-                  }}
+                  className={`chip ${s.deskHeroChip}`}
                 >
                   <Sparkles size={11} /> {tr('dashboard.nextMeeting')}
                 </span>
@@ -272,32 +254,32 @@ export function DashboardClient({
               {nextMeeting ? (
                 <>
                   <div>
-                    <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6 }}>
+                    <div className={s.deskHeroTitle}>
                       {nextMeeting.title}
                     </div>
                     {nextMeeting.scheduledAt && (
-                      <div style={{ color: 'var(--text-2)', fontSize: 13.5 }}>
+                      <div className={s.deskHeroMeta}>
                         {fmtRelative(new Date(nextMeeting.scheduledAt), locale, tz, now)} &bull;{' '}
                         {fmtTime(new Date(nextMeeting.scheduledAt), tz)} &bull; {tr('common.minutes', { count: nextMeeting.durationMin })}
                       </div>
                     )}
                   </div>
                   {nextMeeting.description && (
-                    <div style={{ color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.55 }}>
+                    <div className={s.deskHeroDesc}>
                       {nextMeeting.description}
                     </div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <div className={s.deskHeroFooter}>
                     <AvatarStack users={getParticipantNames(nextMeeting)} max={6} size="md" />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <Link href={`/lobby/${nextMeeting.id}`} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                    <div className={s.actionRow}>
+                      <Link href={`/lobby/${nextMeeting.id}`} className={`btn btn-primary ${s.noUnderline}`}>
                         <Video size={15} /> {tr('common.join')}
                       </Link>
                     </div>
                   </div>
                 </>
               ) : (
-                <div style={{ color: 'var(--muted)', padding: '20px 0' }}>{tr('dashboard.noMeetingsTodayDesktop')}</div>
+                <div className={s.deskHeroEmpty}>{tr('dashboard.noMeetingsTodayDesktop')}</div>
               )}
             </div>
           </div>
@@ -305,55 +287,49 @@ export function DashboardClient({
 
         {/* My Tasks */}
         <Section title={tr('dashboard.myTasks')} right={
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div className={s.sectionRight}>
             {overdueCount > 0 && (
-              <span style={{ fontSize: 10.5, padding: '2px 6px', borderRadius: 5,
-                background: 'color-mix(in oklab, var(--red) 18%, transparent)', color: 'var(--danger-fg)', fontWeight: 600 }}>
+              <span className={s.overdueBadge}>
                 {tr('dashboard.overdue', { count: overdueCount })}
               </span>
             )}
-            <Link href="/tasks" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none', color: 'var(--muted)' }}>
+            <Link href="/tasks" className={`btn btn-ghost btn-sm ${s.allLink}`}>
               {tr('dashboard.all')} &rarr;
             </Link>
           </div>
         }>
           {myTasks.length === 0 ? (
-            <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12, color: 'var(--muted)', fontSize: 13.5 }}>
-              <CheckCircle size={20} style={{ color: 'var(--green)' }} />
+            <div className={`card ${s.noTasks}`}>
+              <CheckCircle size={20} className={s.greenIcon} />
               {tr('dashboard.noTasks')}
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className={`card ${s.taskList}`}>
               {myTasks.slice(0, 5).map((t, i) => {
                 const due = dueLabel(t.dueDate, locale, tr, tz, nowMs);
                 const isOverdue = due?.overdue;
                 return (
-                  <Link key={t.id} href="/tasks" style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px',
+                  <Link key={t.id} href="/tasks" className={s.taskRow} style={{
                     borderBottom: i === Math.min(4, myTasks.length - 1) ? 'none' : '1px solid var(--border)',
                     borderLeft: isOverdue ? '3px solid var(--red)' : '3px solid transparent',
                     paddingLeft: isOverdue ? 13 : 16,
-                    textDecoration: 'none', color: 'inherit', transition: 'background .15s',
                   }}
                     onMouseEnter={(e: any) => (e.currentTarget.style.background = 'var(--surface-2, #2a2a32)')}
                     onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <span style={{
-                      width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                    <span className={s.taskCheck} style={{
                       border: `1.5px solid ${t.status === 'in_progress' ? 'var(--amber)' : 'var(--border)'}`,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      {t.status === 'in_progress' && <span style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--amber)' }} />}
+                      {t.status === 'in_progress' && <span className={s.taskDot} />}
                     </span>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    <span className={s.priorityDot} style={{
                       background: t.priority === 'high' ? 'var(--red)' : t.priority === 'medium' ? 'var(--amber)' : 'var(--muted)',
                     }} />
-                    {t.source === 'ai' && <Sparkles size={11} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                    {t.source === 'ai' && <Sparkles size={11} className={s.aiIcon} />}
+                    <span className={s.taskTitle}>{t.title}</span>
                     {due && (
-                      <span style={{
-                        fontSize: 11.5, padding: '2px 7px', borderRadius: 5, fontWeight: isOverdue ? 600 : 500,
+                      <span className={s.duePill} style={{
+                        fontWeight: isOverdue ? 600 : 500,
                         background: isOverdue ? 'color-mix(in oklab, var(--red) 18%, transparent)' : 'transparent',
                         color: isOverdue ? '#fca5a5' : due.soon ? '#fcd34d' : 'var(--muted)',
                       }}>{due.txt}</span>
@@ -362,9 +338,8 @@ export function DashboardClient({
                 );
               })}
               {myTasks.length > 5 && (
-                <Link href="/tasks" style={{
-                  display: 'block', padding: '10px 16px', background: 'var(--surface-2, #2a2a32)',
-                  textDecoration: 'none', color: 'var(--muted)', fontSize: 12.5, textAlign: 'center',
+                <Link href="/tasks" className={s.moreLink} style={{
+                  background: 'var(--surface-2, #2a2a32)',
                 }}>
                   {tr('dashboard.moreTasks', { count: myTasks.length - 5 })} &rarr;
                 </Link>
@@ -378,7 +353,7 @@ export function DashboardClient({
         {/* Today */}
         {today.length > 0 && (
           <Section title={tr('dashboard.today')} right={tr('common.meetings', { count: today.length })}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className={s.stackList}>
               {today.map((m) => (
                 <MeetingRow key={m.id} meeting={m} users={getParticipantNames(m)} tz={tz}
                   menuOpen={menuOpen} setMenuOpen={setMenuOpen}
@@ -391,7 +366,7 @@ export function DashboardClient({
         {/* Upcoming */}
         {later.length > 0 && (
           <Section title={tr('dashboard.upcoming')}>
-            <div className='dash-upcoming-grid' style={{ display: 'grid', gap: 14 }}>
+            <div className={`dash-upcoming-grid ${s.grid14}`}>
               {later.slice(0, 4).map((m) => (
                 <MeetingCard key={m.id} meeting={m} users={getParticipantNames(m)} tz={tz} now={now}
                   menuOpen={menuOpen} setMenuOpen={setMenuOpen}
@@ -406,35 +381,25 @@ export function DashboardClient({
           <Section
             title={tr('dashboard.recentReports')}
             right={
-              <Link href="/archive" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
+              <Link href="/archive" className={`btn btn-ghost btn-sm ${s.noUnderline}`}>
                 {tr('nav.archive')} &rarr;
               </Link>
             }
           >
-            <div className='dash-reports-grid' style={{ display: 'grid', gap: 14 }}>
+            <div className={`dash-reports-grid ${s.grid14}`}>
               {past.slice(0, 3).map((m) => (
                 <Link
                   key={m.id}
                   href={`/meetings/${m.id}/report`}
-                  className="card"
-                  style={{
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    transition: 'all .15s',
-                  }}
+                  className={`card ${s.reportCard}`}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 11.5 }}>
-                    <Sparkles size={12} style={{ color: 'var(--accent-2)' }} />
+                  <div className={s.reportMeta}>
+                    <Sparkles size={12} className={s.accent2Icon} />
                     <span className="mono">
                       {m.scheduledAt ? fmtRelative(new Date(m.scheduledAt), locale, tz, now) : ''}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</div>
+                  <div className={s.reportTitle}>{m.title}</div>
                   <AvatarStack users={getParticipantNames(m)} max={5} />
                 </Link>
               ))}
@@ -444,16 +409,15 @@ export function DashboardClient({
 
         {/* Empty state */}
         {upcoming.length === 0 && past.length === 0 && (
-          <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 22px' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'color-mix(in oklab, var(--accent) 12%, transparent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Video size={18} style={{ color: 'var(--accent)' }} />
+          <div className={`card ${s.welcomeCard}`}>
+            <div className={s.welcomeIcon}>
+              <Video size={18} className={s.accentIcon} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{tr('dashboard.welcomeTitle')}</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>{tr('dashboard.welcomeDesc')}</div>
+            <div className={s.flexMin}>
+              <div className={s.welcomeTitle}>{tr('dashboard.welcomeTitle')}</div>
+              <div className={s.welcomeDesc}>{tr('dashboard.welcomeDesc')}</div>
             </div>
-            <Link href="/schedule" className="btn btn-primary btn-sm" style={{ textDecoration: 'none', flexShrink: 0 }}>
+            <Link href="/schedule" className={`btn btn-primary btn-sm ${s.noUnderlineShrink}`}>
               <Video size={13} /> {tr('dashboard.createMeeting')}
             </Link>
           </div>
@@ -467,20 +431,16 @@ export function DashboardClient({
 
       {/* Delete Confirm */}
       {deleteMeeting && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--overlay)', zIndex: 1000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-        }} onClick={() => setDeleteMeeting(null)}>
-          <div className="card" style={{ maxWidth: 420, width: '100%', padding: '28px 24px' }}
+        <div className={s.overlay} onClick={() => setDeleteMeeting(null)}>
+          <div className={`card ${s.confirmCard}`}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{tr('dashboard.deleteMeetingTitle')}</div>
-            <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
+            <div className={s.confirmTitle}>{tr('dashboard.deleteMeetingTitle')}</div>
+            <div className={s.confirmDesc}>
               {tr('dashboard.deleteMeetingDesc', { title: deleteMeeting.title })}
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <div className={s.modalActions}>
               <button className="btn" onClick={() => setDeleteMeeting(null)}>{tr('common.cancel')}</button>
-              <button className="btn" onClick={handleDelete}
-                style={{ background: 'color-mix(in oklab, var(--red) 22%, var(--surface))', color: 'var(--danger-fg)', borderColor: 'color-mix(in oklab, var(--red) 40%, var(--border))' }}>
+              <button className={`btn ${s.dangerBtn}`} onClick={handleDelete}>
                 <Trash2 size={14} /> {tr('common.delete')}
               </button>
             </div>
@@ -603,41 +563,35 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'var(--overlay)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-      overflowY: 'auto',
-    }} onClick={onClose}>
-      <div className="card" style={{ maxWidth: 560, width: '100%', padding: '24px 22px', maxHeight: '90vh', overflowY: 'auto' }}
+    <div className={`${s.overlay} ${s.overlayScroll}`} onClick={onClose}>
+      <div className={`card ${s.editCard}`}
         onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{t('dashboard.editMeeting')}</div>
+        <div className={s.editHeader}>
+          <div className={s.editTitle}>{t('dashboard.editMeeting')}</div>
           <button className="btn btn-ghost btn-icon" aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className={s.editBody}>
           <div>
             <label className="field-label">{t('meetingForm.title')}</label>
             <input className="field" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
           <div>
             <label className="field-label">{t('meetingForm.description')}</label>
-            <textarea className="field" rows={2} value={description}
+            <textarea className={`field ${s.noResize}`} rows={2} value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder={t('meetingForm.descriptionPlaceholder')} style={{ resize: 'none' }} />
+              placeholder={t('meetingForm.descriptionPlaceholder')} />
           </div>
           {/* Agenda */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label className="field-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div className={s.agendaHead}>
+              <label className={`field-label ${s.agendaLabel}`}>
                 <ListChecks size={11} /> {t('meetingForm.agenda')} ({agenda.length})
               </label>
               <button type="button" onClick={generateAgenda}
                 disabled={aiAgendaLoading || title.trim().length < 3}
+                className={s.aiBtn}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px',
-                  borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600,
-                  background: 'color-mix(in oklab, var(--accent) 12%, transparent)',
                   color: title.trim().length < 3 ? 'var(--muted)' : 'var(--accent)',
                   cursor: aiAgendaLoading || title.trim().length < 3 ? 'not-allowed' : 'pointer',
                   opacity: title.trim().length < 3 ? 0.5 : 1,
@@ -647,45 +601,39 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
               </button>
             </div>
             {agenda.map((item, idx) => (
-              <div key={idx} style={{
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                padding: '5px 8px', background: 'var(--surface)', borderRadius: 6,
-                border: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, minWidth: 14, textAlign: 'center' }}>{idx + 1}</span>
+              <div key={idx} className={s.agendaItem}>
+                <span className={s.agendaIdx}>{idx + 1}</span>
                 <input value={item} onChange={e => setAgenda(prev => prev.map((x, i) => i === idx ? e.target.value : x))}
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12.5, color: 'var(--text)', padding: 0 }} />
+                  className={s.agendaInput} />
                 <button type="button" onClick={() => setAgenda(prev => prev.filter((_, i) => i !== idx))}
-                  style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent',
-                    color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  className={s.agendaDel}>
                   <X size={10} />
                 </button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <input className="field" placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
+            <div className={s.agendaAddRow}>
+              <input className={`field ${s.agendaAddInput}`} placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
                 onChange={e => setNewAgendaItem(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }}
-                style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
-              <button type="button" className="btn btn-sm" onClick={() => { if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } }}
-                disabled={!newAgendaItem.trim()} style={{ flexShrink: 0 }}>
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }} />
+              <button type="button" className={`btn btn-sm ${s.shrink0}`} onClick={() => { if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } }}
+                disabled={!newAgendaItem.trim()}>
                 <Plus size={12} />
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
+          <div className={s.grid3}>
+            <div className={s.minW0}>
               <label className="field-label"><CalendarIcon size={11} /> {t('meetingForm.date')}</label>
-              <input className="field" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ minWidth: 0 }} />
+              <input className={`field ${s.minW0}`} type="date" value={date} onChange={e => setDate(e.target.value)} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div className={s.minW0}>
               <label className="field-label">{t('meetingForm.time')}</label>
-              <input className="field" type="time" value={time} onChange={e => setTime(e.target.value)} style={{ minWidth: 0 }} />
+              <input className={`field ${s.minW0}`} type="time" value={time} onChange={e => setTime(e.target.value)} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div className={s.minW0}>
               <label className="field-label">{t('meetingForm.duration')}</label>
-              <Select value={String(duration)} onChange={(v) => setDuration(parseInt(v))} style={{ minWidth: 0 }}
+              <Select value={String(duration)} onChange={(v) => setDuration(parseInt(v))} className={s.minW0}
                 options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </div>
           </div>
@@ -695,23 +643,17 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
             <label className="field-label"><Users size={11} /> {t('meetingForm.participants')} ({selectedUsers.length + 1})</label>
 
             {/* Host */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
-              background: 'var(--surface)', borderRadius: 8, marginBottom: 6, marginTop: 6,
-            }}>
+            <div className={s.pRow}>
               <Avatar name={meeting.createdBy.name || 'U'} image={meeting.createdBy.image} size="sm" />
-              <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{meeting.createdBy.name}</div>
-              <span className="chip" style={{ fontSize: 10 }}>{t('common.host')}</span>
+              <div className={s.pName}>{meeting.createdBy.name}</div>
+              <span className={`chip ${s.chipXs}`}>{t('common.host')}</span>
             </div>
 
             {selectedUsers.map(u => (
-              <div key={u.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
-                background: 'var(--surface)', borderRadius: 8, marginBottom: 4,
-              }}>
+              <div key={u.id} className={s.pRowSel}>
                 <Avatar name={u.name || 'U'} image={u.image} size="sm" />
-                <div style={{ flex: 1, fontSize: 13 }}>{u.name}</div>
-                <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24 }}
+                <div className={s.pNameSel}>{u.name}</div>
+                <button className={`btn btn-ghost btn-icon ${s.btn24}`}
                   aria-label={t('common.delete')}
                   onClick={() => setSelectedUsers(p => p.filter(x => x.id !== u.id))}>
                   <X size={11} />
@@ -719,35 +661,27 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
               </div>
             ))}
 
-            <div ref={searchRef} style={{ position: 'relative', marginTop: 6 }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                <input className="field" placeholder={t('meetingForm.addParticipant')}
+            <div ref={searchRef} className={s.searchWrap}>
+              <div className={s.rel}>
+                <Search size={13} className={s.searchIcon} />
+                <input className={`field ${s.searchInput}`} placeholder={t('meetingForm.addParticipant')}
                   value={userSearch} onChange={e => { setUserSearch(e.target.value); setShowDropdown(true); }}
-                  onFocus={() => setShowDropdown(true)}
-                  style={{ paddingLeft: 30, fontSize: 13 }} />
+                  onFocus={() => setShowDropdown(true)} />
               </div>
               {showDropdown && filteredUsers.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  borderRadius: 10, maxHeight: 180, overflowY: 'auto', zIndex: 60,
+                <div className={s.dropdown} style={{
                   boxShadow: '0 8px 24px rgba(0,0,0,.3)',
                 }}>
                   {filteredUsers.slice(0, 6).map(u => (
                     <button key={u.id} onClick={() => { setSelectedUsers(p => [...p, u]); setUserSearch(''); setShowDropdown(false); }}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '9px 12px', background: 'transparent', border: 'none',
-                        cursor: 'pointer', textAlign: 'left', color: 'var(--text)',
-                      }}
+                      className={s.dropItem}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <Avatar name={u.name || 'U'} image={u.image} size="sm" />
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div>
+                        <div className={s.dropName}>{u.name}</div>
+                        <div className={s.dropEmail}>{u.email}</div>
                       </div>
                     </button>
                   ))}
@@ -757,7 +691,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        <div className={s.editActions}>
           <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !title.trim()}>
             <Save size={14} /> {saving ? t('common.saving') : t('common.save')}
@@ -793,36 +727,25 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
   }, [isOpen, setMenuOpen]);
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button className="btn btn-ghost btn-icon" style={{ width: 30, height: 30 }}
+    <div ref={ref} className={s.rel}>
+      <button className={`btn btn-ghost btn-icon ${s.btn30}`}
         aria-label={t('common.options')}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(isOpen ? null : meetingId); }}>
         <MoreHorizontal size={15} />
       </button>
       {isOpen && (
-        <div style={{
-          position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 50,
-          background: 'var(--surface-2)', border: '1px solid var(--border)',
-          borderRadius: 10, minWidth: 160, overflow: 'hidden',
+        <div className={s.menu} style={{
           boxShadow: '0 8px 24px rgba(0,0,0,.3)',
         }}>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(null); onEdit(); }}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 14px', background: 'transparent', border: 'none',
-              cursor: 'pointer', color: 'var(--text)', fontSize: 13, textAlign: 'left',
-            }}
+            className={s.menuItem}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <Pencil size={13} /> {t('common.edit')}
           </button>
           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(null); onDelete(); }}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 14px', background: 'transparent', border: 'none',
-              cursor: 'pointer', color: 'var(--danger-fg)', fontSize: 13, textAlign: 'left',
-            }}
+            className={`${s.menuItem} ${s.menuItemDanger}`}
             onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in oklab, var(--red) 10%, transparent)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
@@ -838,10 +761,10 @@ function MeetingMenu({ meetingId, menuOpen, setMenuOpen, onEdit, onDelete }: {
 
 function Section({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 28 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0, letterSpacing: '-0.005em' }}>{title}</h2>
-        {right && (typeof right === 'string' ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>{right}</span> : right)}
+    <section className={s.section}>
+      <div className={s.sectionHead}>
+        <h2 className={s.sectionTitle}>{title}</h2>
+        {right && (typeof right === 'string' ? <span className={s.sectionRightText}>{right}</span> : right)}
       </div>
       {children}
     </section>
@@ -861,39 +784,27 @@ function MeetingRow({ meeting, users, tz, menuOpen, setMenuOpen, onEdit, onDelet
   const start = meeting.scheduledAt ? new Date(meeting.scheduledAt) : null;
   return (
     <div
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        padding: '12px 14px',
-        background: 'transparent',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        transition: 'all .15s',
-        color: 'inherit',
-      }}
+      className={s.meetingRow}
     >
-      <div style={{ width: 46, textAlign: 'center' }}>
-        <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
+      <div className={s.rowTime}>
+        <div className={`mono ${s.rowTimeVal}`}>
           {start ? fmtTime(start, tz) : '--:--'}
         </div>
-        <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+        <div className={`mono ${s.rowTimeDur}`}>
           {t('common.minutes', { count: meeting.durationMin })}
         </div>
       </div>
-      <div style={{ width: 1, height: 32, background: 'var(--border)' }} />
-      <Link href={`/lobby/${meeting.id}`} style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
-        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div className={s.rowDivider} />
+      <Link href={`/lobby/${meeting.id}`} className={s.rowLink}>
+        <div className={s.rowTitle}>
           {meeting.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', fontSize: 12 }}>
+        <div className={s.rowMeta}>
           <span>{t('common.participants', { count: users.length })}</span>
         </div>
       </Link>
       <AvatarStack users={users} max={3} />
-      <Link href={`/lobby/${meeting.id}`} className="btn btn-sm btn-primary" style={{ textDecoration: 'none', flexShrink: 0 }}>
+      <Link href={`/lobby/${meeting.id}`} className={`btn btn-sm btn-primary ${s.noUnderlineShrink}`}>
         <Video size={13} />
       </Link>
       {meeting.status !== 'ended' && (
@@ -920,11 +831,11 @@ function MeetingCard({ meeting, users, tz, now, menuOpen, setMenuOpen, onEdit, o
   const end = start ? new Date(start.getTime() + meeting.durationMin * 60000) : null;
 
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span className="mono" style={{ color: 'var(--muted)', fontSize: 11.5 }}>
+    <div className={`card ${s.mcard}`}>
+      <div className={s.mcardTop}>
+        <div className={s.flexMin}>
+          <div className={s.mcardTimeRow}>
+            <span className={`mono ${s.mcardTime}`}>
               {start ? `${fmtTime(start, tz)}–${end ? fmtTime(end, tz) : ''}` : ''}
             </span>
             {meeting.recurrence && (
@@ -933,8 +844,8 @@ function MeetingCard({ meeting, users, tz, now, menuOpen, setMenuOpen, onEdit, o
               </span>
             )}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>{meeting.title}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+          <div className={s.mcardTitle}>{meeting.title}</div>
+          <div className={s.mcardMeta}>
             {start ? fmtRelative(start, locale, tz, now) : ''} &bull; {t('common.minutes', { count: meeting.durationMin })}
           </div>
         </div>
@@ -943,9 +854,9 @@ function MeetingCard({ meeting, users, tz, now, menuOpen, setMenuOpen, onEdit, o
             onEdit={onEdit} onDelete={onDelete} />
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className={s.mcardFooter}>
         <AvatarStack users={users} max={5} />
-        <Link href={`/lobby/${meeting.id}`} className="btn btn-sm btn-primary" style={{ textDecoration: 'none' }}>
+        <Link href={`/lobby/${meeting.id}`} className={`btn btn-sm btn-primary ${s.noUnderline}`}>
           <Video size={13} /> {t('common.join')}
         </Link>
       </div>

@@ -12,6 +12,7 @@ import {
   X, Users, Clock, Lock, ChevronDown, Volume2, Speaker, ListChecks,
 } from 'lucide-react';
 import { fmtRelative, fmtTime } from '@/lib/utils';
+import s from './page.module.css';
 
 export default function LobbyPage() {
   const t = useTranslations();
@@ -124,23 +125,16 @@ export default function LobbyPage() {
     }));
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'radial-gradient(circle at 30% 20%, color-mix(in oklab, var(--accent) 10%, var(--bg)) 0%, var(--bg) 70%)',
-      display: 'flex', flexDirection: 'column', overflow: 'auto',
-    }}>
-      <div className='lobby-header' style={{ padding: '18px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div className={s.root}>
+      <div className={`lobby-header ${s.header}`}>
         <Logo />
         <button className="btn btn-ghost" onClick={() => router.push('/')}>
           <X size={15} /> {t('lobby.leave')}
         </button>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div className='lobby-grid' style={{
-          display: 'grid', gap: 32,
-          maxWidth: 1100, width: '100%', alignItems: 'center',
-        }}>
+      <div className={s.centerWrap}>
+        <div className={`lobby-grid ${s.grid}`}>
           {/* Video preview */}
           <div>
             <MediaPreview
@@ -152,25 +146,20 @@ export default function LobbyPage() {
               selectedCam={selectedCam}
             />
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 18 }}>
+            <div className={s.controlsRow}>
               <LobbyControlBtn active={mic} onClick={() => setMic(!mic)}
                 icon={mic ? <Mic size={20} /> : <MicOff size={20} />} />
               <LobbyControlBtn active={cam} onClick={() => setCam(!cam)}
                 icon={cam ? <Video size={20} /> : <VideoOff size={20} />} />
-              <div style={{ position: 'relative' }}>
-                <button className="btn" onClick={() => { enumerateDevices(); setShowDevices(!showDevices); }}
-                  style={{ padding: '12px 14px', borderRadius: 12, background: showDevices ? 'var(--surface-3)' : undefined }}>
-                  <Settings size={15} /> {t('lobby.devices')} <ChevronDown size={13} style={{ transform: showDevices ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+              <div className={s.deviceWrap}>
+                <button className={`btn ${s.deviceBtn}`} onClick={() => { enumerateDevices(); setShowDevices(!showDevices); }}
+                  style={{ background: showDevices ? 'var(--surface-3)' : undefined }}>
+                  <Settings size={15} /> {t('lobby.devices')} <ChevronDown size={13} className={s.chevron} style={{ transform: showDevices ? 'rotate(180deg)' : 'none' }} />
                 </button>
                 {showDevices && (
                   <>
-                    <div onClick={() => setShowDevices(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                    <div style={{
-                      position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-                      width: 320, maxWidth: 'calc(100vw - 24px)', padding: '14px 16px', zIndex: 100,
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: 14, boxShadow: '0 20px 50px var(--overlay)',
-                    }}>
+                    <div onClick={() => setShowDevices(false)} className={s.deviceOverlay} />
+                    <div className={s.devicePanel}>
                       <DeviceSelect label={t('lobby.microphone')} icon={<Mic size={14} />}
                         devices={devices.filter(d => d.kind === 'audioinput')}
                         value={selectedMic} onChange={setSelectedMic} />
@@ -188,24 +177,24 @@ export default function LobbyPage() {
           </div>
 
           {/* Right: meeting info + join */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className={s.infoCol}>
             {meeting ? (
               <>
                 <div>
                   {meeting.scheduledAt && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+                    <div className={s.scheduledLabel}>
                       {fmtRelative(new Date(meeting.scheduledAt), locale)} &bull; {fmtTime(new Date(meeting.scheduledAt))}
                     </div>
                   )}
-                  <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+                  <h1 className={s.title}>
                     {meeting.title}
                   </h1>
                   {meeting.description && (
-                    <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.55, margin: '0 0 12px' }}>
+                    <p className={s.desc}>
                       {meeting.description}
                     </p>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--muted)' }}>
+                  <div className={s.metaRow}>
                     <Users size={13} /> {t('lobby.invitedCount', { count: meeting.participants?.length || 0 })}
                     <span>&bull;</span>
                     <Clock size={13} /> {t('common.minutes', { count: meeting.durationMin })}
@@ -213,20 +202,15 @@ export default function LobbyPage() {
                 </div>
 
                 {Array.isArray(meeting.agenda) && meeting.agenda.filter((x: unknown) => typeof x === 'string' && x.trim()).length > 0 && (
-                  <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
+                  <div className={s.panel}>
+                    <div className={s.panelHeadingAgenda}>
                       <ListChecks size={13} /> {t('schedule.agendaHeading')}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className={s.agendaList}>
                       {(meeting.agenda as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <span style={{
-                            flexShrink: 0, width: 20, height: 20, borderRadius: 6,
-                            background: 'var(--accent-soft, rgba(59,130,246,.12))', color: 'var(--accent, var(--accent))',
-                            fontSize: 11, fontWeight: 700,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
-                          }}>{idx + 1}</span>
-                          <span style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5 }}>{item}</span>
+                        <div key={idx} className={s.agendaItem}>
+                          <span className={s.agendaBadge}>{idx + 1}</span>
+                          <span className={s.agendaText}>{item}</span>
                         </div>
                       ))}
                     </div>
@@ -234,13 +218,13 @@ export default function LobbyPage() {
                 )}
 
                 {meeting.participants && meeting.participants.length > 0 && (
-                  <div style={{ padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                  <div className={s.panel}>
+                    <div className={s.panelHeadingParticipants}>
                       {t('lobby.participantsHeading')}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className={s.participantsRow}>
                       <AvatarStack users={getParticipantNames(meeting)} size="md" max={3} />
-                      <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                      <div className={s.participantsCount}>
                         {t('common.participants', { count: meeting.participants.length })}
                       </div>
                     </div>
@@ -249,10 +233,10 @@ export default function LobbyPage() {
               </>
             ) : (
               <div>
-                <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px', letterSpacing: '-0.02em' }}>
+                <h1 className={s.title}>
                   {id === 'quick' ? t('lobby.quickMeeting') : t('lobby.joinMeeting')}
                 </h1>
-                <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.55, margin: 0 }}>
+                <p className={s.descNoMargin}>
                   {id === 'quick'
                     ? t('lobby.quickMeetingDesc')
                     : t('lobby.loadingMeeting')}
@@ -269,32 +253,30 @@ export default function LobbyPage() {
             {tooEarly ? (
               isHost ? (
                 <>
-                  <button className="btn btn-primary" onClick={() => joinMeeting(true)}
-                    style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
+                  <button className={`btn btn-primary ${s.primaryBtn}`} onClick={() => joinMeeting(true)}>
                     <Video size={17} /> {t('lobby.startNow')}
                   </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12.5 }}>
+                  <div className={s.hostNote}>
                     <Clock size={13} /> {t('lobby.earlyHostNote', { time: fmtTime(new Date(meeting.scheduledAt)) })}
                   </div>
                 </>
               ) : (
-                <div style={{ padding: '16px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontWeight: 600, fontSize: 14.5 }}>
-                    <Clock size={16} style={{ color: 'var(--accent)' }} /> {t('lobby.tooEarlyTitle')}
+                <div className={s.tooEarlyBox}>
+                  <div className={s.tooEarlyHeader}>
+                    <Clock size={16} className={s.accentIcon} /> {t('lobby.tooEarlyTitle')}
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                  <div className={s.tooEarlyDesc}>
                     {t('lobby.tooEarlyDesc', { time: fmtTime(new Date(meeting.scheduledAt)) })}
                   </div>
                 </div>
               )
             ) : (
-              <button className="btn btn-primary" onClick={() => joinMeeting()}
-                style={{ padding: '14px 18px', fontSize: 15, fontWeight: 600, justifyContent: 'center', borderRadius: 14 }}>
+              <button className={`btn btn-primary ${s.primaryBtn}`} onClick={() => joinMeeting()}>
                 <Video size={17} /> {t('lobby.joinMeeting')}
               </button>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
+            <div className={s.encryptedRow}>
               <Lock size={12} /> {t('lobby.encryptedNote')}
             </div>
           </div>
@@ -313,8 +295,8 @@ function DeviceSelect({ label, icon, devices, value, onChange }: {
 }) {
   const t = useTranslations();
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 5 }}>
+    <div className={s.deviceFieldWrap}>
+      <div className={s.deviceFieldLabel}>
         {icon} {label}
       </div>
       <Select
@@ -465,11 +447,7 @@ function MediaPreview({ mic, cam, userName, userInitial, selectedMic, selectedCa
   }, []);
 
   return (
-    <div style={{
-      position: 'relative', aspectRatio: '16/9', borderRadius: 20, overflow: 'hidden',
-      background: 'linear-gradient(135deg, #1d2735 0%, #0f1722 100%)',
-      border: '1px solid var(--border)', boxShadow: '0 30px 60px -20px var(--overlay)',
-    }}>
+    <div className={s.previewBox} style={{ background: 'linear-gradient(135deg, #1d2735 0%, #0f1722 100%)' }}>
       {/* Real camera video */}
       {cam && (
         <video
@@ -477,59 +455,35 @@ function MediaPreview({ mic, cam, userName, userInitial, selectedMic, selectedCa
           autoPlay
           playsInline
           muted
-          style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            objectFit: 'cover',
-            transform: 'scaleX(-1)',
-          }}
+          className={s.video}
         />
       )}
 
       {/* Camera off placeholder */}
       {!cam && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 12,
-          background: 'var(--surface)',
-        }}>
-          <div className="avatar avatar-lg" style={{
-            width: 80, height: 80, fontSize: 28,
-            background: 'var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: '50%', color: 'var(--on-accent)', fontWeight: 700,
-          }}>
+        <div className={s.placeholder}>
+          <div className={`avatar avatar-lg ${s.avatarCircle}`}>
             {userInitial}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('lobby.cameraOff')}</div>
+          <div className={s.cameraOffLabel}>{t('lobby.cameraOff')}</div>
         </div>
       )}
 
       {/* Bottom bar: mic level + name */}
-      <div style={{
-        position: 'absolute', left: 16, bottom: 16, right: 16,
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 12px', background: 'rgba(0,0,0,.45)',
-        borderRadius: 10, backdropFilter: 'blur(10px)',
-      }}>
+      <div className={s.bottomBar} style={{ background: 'rgba(0,0,0,.45)' }}>
         {mic ? (
-          <Mic size={14} style={{ color: 'var(--on-accent)', flexShrink: 0 }} />
+          <Mic size={14} className={s.micIconOn} />
         ) : (
-          <MicOff size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+          <MicOff size={14} className={s.micIconOff} />
         )}
-        <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,.15)', overflow: 'hidden' }}>
+        <div className={s.micTrack} style={{ background: 'rgba(255,255,255,.15)' }}>
           <div
             ref={micBarRef}
-            style={{
-              height: '100%', width: '0%',
-              background: 'linear-gradient(90deg, #22c55e, #eab308)',
-              borderRadius: 2,
-              transition: 'width .06s linear',
-            }}
+            className={s.micFill}
+            style={{ background: 'linear-gradient(90deg, #22c55e, #eab308)' }}
           />
         </div>
-        <span style={{ fontSize: 11.5, color: 'var(--on-accent)', flexShrink: 0 }}>{userName}</span>
+        <span className={s.userNameLabel}>{userName}</span>
       </div>
     </div>
   );
@@ -538,12 +492,10 @@ function MediaPreview({ mic, cam, userName, userInitial, selectedMic, selectedCa
 /* ══════════════════════════════════════════════════════════ */
 function LobbyControlBtn({ active, onClick, icon }: { active: boolean; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <button onClick={onClick} style={{
-      width: 52, height: 52, borderRadius: 14, cursor: 'pointer',
+    <button onClick={onClick} className={s.controlBtn} style={{
       background: active ? 'var(--surface-2)' : 'color-mix(in oklab, var(--red) 22%, var(--surface))',
       color: active ? 'var(--text)' : '#fca5a5',
       border: `1px solid ${active ? 'var(--border)' : 'color-mix(in oklab, var(--red) 40%, var(--border))'}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s',
     }}>
       {icon}
     </button>

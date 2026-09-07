@@ -10,6 +10,7 @@ import {
 import { ServerFormModal } from './components/ServerFormModal';
 import { AccessModal } from './components/AccessModal';
 import type { ServerView, OrgMember, DeptLite } from './lib/types';
+import s from './page.module.css';
 
 const STYLES = `
 @keyframes srv-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -118,85 +119,79 @@ export default function ServersPage() {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px clamp(16px, 4vw, 44px) 64px' }}>
+    <div className={s.page}>
+      <div className={s.container}>
       <style>{STYLES}</style>
 
       {/* ── Editorial header: left title block, right stat + action ── */}
-      <header style={{ position: 'relative', marginBottom: 26 }}>
+      <header className={s.header}>
         <div
           aria-hidden
-          style={{
-            position: 'absolute', inset: '-30px -40px auto -40px', height: 120, pointerEvents: 'none',
-            background: 'radial-gradient(60% 100% at 18% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 70%)',
-          }}
+          className={s.headerGlow}
         />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase' }}>
+        <div className={s.headerRow}>
+          <div className={s.headerTitleBlock}>
+            <div className={s.kicker}>
               <Network size={14} /> RDP
             </div>
-            <h1 style={{ margin: '8px 0 0', fontSize: 27, fontWeight: 680, letterSpacing: '-0.02em', lineHeight: 1.05 }}>
+            <h1 className={s.title}>
               {t('title')}
             </h1>
-            <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 14, maxWidth: '52ch' }}>{t('subtitle')}</p>
+            <p className={s.subtitle}>{t('subtitle')}</p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className={s.statActionRow}>
             {!loading && !error && servers.length > 0 && (
-              <div style={{ textAlign: 'right', lineHeight: 1.1 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-mono, ui-monospace, monospace)', letterSpacing: '-0.02em' }}>
+              <div className={s.statBlock}>
+                <div className={s.statNumber}>
                   {String(servers.length).padStart(2, '0')}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                <div className={s.statLabel}>
                   {t('serverCount', { count: servers.length })}
                 </div>
               </div>
             )}
             {canManage && (
-              <button className="btn btn-primary srv-cta" onClick={() => setFormFor(null)} style={{ fontWeight: 650 }}>
+              <button className={`btn btn-primary srv-cta ${s.fw650}`} onClick={() => setFormFor(null)}>
                 <Plus size={16} /> {t('newServer')}
               </button>
             )}
           </div>
         </div>
-        <div style={{ marginTop: 18, height: 1, background: 'linear-gradient(90deg, var(--border), transparent)' }} />
+        <div className={s.divider} />
       </header>
 
       {/* ── Loading skeletons (match card geometry) ── */}
       {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+        <div className={s.grid}>
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="srv-skel" style={{ height: 150, animationDelay: `${i * 120}ms` }} />
+            <div key={i} className={`srv-skel ${s.skelCard}`} style={{ animationDelay: `${i * 120}ms` }} />
           ))}
         </div>
       ) : error ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '64px 20px', color: 'var(--muted)' }}>
-          <Network size={28} style={{ opacity: 0.5 }} />
+        <div className={s.errorState}>
+          <Network size={28} className={s.halfOpacity} />
           <div>{tc('loadError')}</div>
           <button className="btn srv-cta" onClick={() => void load()}>{tc('retry')}</button>
         </div>
       ) : servers.length === 0 ? (
         /* ── Composed empty state ── */
         <div
-          style={{
-            position: 'relative', overflow: 'hidden', textAlign: 'center',
-            padding: '60px 24px', border: '1px dashed var(--border)', borderRadius: 20, background: 'var(--surface)',
-          }}
+          className={s.emptyState}
         >
-          <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'radial-gradient(50% 80% at 50% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative' }}>
-            <span style={{ display: 'inline-flex', width: 60, height: 60, borderRadius: 16, alignItems: 'center', justifyContent: 'center', background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent)', marginBottom: 16 }}>
+          <div aria-hidden className={s.emptyGlow} />
+          <div className={s.relative}>
+            <span className={s.emptyIcon}>
               <ServerIcon size={28} />
             </span>
-            <div style={{ fontSize: 18, fontWeight: 650, letterSpacing: '-0.01em' }}>
+            <div className={s.emptyTitle}>
               {canManage ? t('emptyAdminTitle') : t('emptyMemberTitle')}
             </div>
-            <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 8, maxWidth: 430, marginInline: 'auto', lineHeight: 1.5 }}>
+            <div className={s.emptyBody}>
               {canManage ? t('emptyAdminBody') : t('emptyMemberBody')}
             </div>
             {canManage && (
-              <button className="btn btn-primary srv-cta" onClick={() => setFormFor(null)} style={{ marginTop: 18, fontWeight: 650 }}>
+              <button className={`btn btn-primary srv-cta ${s.emptyCta}`} onClick={() => setFormFor(null)}>
                 <Plus size={16} /> {t('newServer')}
               </button>
             )}
@@ -204,68 +199,65 @@ export default function ServersPage() {
         </div>
       ) : (
         /* ── Connection grid ── */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-          {servers.map((s, i) => {
-            const identity = s.domain ? `${s.domain}\\${s.username}` : s.username;
-            const occ = occupancyLabel(s.activeSessions);
-            const occByOthers = (s.activeSessions ?? []).some((x) => !x.isSelf);
+        <div className={s.grid}>
+          {servers.map((srv, i) => {
+            const identity = srv.domain ? `${srv.domain}\\${srv.username}` : srv.username;
+            const occ = occupancyLabel(srv.activeSessions);
+            const occByOthers = (srv.activeSessions ?? []).some((x) => !x.isSelf);
             return (
               <article
-                key={s.id}
-                className="srv-node srv-reveal"
+                key={srv.id}
+                className={`srv-node srv-reveal ${s.card}`}
                 style={{
                   animationDelay: `${Math.min(i, 10) * 50}ms`,
-                  border: '1px solid var(--border)', borderRadius: 16, background: 'var(--surface)',
-                  padding: '16px 18px 16px 20px', display: 'flex', flexDirection: 'column', gap: 14,
                 }}
               >
                 <span className="srv-rail" aria-hidden />
 
                 {/* Row: status + name + admin actions */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 11 }}>
-                  <span style={{ position: 'relative', display: 'inline-flex', width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 11, background: 'color-mix(in oklab, var(--accent) 13%, transparent)', color: 'var(--accent)' }}>
+                <div className={s.cardHeadRow}>
+                  <span className={s.cardIcon}>
                     <ServerIcon size={20} />
                     <span
-                      className="srv-dot"
+                      className={`srv-dot ${s.statusDot}`}
                       aria-hidden
-                      style={{ position: 'absolute', right: -2, top: -2, width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--surface)' }}
                     />
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15.5, fontWeight: 640, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.name}
+                  <div className={s.flexMinW0}>
+                    <div className={s.cardName}>
+                      {srv.name}
                     </div>
                     {/* address shown to admins only — members never see host:port */}
-                    {s.host && (
-                      <div style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono, ui-monospace, monospace)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>
-                        {s.host}<span style={{ opacity: 0.5 }}>:</span>{s.port}
+                    {srv.host && (
+                      <div className={s.cardHost}>
+                        {srv.host}<span className={s.halfOpacity}>:</span>{srv.port}
                       </div>
                     )}
                   </div>
                   {canManage && (
-                    <div className="srv-act" style={{ display: 'flex', gap: 2, marginRight: -4 }}>
-                      <button className="srv-iconbtn" title={tc('edit')} onClick={() => setFormFor(s)}><Pencil size={15} /></button>
-                      <button className="srv-iconbtn" title={t('manageAccess')} onClick={() => setAccessFor(s)}><ShieldCheck size={15} /></button>
-                      <button className="srv-iconbtn danger" title={tc('delete')} disabled={deletingId === s.id} onClick={() => void del(s.id)}>
-                        {deletingId === s.id ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
+                    <div className={`srv-act ${s.cardActions}`}>
+                      <button className="srv-iconbtn" title={tc('edit')} onClick={() => setFormFor(srv)}><Pencil size={15} /></button>
+                      <button className="srv-iconbtn" title={t('manageAccess')} onClick={() => setAccessFor(srv)}><ShieldCheck size={15} /></button>
+                      <button className="srv-iconbtn danger" title={tc('delete')} disabled={deletingId === srv.id} onClick={() => void del(srv.id)}>
+                        {deletingId === srv.id ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
                       </button>
                     </div>
                   )}
                 </div>
 
                 {/* Meta chips */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 11.5 }}>
-                  {s.username && (
-                    <span style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-2)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
+                <div className={s.chipsRow}>
+                  {srv.username && (
+                    <span className={s.chipMono}>
                       {identity}
                     </span>
                   )}
-                  <span style={{ padding: '3px 9px', borderRadius: 999, border: '1px solid var(--border)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
-                    {s.protocol}
+                  <span className={s.chipOutline}>
+                    {srv.protocol}
                   </span>
-                  {canManage && typeof s.accessCount === 'number' && (
-                    <span style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--surface-2)', color: 'var(--text-2)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {s.accessCount > 0 ? <UsersIcon size={12} /> : <Building2 size={12} />} {t('grantsCount', { count: s.accessCount })}
+                  {canManage && typeof srv.accessCount === 'number' && (
+                    <span className={s.chipCount}>
+                      {srv.accessCount > 0 ? <UsersIcon size={12} /> : <Building2 size={12} />} {t('grantsCount', { count: srv.accessCount })}
                     </span>
                   )}
                 </div>
@@ -273,9 +265,8 @@ export default function ServersPage() {
                 {/* Live presence — who's currently connected */}
                 {occ && (
                   <div
+                    className={s.occPill}
                     style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
-                      maxWidth: '100%', padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
                       background: occByOthers ? 'color-mix(in oklab, var(--warn) 14%, transparent)' : 'var(--surface-2)',
                       color: occByOthers ? 'var(--warn)' : 'var(--muted)',
                       border: `1px solid ${occByOthers ? 'color-mix(in oklab, var(--warn) 35%, transparent)' : 'var(--border)'}`,
@@ -283,19 +274,18 @@ export default function ServersPage() {
                     title={occ}
                   >
                     <span
-                      className="srv-dot"
+                      className={`srv-dot ${s.occDot}`}
                       aria-hidden
-                      style={{ width: 7, height: 7, flexShrink: 0, borderRadius: '50%', background: occByOthers ? 'var(--warn)' : 'var(--success)' }}
+                      style={{ background: occByOthers ? 'var(--warn)' : 'var(--success)' }}
                     />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{occ}</span>
+                    <span className={s.ellipsisText}>{occ}</span>
                   </div>
                 )}
 
                 {/* Connect */}
                 <Link
-                  href={`/servers/${s.id}/session`}
-                  className="btn btn-primary srv-connect srv-cta"
-                  style={{ justifyContent: 'center', gap: 8, fontWeight: 640, textDecoration: 'none', marginTop: 'auto' }}
+                  href={`/servers/${srv.id}/session`}
+                  className={`btn btn-primary srv-connect srv-cta ${s.connectBtn}`}
                 >
                   {t('connect')} <ArrowRight size={16} className="srv-arrow" />
                 </Link>

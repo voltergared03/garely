@@ -20,6 +20,7 @@ import { TransferModal } from '../components/TransferModal';
 import { PopMenu, MenuRow } from '../components/Menu';
 import { buildCsv, downloadCsv, fetchAllRows } from '../lib/export-csv';
 import { CHOICE_COLORS, type BaseDetail, type TableTab, type TableT, type RowT, type OrgMember, type FieldType, type FilterCond, type SortCond, type ViewT, type ViewConfig } from '../lib/types';
+import s from './page.module.css';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -326,13 +327,13 @@ export default function BaseDetailPage() {
   // that says only "wait". The in-button Spinners below stay — a skeleton inside a
   // button would be nonsense.
   if (loading) return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }} role="status" aria-busy="true">
+    <div className={s.loadingWrap} role="status" aria-busy="true">
       <Skeleton w="30%" h={20} />
       <SkeletonCard lines={2} />
       <SkeletonCard lines={2} />
     </div>
   );
-  if (!base) return <div style={{ padding: 40 }}><Link href="/database" className="btn btn-ghost"><ChevronLeft size={16} /> {t('title')}</Link></div>;
+  if (!base) return <div className={s.emptyPage}><Link href="/database" className="btn btn-ghost"><ChevronLeft size={16} /> {t('title')}</Link></div>;
 
   const accent = base.color || 'var(--accent)';
   const restricted = base.visibility === 'restricted';
@@ -344,15 +345,15 @@ export default function BaseDetailPage() {
   const detailRow = detailRowId ? rows.find((r) => r.id === detailRowId) ?? null : null;
 
   return (
-    <div style={{ padding: '18px clamp(12px, 3vw, 28px)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div className={s.page}>
       {saveToast}
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <Link href="/database" className="btn btn-ghost btn-icon" style={{ width: 32, height: 32 }}><ChevronLeft size={18} /></Link>
-        <span style={{ width: 11, height: 11, borderRadius: 3, background: accent, flexShrink: 0 }} />
-        <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{base.name}</h1>
-        <div style={{ flex: 1 }} />
-        <button className="btn btn-ghost" onClick={() => setShareOpen(true)} style={{ fontWeight: 600, gap: 7 }}>
+      <div className={s.toolbarRow}>
+        <Link href="/database" className={`btn btn-ghost btn-icon ${s.backBtn}`}><ChevronLeft size={18} /></Link>
+        <span className={s.colorDot} style={{ background: accent }} />
+        <h1 className={s.pageTitle}>{base.name}</h1>
+        <div className={s.spacer} />
+        <button className={`btn btn-ghost ${s.shareBtn}`} onClick={() => setShareOpen(true)}>
           {restricted ? <Lock size={15} /> : <Share2 size={15} />} {t('share')}
         </button>
         <PopMenu trigger={<MoreHorizontal size={18} />} label={t('menu')}>
@@ -361,12 +362,12 @@ export default function BaseDetailPage() {
               <MenuRow icon={<Pencil size={14} />} label={t('rename')} onClick={() => { close(); setRenameBaseVal(base.name); setRenameBaseOpen(true); }} />
               <MenuRow icon={<Share2 size={14} />} label={t('share')} onClick={() => { close(); setShareOpen(true); }} />
               <MenuRow icon={<Download size={14} />} label={exporting ? t('exporting') : t('exportCsv')} disabled={!table || exporting} onClick={() => { close(); exportCsv(); }} />
-              <div style={{ display: 'flex', gap: 5, padding: '8px 10px 6px', flexWrap: 'wrap' }}>
+              <div className={s.colorRow}>
                 {CHOICE_COLORS.slice(0, 8).map((c) => (
-                  <button key={c} onClick={() => recolorBase(c)} title={t('recolor')} style={{ width: 18, height: 18, borderRadius: 5, background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid var(--hover-2)', cursor: 'pointer' }} />
+                  <button key={c} onClick={() => recolorBase(c)} title={t('recolor')} className={s.colorSwatch} style={{ background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid var(--hover-2)' }} />
                 ))}
               </div>
-              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div className={s.menuDivider} />
               <MenuRow icon={<Trash2 size={14} />} label={t('deleteBase')} danger onClick={() => { close(); setConfirmDelBase(true); }} />
             </>
           )}
@@ -374,7 +375,7 @@ export default function BaseDetailPage() {
       </div>
 
       {/* Table tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto', overflowY: 'hidden' }}>
+      <div className={s.tabsRow}>
         {base.tables.map((tab) => {
           const active = tab.id === activeTableId;
           const tabOwner = members.find((u) => u.id === tab.createdById) ?? null;
@@ -382,10 +383,11 @@ export default function BaseDetailPage() {
           const tabCanManage = !!base.canManage || ownsTab; // rename/delete/structure
           const tabCanTransfer = !!base.canTransfer || ownsTab; // hand it to someone else
           return (
-            <div key={tab.id} style={{ display: 'inline-flex', alignItems: 'center', borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, marginBottom: -1 }}>
+            <div key={tab.id} className={s.tabWrap} style={{ borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}` }}>
               <button
                 onClick={() => setActiveTableId(tab.id)}
-                style={{ border: 'none', background: 'transparent', padding: '8px 6px 8px 12px', cursor: 'pointer', fontSize: 13.5, fontWeight: active ? 700 : 500, color: active ? 'var(--text)' : 'var(--text-2)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                className={s.tabBtn}
+                style={{ fontWeight: active ? 700 : 500, color: active ? 'var(--text)' : 'var(--text-2)' }}
               >
                 <Table2 size={14} /> {tab.name}
               </button>
@@ -394,8 +396,8 @@ export default function BaseDetailPage() {
                   {(close) => (
                     <>
                       {tabOwner && (
-                        <div style={{ padding: '8px 12px 6px', fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t('tableOwner')}: <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{tabOwner.name || tabOwner.email}</span>
+                        <div className={s.tabOwnerRow}>
+                          {t('tableOwner')}: <span className={s.tabOwnerName}>{tabOwner.name || tabOwner.email}</span>
                         </div>
                       )}
                       <MenuRow icon={<Pencil size={14} />} label={t('renameTable')} onClick={() => { close(); setRenameTableVal(tab.name); setRenameTableT(tab); }} />
@@ -405,22 +407,22 @@ export default function BaseDetailPage() {
                   )}
                 </PopMenu>
               ) : (
-                <span style={{ width: 8 }} />
+                <span className={s.tabSpacer} />
               )}
             </div>
           );
         })}
-        <button onClick={() => setNewTableOpen(true)} className="btn btn-ghost btn-icon" title={t('newTable')} style={{ width: 28, height: 28, marginLeft: 4 }}><Plus size={15} /></button>
+        <button onClick={() => setNewTableOpen(true)} className={`btn btn-ghost btn-icon ${s.newTableBtn}`} title={t('newTable')}><Plus size={15} /></button>
       </div>
 
       {/* Body */}
       {base.tables.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{t('noTables')}</div>
-          <button className="btn btn-primary" onClick={() => setNewTableOpen(true)} style={{ marginTop: 14 }}><Plus size={16} /> {t('newTable')}</button>
+        <div className={`card ${s.emptyTablesCard}`}>
+          <div className={s.emptyTablesTitle}>{t('noTables')}</div>
+          <button className={`btn btn-primary ${s.emptyTablesBtn}`} onClick={() => setNewTableOpen(true)}><Plus size={16} /> {t('newTable')}</button>
         </div>
       ) : !table || !activeView ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spinner size={20} /></div>
+        <div className={s.spinnerWrap}><Spinner size={20} /></div>
       ) : (
         <>
           <ViewTabs
@@ -454,43 +456,43 @@ export default function BaseDetailPage() {
       {/* Modals */}
       <Modal open={newTableOpen} onClose={() => { setNewTableOpen(false); setTableErr(null); }} title={t('newTable')} width={420}>
         <label className="field-label">{t('tableName')}</label>
-        <input className="field" autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createTable()} placeholder={t('tableNamePlaceholder')} style={{ width: '100%', marginBottom: tableErr ? 8 : 18 }} />
-        {tableErr && <div style={{ color: 'var(--danger)', fontSize: 12.5, marginBottom: 14 }}>{tableErr}</div>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <input className={`field ${s.modalInputTight}`} autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createTable()} placeholder={t('tableNamePlaceholder')} style={{ marginBottom: tableErr ? 8 : 18 }} />
+        {tableErr && <div className={s.errorText}>{tableErr}</div>}
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setNewTableOpen(false)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={createTable} disabled={!newTableName.trim() || busy}>{busy ? <Spinner size={15} /> : t('createTable')}</button>
         </div>
       </Modal>
 
       <Modal open={renameBaseOpen} onClose={() => setRenameBaseOpen(false)} title={t('renameBaseTitle')} width={420}>
-        <input className="field" autoFocus value={renameBaseVal} onChange={(e) => setRenameBaseVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameBase()} style={{ width: '100%', marginBottom: 18 }} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <input className={`field ${s.modalInput}`} autoFocus value={renameBaseVal} onChange={(e) => setRenameBaseVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameBase()} />
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setRenameBaseOpen(false)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={renameBase} disabled={!renameBaseVal.trim()}>{tc('save')}</button>
         </div>
       </Modal>
 
       <Modal open={confirmDelBase} onClose={() => setConfirmDelBase(false)} title={t('deleteBase')} width={420}>
-        <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteBase')}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <p className={s.confirmText}>{t('confirmDeleteBase')}</p>
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setConfirmDelBase(false)}>{tc('cancel')}</button>
-          <button className="btn" onClick={deleteBase} style={{ background: 'var(--danger)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('deleteBase')}</button>
+          <button className={`btn ${s.dangerBtn}`} onClick={deleteBase}>{t('deleteBase')}</button>
         </div>
       </Modal>
 
       <Modal open={!!renameTableT} onClose={() => setRenameTableT(null)} title={t('renameTable')} width={420}>
-        <input className="field" autoFocus value={renameTableVal} onChange={(e) => setRenameTableVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameTable()} style={{ width: '100%', marginBottom: 18 }} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <input className={`field ${s.modalInput}`} autoFocus value={renameTableVal} onChange={(e) => setRenameTableVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameTable()} />
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setRenameTableT(null)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={renameTable} disabled={!renameTableVal.trim()}>{tc('save')}</button>
         </div>
       </Modal>
 
       <Modal open={!!delTableT} onClose={() => setDelTableT(null)} title={t('deleteTable')} width={420}>
-        <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteTable')}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <p className={s.confirmText}>{t('confirmDeleteTable')}</p>
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setDelTableT(null)}>{tc('cancel')}</button>
-          <button className="btn" onClick={deleteTable} style={{ background: 'var(--danger)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('deleteTable')}</button>
+          <button className={`btn ${s.dangerBtn}`} onClick={deleteTable}>{t('deleteTable')}</button>
         </div>
       </Modal>
 
@@ -499,18 +501,18 @@ export default function BaseDetailPage() {
       )}
 
       <Modal open={!!renameViewT} onClose={() => setRenameViewT(null)} title={t('renameView')} width={420}>
-        <input className="field" autoFocus value={renameViewVal} onChange={(e) => setRenameViewVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameView()} style={{ width: '100%', marginBottom: 18 }} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <input className={`field ${s.modalInput}`} autoFocus value={renameViewVal} onChange={(e) => setRenameViewVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameView()} />
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setRenameViewT(null)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={renameView} disabled={!renameViewVal.trim()}>{tc('save')}</button>
         </div>
       </Modal>
 
       <Modal open={!!delViewT} onClose={() => setDelViewT(null)} title={t('deleteView')} width={420}>
-        <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteView')}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <p className={s.confirmText}>{t('confirmDeleteView')}</p>
+        <div className={s.modalFooter}>
           <button className="btn btn-ghost" onClick={() => setDelViewT(null)}>{tc('cancel')}</button>
-          <button className="btn" onClick={deleteView} style={{ background: 'var(--danger)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('deleteView')}</button>
+          <button className={`btn ${s.dangerBtn}`} onClick={deleteView}>{t('deleteView')}</button>
         </div>
       </Modal>
 
@@ -536,7 +538,7 @@ export default function BaseDetailPage() {
       />
 
       {copied && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 3000, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', boxShadow: '0 10px 30px rgba(0,0,0,.4)' }}>
+        <div className={s.toast}>
           {t('linkCopied')}
         </div>
       )}

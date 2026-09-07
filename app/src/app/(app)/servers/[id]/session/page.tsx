@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, ShieldAlert, Cpu, MonitorPlay, Lock } from 'lucide-react';
 import type { ServerView, ActiveServerSession } from '../../lib/types';
 import RdpClient, { type Phase } from './RdpClient';
+import s from './page.module.css';
 
 const STYLES = `
 @keyframes sess-ring { 0% { transform: scale(.62); opacity:.6; } 100% { transform: scale(2.3); opacity:0; } }
@@ -128,30 +129,30 @@ export default function ServerSessionPage() {
   })();
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '30px clamp(16px, 4vw, 44px) 64px' }}>
+    <div className={s.page}>
+      <div className={s.container}>
         <style>{STYLES}</style>
 
         {/* header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <Link href="/servers" className="btn btn-ghost" style={{ padding: 8, textDecoration: 'none' }} aria-label={t('back')}>
+        <div className={s.headerRow}>
+          <Link href="/servers" className={`btn btn-ghost ${s.backLink}`} aria-label={t('back')}>
             <ArrowLeft size={18} />
           </Link>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 640, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className={s.titleWrap}>
+            <h1 className={s.title}>
               {server ? server.name : t('session')}
             </h1>
             {/* address/login subtitle — admins only; the member view omits host/username */}
             {server?.host && (
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
+              <div className={s.subtitle}>
                 {server.domain ? `${server.domain}\\${server.username}` : server.username}
-                <span style={{ opacity: 0.5 }}> @ </span>
+                <span className={s.atSign}> @ </span>
                 {server.host}:{server.port}
               </div>
             )}
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 12, fontWeight: 600 }}>
-            <span className="sess-pulse" style={{ width: 8, height: 8, borderRadius: '50%', background: statusPill.color }} />
+          <span className={s.statusPill}>
+            <span className={`sess-pulse ${s.statusDot}`} style={{ background: statusPill.color }} />
             {statusPill.label}
           </span>
         </div>
@@ -182,44 +183,44 @@ export default function ServerSessionPage() {
 
         {/* everything else renders inside the faux window frame */}
         {stage !== 'live' && (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', background: '#0a0d12', boxShadow: '0 24px 70px -30px rgba(0,0,0,.7)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,.07)', background: 'rgba(255,255,255,.02)' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#ff5f57' }} />
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#febc2e' }} />
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#28c840' }} />
+          <div className={s.windowFrame} style={{ background: '#0a0d12', boxShadow: '0 24px 70px -30px rgba(0,0,0,.7)' }}>
+            <div className={s.titlebar} style={{ borderBottom: '1px solid rgba(255,255,255,.07)', background: 'rgba(255,255,255,.02)' }}>
+              <div className={s.dots}>
+                <span className={s.dot} style={{ background: '#ff5f57' }} />
+                <span className={s.dot} style={{ background: '#febc2e' }} />
+                <span className={s.dot} style={{ background: '#28c840' }} />
               </div>
             </div>
 
-            <div style={{ minHeight: 'min(72vh, 720px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 32 }}>
+            <div className={s.stageArea}>
               {(stage === 'loading' || stage === 'connecting') && (
-                <div style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className={s.loadingRow}>
                   <Loader2 size={18} className="spin" /> {t('connecting')}
                 </div>
               )}
 
               {stage === 'denied' && (
-                <div style={{ color: 'var(--muted)', maxWidth: 380 }}>
-                  <ShieldAlert size={36} style={{ color: 'var(--danger-fg)', marginBottom: 12 }} />
-                  <div style={{ fontSize: 17, fontWeight: 640, color: 'var(--text)' }}>{t('accessDeniedTitle')}</div>
-                  <div style={{ fontSize: 14, marginTop: 8 }}>{t('accessDeniedBody')}</div>
-                  <Link href="/servers" className="btn" style={{ marginTop: 18, textDecoration: 'none' }}>{t('back')}</Link>
+                <div className={s.deniedBox}>
+                  <ShieldAlert size={36} className={s.deniedIcon} />
+                  <div className={s.deniedTitle}>{t('accessDeniedTitle')}</div>
+                  <div className={s.deniedBody}>{t('accessDeniedBody')}</div>
+                  <Link href="/servers" className={`btn ${s.deniedBack}`}>{t('back')}</Link>
                 </div>
               )}
 
-              {stage === 'error' && <div style={{ color: 'var(--muted)' }}>{t('sessionError')}</div>}
+              {stage === 'error' && <div className={s.errorText}>{t('sessionError')}</div>}
 
               {stage === 'idle' && server && (
-                <div style={{ color: 'rgba(231,233,238,.7)', maxWidth: 460 }}>
-                  <div style={{ position: 'relative', width: 92, height: 92, margin: '0 auto 20px' }}>
+                <div className={s.idleBox} style={{ color: 'rgba(231,233,238,.7)' }}>
+                  <div className={s.ringWrap}>
                     <span className="sess-ring" />
-                    <span className="sess-ring" style={{ animationDelay: '1.4s' }} />
-                    <span style={{ position: 'absolute', inset: 16, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in oklab, var(--accent) 18%, #0a0d12)', color: 'var(--accent)', border: '1px solid color-mix(in oklab, var(--accent) 40%, transparent)' }}>
+                    <span className={`sess-ring ${s.ringDelay}`} />
+                    <span className={s.iconCircle} style={{ background: 'color-mix(in oklab, var(--accent) 18%, #0a0d12)' }}>
                       <MonitorPlay size={26} />
                     </span>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 650, color: 'var(--text)', letterSpacing: '-0.01em' }}>{t('readyTitle')}</div>
-                  <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.55 }}>{t('readyBody')}</div>
+                  <div className={s.readyTitle}>{t('readyTitle')}</div>
+                  <div className={s.readyBody}>{t('readyBody')}</div>
                   {(() => {
                     const others = (server.activeSessions ?? []).filter((s) => !s.isSelf);
                     if (others.length === 0) return null;
@@ -227,22 +228,15 @@ export default function ServerSessionPage() {
                     const extra = others.length - 1;
                     const label = extra > 0 ? `${t('inUseBy', { name })} +${extra}` : t('inUseBy', { name });
                     return (
-                      <div
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '8px 14px',
-                          borderRadius: 999, fontSize: 13, fontWeight: 600, color: 'var(--warn)',
-                          background: 'color-mix(in oklab, var(--warn) 13%, transparent)',
-                          border: '1px solid color-mix(in oklab, var(--warn) 34%, transparent)',
-                        }}
-                      >
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)' }} className="sess-pulse" />
+                      <div className={s.inUseBadge}>
+                        <span className={`sess-pulse ${s.inUseDot}`} />
                         {label}
                       </div>
                     );
                   })()}
                   <div>
-                    <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => void onConnectClick()}>
-                      <MonitorPlay size={16} style={{ marginRight: 7 }} /> {t('connect')}
+                    <button className={`btn btn-primary ${s.mt16}`} onClick={() => void onConnectClick()}>
+                      <MonitorPlay size={16} className={s.iconMr7} /> {t('connect')}
                     </button>
                   </div>
                 </div>
@@ -254,13 +248,13 @@ export default function ServerSessionPage() {
                     e.preventDefault();
                     if (password) void doConnect();
                   }}
-                  style={{ width: '100%', maxWidth: 360, textAlign: 'left' }}
+                  className={s.passwordForm}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'center', marginBottom: 14, color: 'var(--accent)' }}>
+                  <div className={s.lockRow}>
                     <Lock size={22} />
                   </div>
-                  <div style={{ fontSize: 17, fontWeight: 640, color: 'var(--text)', textAlign: 'center' }}>{t('passwordPromptTitle')}</div>
-                  <div style={{ fontSize: 13.5, marginTop: 8, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
+                  <div className={s.passwordTitle}>{t('passwordPromptTitle')}</div>
+                  <div className={s.passwordBody}>
                     {t('passwordPromptBody', {
                       user: server.username
                         ? (server.domain ? `${server.domain}\\${server.username}` : server.username)
@@ -273,14 +267,13 @@ export default function ServerSessionPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('password')}
-                    className="field"
-                    style={{ width: '100%', marginTop: 16 }}
+                    className={`field ${s.passwordInput}`}
                   />
-                  <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                    <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setPassword(''); setStage('idle'); }}>
+                  <div className={s.passwordActions}>
+                    <button type="button" className={`btn btn-ghost ${s.flex1}`} onClick={() => { setPassword(''); setStage('idle'); }}>
                       {t('cancel')}
                     </button>
-                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={!password}>
+                    <button type="submit" className={`btn btn-primary ${s.flex1}`} disabled={!password}>
                       {t('connect')}
                     </button>
                   </div>
@@ -288,18 +281,18 @@ export default function ServerSessionPage() {
               )}
 
               {stage === 'gatewayPending' && (
-                <div style={{ color: 'rgba(231,233,238,.7)', maxWidth: 480 }}>
-                  <div style={{ position: 'relative', width: 92, height: 92, margin: '0 auto 20px' }}>
+                <div className={s.gatewayBox} style={{ color: 'rgba(231,233,238,.7)' }}>
+                  <div className={s.ringWrap}>
                     <span className="sess-ring" />
-                    <span className="sess-ring" style={{ animationDelay: '1.4s' }} />
-                    <span style={{ position: 'absolute', inset: 16, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in oklab, var(--accent) 18%, #0a0d12)', color: 'var(--accent)', border: '1px solid color-mix(in oklab, var(--accent) 40%, transparent)' }}>
+                    <span className={`sess-ring ${s.ringDelay}`} />
+                    <span className={s.iconCircle} style={{ background: 'color-mix(in oklab, var(--accent) 18%, #0a0d12)' }}>
                       <Cpu size={26} />
                     </span>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 650, color: 'var(--text)', letterSpacing: '-0.01em' }}>{t('gatewayPendingTitle')}</div>
-                  <div style={{ fontSize: 14, marginTop: 8, lineHeight: 1.55 }}>{t('gatewayPendingBody')}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 18, fontSize: 12, color: 'rgba(231,233,238,.85)', padding: '7px 13px', borderRadius: 999, border: '1px solid var(--hover-2)', background: 'rgba(255,255,255,.03)', fontFamily: 'var(--font-mono, ui-monospace, monospace)' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} className="sess-pulse" />
+                  <div className={s.readyTitle}>{t('gatewayPendingTitle')}</div>
+                  <div className={s.readyBody}>{t('gatewayPendingBody')}</div>
+                  <div className={s.gatewayPill} style={{ color: 'rgba(231,233,238,.85)', background: 'rgba(255,255,255,.03)' }}>
+                    <span className={`sess-pulse ${s.gatewayDot}`} />
                     IronRDP · Devolutions Gateway
                   </div>
                 </div>

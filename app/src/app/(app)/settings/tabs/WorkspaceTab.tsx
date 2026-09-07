@@ -6,6 +6,7 @@ import { Shield, ShieldAlert, Save, Check, Loader2, X } from 'lucide-react';
 import { Select } from '@/components/ui/select';
 import { TwoFactorSetupFlow } from '@/components/twofa/setup-flow';
 import { Toggle, FieldWrapper } from '../components/shared';
+import s from './WorkspaceTab.module.css';
 
 export function WorkspaceTab() {
   const t = useTranslations();
@@ -74,15 +75,15 @@ export function WorkspaceTab() {
   };
 
   if (loading || !ws) {
-    return <div style={{ maxWidth: 1000, margin: '0 auto', padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{t('common.loading')}</div>;
+    return <div className={s.loadingWrap}>{t('common.loading')}</div>;
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className={s.page}>
       {/* General */}
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>{t('settings.general')}</div>
-        <div className="settings-grid-2" style={{ display: 'grid', gap: 14 }}>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.titleMb12}>{t('settings.general')}</div>
+        <div className={`settings-grid-2 ${s.grid}`}>
           <FieldWrapper label={t('settings.workspaceName')}>
             <input className="field" value={ws.WS_NAME} onChange={e => set('WS_NAME', e.target.value)} />
           </FieldWrapper>
@@ -113,19 +114,19 @@ export function WorkspaceTab() {
       </div>
 
       {/* Sign-in methods */}
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>{t('settings.signInMethods')}</div>
-          {authSaving && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />}
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.headerRow}>
+          <div className={s.titleNoMb}>{t('settings.signInMethods')}</div>
+          {authSaving && <Loader2 size={14} className={s.spinIconMuted} />}
           {authMsg?.ok && (
-            <span style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--green)' }}>
+            <span className={s.savedBadgeSm}>
               <Check size={13} /> {authMsg.text}
             </span>
           )}
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.signInMethodsDesc')}</div>
+        <div className={s.desc}>{t('settings.signInMethodsDesc')}</div>
         {authMsg && !authMsg.ok && (
-          <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 14, lineHeight: 1.45 }}>{authMsg.text}</div>
+          <div className={s.errorMsg}>{authMsg.text}</div>
         )}
         <Toggle label="Google SSO" value={ws.AUTH_GOOGLE_ENABLED} onChange={v => setAuth('AUTH_GOOGLE_ENABLED', v)} />
         <Toggle label={t('settings.emailPassword')} value={ws.AUTH_PASSWORD_ENABLED} onChange={v => setAuth('AUTH_PASSWORD_ENABLED', v)} />
@@ -133,7 +134,7 @@ export function WorkspaceTab() {
           <>
             <Toggle label={t('settings.allowSelfRegistration')} value={ws.AUTH_SELFREG} onChange={v => setAuth('AUTH_SELFREG', v)} />
             {ws.AUTH_SELFREG && (
-              <div style={{ marginTop: 10 }}>
+              <div className={s.mt10}>
                 <FieldWrapper label={t('settings.allowedDomains')}>
                   <input className="field" value={ws.AUTH_SELFREG_DOMAINS || ''} placeholder="company.com, team.com"
                     onChange={e => set('AUTH_SELFREG_DOMAINS', e.target.value)}
@@ -146,9 +147,9 @@ export function WorkspaceTab() {
       </div>
 
       {/* Meeting policies */}
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.meetingPolicies')}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.meetingPoliciesDesc')}</div>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.titleMb4}>{t('settings.meetingPolicies')}</div>
+        <div className={s.desc}>{t('settings.meetingPoliciesDesc')}</div>
         <Toggle label={t('settings.allowGuestsByLink')} value={ws.WS_GUEST_ACCESS} onChange={v => set('WS_GUEST_ACCESS', v)} />
         <Toggle label={t('settings.aiSummaryAuto')} value={ws.WS_AI_SUMMARY} onChange={v => set('WS_AI_SUMMARY', v)} />
         <Toggle label={t('settings.liveTranscriptDefault')} value={ws.WS_LIVE_TRANSCRIPTION} onChange={v => set('WS_LIVE_TRANSCRIPTION', v)} />
@@ -156,19 +157,14 @@ export function WorkspaceTab() {
         <Toggle label={t('settings.recordAllMeetings')} value={ws.WS_RECORD_ALL} onChange={v => set('WS_RECORD_ALL', v)} />
         <Toggle label={t('settings.require2faAdmins')} value={ws.WS_REQUIRE_2FA} onChange={v => set('WS_REQUIRE_2FA', v)} disabled={my2fa === false && !ws.WS_REQUIRE_2FA} />
         {my2fa === false && !ws.WS_REQUIRE_2FA && (
-          <div style={{
-            marginTop: 12, padding: '12px 14px', borderRadius: 10,
-            background: 'color-mix(in oklab, var(--amber) 12%, transparent)',
-            border: '1px solid color-mix(in oklab, var(--amber) 35%, var(--border))',
-            display: 'flex', gap: 12, alignItems: 'flex-start',
-          }}>
-            <ShieldAlert size={18} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{t('settings.setupOwn2faTitle')}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+          <div className={s.warnBox}>
+            <ShieldAlert size={18} className={s.warnIcon} />
+            <div className={s.flex1}>
+              <div className={s.warnTitle}>{t('settings.setupOwn2faTitle')}</div>
+              <div className={s.warnDesc}>
                 {t('settings.setupOwn2faDesc')}
               </div>
-              <button className="btn btn-sm btn-primary" onClick={() => setShow2faSetup(true)} style={{ marginTop: 10 }}>
+              <button className={`btn btn-sm btn-primary ${s.mt10}`} onClick={() => setShow2faSetup(true)}>
                 <Shield size={13} /> {t('settings.setup2fa')}
               </button>
             </div>
@@ -177,10 +173,10 @@ export function WorkspaceTab() {
       </div>
 
       {/* Limits */}
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.limits')}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>{t('settings.limitsDesc')}</div>
-        <div className="settings-grid-3" style={{ display: 'grid', gap: 14 }}>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.titleMb4}>{t('settings.limits')}</div>
+        <div className={s.desc}>{t('settings.limitsDesc')}</div>
+        <div className={`settings-grid-3 ${s.grid}`}>
           <FieldWrapper label={t('settings.maxParticipantsPerRoom')}>
             <input className="field" type="number" value={ws.WS_MAX_PARTICIPANTS} onChange={e => set('WS_MAX_PARTICIPANTS', Number(e.target.value))} />
           </FieldWrapper>
@@ -194,45 +190,40 @@ export function WorkspaceTab() {
       </div>
 
       {/* Transcription glossary */}
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{t('settings.glossary')}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>{t('settings.glossaryHint')}</div>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.titleMb4}>{t('settings.glossary')}</div>
+        <div className={s.descLh}>{t('settings.glossaryHint')}</div>
         <textarea
-          className="field"
+          className={`field ${s.textareaGlossary}`}
           value={ws.WS_GLOSSARY ?? ''}
           onChange={e => set('WS_GLOSSARY', e.target.value)}
           placeholder={t('settings.glossaryPlaceholder')}
           rows={6}
-          style={{ resize: 'vertical', fontFamily: 'var(--font-mono)', lineHeight: 1.5 }}
         />
       </div>
 
       {/* Save */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button className="btn btn-primary" onClick={save} disabled={saving}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />} {t('common.save')}
+      <div className={s.footerRow}>
+        <button className={`btn btn-primary ${s.saveBtn}`} onClick={save} disabled={saving}>
+          {saving ? <Loader2 size={14} className={s.spinIconPlain} /> : <Save size={14} />} {t('common.save')}
         </button>
         {saved && (
-          <span style={{ fontSize: 13, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span className={s.savedBadgeLg}>
             <Check size={14} /> {t('common.saved')}
           </span>
         )}
         {saveErr && (
-          <span style={{ fontSize: 13, color: 'var(--red)' }}>{saveErr}</span>
+          <span className={s.errorMsgSm}>{saveErr}</span>
         )}
       </div>
 
       {show2faSetup && (
         <div
           onMouseDown={(e) => { if (e.target === e.currentTarget) setShow2faSetup(false); }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--overlay)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(2px)',
-          }}
+          className={s.modalOverlay}
         >
-          <div className="card" style={{ width: '100%', maxWidth: 420, padding: '22px 24px', position: 'relative' }}>
-            <button className="btn btn-ghost btn-icon" onClick={() => setShow2faSetup(false)} style={{ position: 'absolute', top: 12, right: 12, width: 30, height: 30 }} aria-label={t('common.close')}>
+          <div className={`card ${s.modalCard}`}>
+            <button className={`btn btn-ghost btn-icon ${s.closeBtn}`} onClick={() => setShow2faSetup(false)} aria-label={t('common.close')}>
               <X size={16} />
             </button>
             <TwoFactorSetupFlow onCancel={() => setShow2faSetup(false)} onDone={() => { setMy2fa(true); setShow2faSetup(false); }} />

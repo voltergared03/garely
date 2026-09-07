@@ -1,0 +1,69 @@
+/* page wrap */
+.wrap { max-width: 880px; margin: 0 auto; }
+
+/* header */
+.headerRow { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.headerTitleWrap { flex: 1; }
+.headerTitle { font-size: 15px; font-weight: 600; }
+.headerSubtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* count chip (used in card header) */
+.chipRow { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); }
+.chipCount { font-weight: 600; }
+.chipLabel { color: var(--muted); }
+.iconMuted { color: var(--muted); }
+
+/* create form */
+.createCard { padding: 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 12px; }
+.colorRow { display: flex; align-items: center; gap: 8px; }
+.colorLabel { font-size: 12px; color: var(--muted); }
+.swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; }
+.swatchSm { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
+.createActions { display: flex; gap: 8px; justify-content: flex-end; }
+.spinIcon { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* loading skeleton */
+.skeletonWrap { display: flex; flex-direction: column; gap: 10px; }
+.skeletonCard { padding: 16px; display: flex; align-items: center; gap: 12px; }
+.skeletonTextWrap { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+
+/* empty state */
+.emptyCard { padding: 40px 24px; text-align: center; }
+.emptyIcon { color: var(--muted); opacity: 0.5; margin-bottom: 10px; }
+.emptyTitle { font-size: 14px; font-weight: 600; }
+.emptyHint { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+
+/* department list */
+.listWrap { display: flex; flex-direction: column; gap: 10px; }
+.deptCard { padding: 0; overflow: hidden; }
+.deptHeader { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.toggleBtn { width: 28px; height: 28px; flex-shrink: 0; }
+.dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+.nameWrap { flex: 1; min-width: 0; }
+.editRow { display: flex; align-items: center; gap: 4px; }
+.editInput { height: 30px; font-size: 13.5px; padding: 4px 8px; max-width: 240px; }
+.iconBtn26 { width: 26px; height: 26px; }
+.nameRow { display: flex; align-items: center; gap: 8px; }
+.nameText { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editIconBtn { width: 26px; height: 26px; flex-shrink: 0; opacity: 0.8; }
+.statsRow { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.warnChip { background: var(--warn-bg); color: var(--warn-fg); }
+.deleteBtn { width: 30px; height: 30px; color: var(--red); }
+
+/* expanded panel */
+.panel { border-top: 1px solid var(--border); padding: 14px 16px; background: var(--surface-2); }
+.panelColorRow { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.sectionLabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-bottom: 8px; }
+.clickupBlock { margin-bottom: 14px; }
+.selectMax380 { max-width: 380px; }
+.hintText { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.noMembersText { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.membersList { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.memberRow { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: var(--surface); border-radius: 10px; }
+.memberInfo { flex: 1; min-width: 0; }
+.memberNameRow { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.memberNameText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iconBtn28 { width: 28px; height: 28px; }
+.removeBtn { width: 28px; height: 28px; color: var(--red); }
+.addMemberWrap { max-width: 320px; }

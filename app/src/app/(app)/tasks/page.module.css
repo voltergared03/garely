@@ -1,0 +1,500 @@
+/* Tasks board — static styles lifted out of page.tsx.
+   Anything computed from props/state (colours per priority, overdue borders,
+   grid templates, animations) stays inline in the TSX. Classes that sit on an
+   element which ALSO carries a global class (.btn, .tasks-filter-bar …) are
+   written as .x.x.x so they keep winning over `.btn`/`.btn:hover`, exactly as
+   the inline style they replaced did. */
+
+/* ── Shared atoms ─────────────────────────────────────── */
+.flex1min0 { flex: 1; min-width: 0; }
+.min0 { min-width: 0; }
+.rel { position: relative; }
+.ellip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mutedText { color: var(--muted); }
+.mutedShrink { color: var(--muted); flex-shrink: 0; }
+.accentIcon { color: var(--accent); }
+.shrink0 { flex-shrink: 0; }
+.hidden { display: none; }
+.noUnderline { text-decoration: none; }
+.muted11 { font-size: 11px; color: var(--muted); }
+.f12 { font-size: 12px; }
+.f13 { font-size: 13px; }
+.row6 { display: flex; gap: 6px; }
+.row8 { display: flex; gap: 8px; }
+.row8c { display: flex; align-items: center; gap: 8px; }
+.rowAuto8 { margin-left: auto; display: flex; gap: 8px; }
+.colStack { display: flex; flex-direction: column; gap: 10px; }
+.colStack8 { display: flex; flex-direction: column; gap: 8px; }
+.colStack12 { display: flex; flex-direction: column; gap: 12px; }
+.dot5 { width: 5px; height: 5px; border-radius: 50%; }
+.dot6 { width: 6px; height: 6px; border-radius: 50%; }
+.caretIcon { transition: transform .15s; }
+.chevMuted { color: var(--muted); transition: transform .15s; }
+.iconBtn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 0; display: flex; }
+.iconBtn2 { background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px; display: flex; }
+.iconBtn2s { background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px; display: flex; flex-shrink: 0; }
+.iconBtnAuto { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--muted); padding: 0; display: flex; }
+
+/* ── Search-hit highlight ─────────────────────────────── */
+.mark {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+  color: var(--text);
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+/* ── "Managed in ClickUp/Linear" chip ─────────────────── */
+.managedChip {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; line-height: 1.4; padding: 1px 7px; border-radius: 6px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent); font-weight: 600; white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Status checkbox / priority + department chips ────── */
+.statusBox {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; padding: 0;
+}
+.progDot { width: 8px; height: 8px; border-radius: 2px; background: var(--amber); }
+.prioDot { border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.prioTag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; padding: 2px 7px; border-radius: 5px; font-weight: 600;
+}
+.stateChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  font-weight: 600; white-space: nowrap;
+}
+.deptChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-2); white-space: nowrap; flex-shrink: 0;
+}
+.deptDot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.countBadges { display: inline-flex; align-items: center; gap: 9px; }
+.countItem { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.cfChip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 7px; border-radius: 5px;
+  background: var(--surface-2); color: var(--text-2);
+  max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Filter pills ─────────────────────────────────────── */
+.pillCount { margin-left: 6px; opacity: 0.7; font-size: 11px; font-family: var(--font-mono, monospace); }
+
+/* ── Due-date chips (list row · table row · kanban card) ── */
+.dueChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; padding: 3px 8px; border-radius: 6px;
+}
+.dueChipTable {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; padding: 3px 8px; border-radius: 6px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.dueChipCard {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 7px; border-radius: 5px;
+}
+
+/* ── List row — mobile card ───────────────────────────── */
+.rowMobile { display: flex; gap: 12px; padding: 13px 16px; cursor: pointer; }
+.rowCheckMobile { display: flex; align-items: center; gap: 2px; padding-top: 1px; flex-shrink: 0; }
+.titleRowMobile { display: flex; align-items: flex-start; gap: 7px; }
+.aiIconMobile { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+.titleMobile {
+  font-size: 14px; font-weight: 500; line-height: 1.35; flex: 1; min-width: 0;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.metaRowMobile { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.asgMobile { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.asgNameMobile { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.meetLinkMobile {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--muted); text-decoration: none;
+  font-size: 11.5px; margin-top: 8px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── List row — desktop single line ───────────────────── */
+.rowDesk {
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+  transition: background .15s; cursor: pointer;
+}
+.rowCheckDesk { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.titleRowDesk { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.aiIcon { color: var(--accent); flex-shrink: 0; }
+.titleDesk {
+  font-size: 13.5px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0;
+}
+.metaRowDesk { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); overflow: hidden; }
+.meetLinkDesk {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--muted); text-decoration: none; font-size: 11.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;
+}
+.standalone { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11.5px; }
+.asgDesk { display: flex; align-items: center; gap: 6px; max-width: 160px; flex-shrink: 0; }
+.asgName { font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asgNameOnly {
+  font-size: 12px; color: var(--muted); max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
+}
+.dueCol { min-width: 108px; text-align: right; }
+
+/* ── Subtask progress meter ───────────────────────────── */
+.subProg { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.subTrack { position: relative; width: 34px; height: 4px; border-radius: 3px; overflow: hidden; }
+.subFill { position: absolute; inset: 0; border-radius: 3px; transition: width .25s ease; }
+.subLabel { font-size: 11px; font-family: var(--font-mono, monospace); }
+
+/* ── Inline subtask list under a parent row ───────────── */
+.subList {
+  padding-top: 4px; padding-bottom: 10px;
+  background: color-mix(in oklab, var(--accent) 4%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+.subRow {
+  display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; cursor: pointer;
+  border-left: 2px solid var(--border); border-radius: 0 7px 7px 0;
+}
+.subTitle { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subAddRow { display: flex; align-items: center; gap: 8px; padding-left: 12px; }
+.subInput {
+  flex: 1; height: 30px; padding: 0 10px; font-size: 12.5px; border-radius: 7px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+}
+
+/* ── Desktop table ────────────────────────────────────── */
+.dash { font-size: 12px; }
+.tRow {
+  display: grid; align-items: center; column-gap: 12px;
+  padding: 0 14px; min-height: 46px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+}
+.tCheck { display: flex; align-items: center; gap: 2px; }
+.tTitleCell { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-right: 8px; }
+.tTitleRow { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tTitle { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tSub {
+  display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted);
+  min-width: 0; overflow: hidden; white-space: nowrap;
+}
+.tMeetLink {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--muted); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; flex-shrink: 1;
+}
+.tStandalone { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.tAsg { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.tAsgName { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.tHead {
+  display: grid; align-items: center; column-gap: 12px; padding: 0 14px; height: 38px;
+  border-bottom: 1px solid var(--border); border-left: 2px solid transparent;
+}
+.sortBtn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  transition: color .12s;
+}
+
+/* ── Inline quick-add row ─────────────────────────────── */
+.qRow {
+  display: grid; align-items: center; column-gap: 12px;
+  padding: 0 14px; min-height: 40px; border-left: 2px solid transparent;
+}
+.qIcon { display: flex; align-items: center; justify-content: flex-start; padding-left: 2px; color: var(--muted); }
+.qInput {
+  background: transparent; border: none; color: var(--text);
+  font-size: 13px; width: 100%; padding: 10px 0;
+}
+
+/* ── Group bands / scroll shells (list view) ──────────── */
+.mobScroll { flex: 1; overflow-y: auto; padding: 16px clamp(12px, 4vw, 20px) calc(96px + env(safe-area-inset-bottom, 0px)); }
+.mobGroups { display: flex; flex-direction: column; gap: 22px; }
+.mobGroupBtn {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  background: transparent; border: none; padding: 0; color: inherit; width: 100%;
+}
+.mobGroupLabel { font-size: 12px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: .06em; }
+.groupCount {
+  font-size: 11px; color: var(--muted); background: var(--surface);
+  padding: 2px 7px; border-radius: 5px; font-family: var(--font-mono, monospace);
+}
+.groupCountSm {
+  font-size: 11px; color: var(--muted); background: var(--surface);
+  padding: 1px 7px; border-radius: 5px; font-family: var(--font-mono, monospace);
+}
+.groupRule { flex: 1; height: 1px; background: var(--border); margin-left: 6px; }
+.groupToggle { color: var(--muted); font-size: 11.5px; display: flex; align-items: center; gap: 4px; }
+.groupToggleAuto { margin-left: auto; color: var(--muted); font-size: 11.5px; display: flex; align-items: center; gap: 4px; }
+.card14 { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.deskScroll { flex: 1; overflow-y: auto; padding: 18px clamp(14px, 4vw, 28px) 60px; }
+.deskWrap { max-width: 1320px; margin: 0 auto; }
+.groupBand {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 14px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent; color: inherit;
+}
+.groupLabel { font-size: 11.5px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .06em; }
+
+/* ── Kanban ───────────────────────────────────────────── */
+.kScroll { flex: 1; overflow-x: auto; overflow-y: hidden; padding: 18px clamp(14px, 4vw, 28px) 28px; }
+.kGrid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 14px; height: 100%; min-width: 840px; }
+.kCol {
+  display: flex; flex-direction: column; min-height: 0;
+  border-radius: 14px; padding: 14px; transition: border-color .15s;
+}
+.kColHead { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 2px 4px; }
+.kColLabel { font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.kColBody { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; padding-bottom: 14px; }
+.kDrop {
+  border: 1px dashed var(--border); border-radius: 10px; padding: 24px 14px;
+  text-align: center; color: var(--muted); font-size: 12.5px;
+}
+.kCard {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 12px 10px; cursor: pointer;
+  transition: border-color .15s, transform .1s; user-select: none;
+}
+.kTitleRow { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.kAiIcon { color: var(--accent); margin-top: 2px; }
+.kTitle { font-size: 13px; line-height: 1.4; font-weight: 500; flex: 1; min-width: 0; }
+.kMeta {
+  display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11.5px; margin-bottom: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kMetaPlain { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11.5px; margin-bottom: 10px; }
+.kChips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.kFoot { display: flex; align-items: center; justify-content: space-between; }
+
+/* ── Empty state ──────────────────────────────────────── */
+.empty { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
+.emptyInner { text-align: center; max-width: 380px; }
+.emptyIcon {
+  width: 88px; height: 88px; border-radius: 50%;
+  background: var(--surface); border: 1px dashed var(--border);
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.emptyTitle { font-size: 17px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
+.emptyDesc { color: var(--muted); font-size: 13.5px; line-height: 1.55; margin-bottom: 18px; }
+
+/* ── Task collaboration panel (drawer) ────────────────── */
+.collabLabel {
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+}
+.collabLoading { border-top: 1px solid var(--border); padding-top: 16px; text-align: center; }
+.collab { border-top: 1px solid var(--border); padding-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+.chipRow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.personChip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 8px 3px 3px;
+}
+.pickerPanel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+  min-width: 200px; max-height: 240px; overflow-y: auto;
+  box-shadow: 0 12px 30px -8px var(--overlay);
+}
+.pickerPanelWide {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+  min-width: 220px; max-height: 240px; overflow-y: auto;
+  box-shadow: 0 12px 30px -8px var(--overlay);
+}
+.pickerItem {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; width: 100%;
+  background: transparent; border: none; cursor: pointer; color: inherit;
+  border-radius: 6px; text-align: left;
+}
+.subTabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.collabItem {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+}
+.collabSubTitle { flex: 1; font-size: 13px; }
+.collabInput {
+  flex: 1; height: 36px; padding: 0 12px; font-size: 13px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+}
+.emptyNote { font-size: 12.5px; color: var(--muted); padding: 2px 2px 6px; }
+.emptyNoteFlat { font-size: 12.5px; color: var(--muted); }
+.errNote { font-size: 12px; color: var(--red); }
+.commentRow { display: flex; gap: 10px; }
+.commentAuthor { font-size: 12.5px; font-weight: 600; }
+.commentBody { font-size: 13px; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; word-break: break-word; }
+.commentComposer { display: flex; gap: 8px; align-items: flex-end; }
+.commentInput {
+  flex: 1; resize: vertical; font-size: 13px; line-height: 1.5;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 9px 12px; color: var(--text);
+}
+.fileName { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlLink { color: var(--muted); display: flex; padding: 2px; }
+
+/* ── Custom fields (drawer) ───────────────────────────── */
+.cfHead { display: flex; align-items: center; margin-bottom: 8px; }
+.cfLabel { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.cfRowHead { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.cfName { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.cfNameBlock { font-size: 11.5px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; }
+.cfActions { margin-left: auto; display: flex; gap: 4px; }
+.cellBox {
+  min-height: 38px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); display: flex; align-items: center; overflow: hidden;
+}
+.readOnlyNote { font-size: 12.5px; color: var(--muted); padding: 8px 0; }
+
+/* ── Task drawer (create/edit modal) ──────────────────── */
+.backdrop {
+  position: fixed; inset: 0; backdrop-filter: blur(4px);
+  z-index: 950; display: flex; align-items: stretch; justify-content: flex-end;
+}
+.drawer {
+  border-left: 1px solid var(--border); border-radius: 16px 0 0 16px;
+  width: min(600px, 100vw); max-width: 100vw; height: 100%;
+  display: flex; flex-direction: column;
+  box-shadow: -28px 0 70px -12px var(--overlay);
+}
+.drawerHead { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.drawerIcon {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  color: var(--accent); display: flex; align-items: center; justify-content: center;
+}
+.drawerTitle { font-size: 15px; font-weight: 600; }
+.aiChip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 8px; border-radius: 6px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+}
+.drawerBody { padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.drawerFoot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.titleInput {
+  font-size: 17px; font-weight: 600; background: transparent; border: none; padding: 4px 0;
+  border-bottom: 1px solid var(--border); border-radius: 0; color: var(--text); width: 100%;
+}
+.descInput {
+  resize: vertical; font-size: 13px; line-height: 1.55;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; padding-right: 42px;
+  color: var(--text); width: 100%;
+}
+.aiBtn {
+  position: absolute; top: 8px; right: 8px;
+  width: 30px; height: 30px; border-radius: 8px; border: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s; padding: 0;
+}
+.fieldLabel {
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px;
+}
+.fieldLabel8 {
+  font-size: 11.5px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 8px;
+}
+.pickerBtnInner { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pickerBtnLabel { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meetingPanel { margin-top: 6px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.searchIcon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.meetingSearch {
+  padding-left: 32px; border: none; border-bottom: 1px solid var(--border); border-radius: 0; height: 34px;
+  background: transparent; color: var(--text); width: 100%; font-size: 13px;
+}
+.meetingList { max-height: 200px; overflow-y: auto; }
+.meetingOpt {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px;
+  border: none; cursor: pointer; color: inherit; text-align: left;
+}
+.meetingOptFirst {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px;
+  border: none; cursor: pointer; color: inherit; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.meetingNone { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.meetingTitle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.meetingDate { font-size: 10.5px; color: var(--muted); margin-left: 8px; font-family: var(--font-mono, monospace); }
+.meetingEmpty { padding: 12px; color: var(--muted); font-size: 13px; text-align: center; }
+.userIcon { color: var(--muted); margin: 0 2px; }
+.managedNotice {
+  margin: 0 22px 12px; padding: 10px 12px; border-radius: 8px;
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  font-size: 12.5px; color: var(--accent); display: flex; align-items: center; gap: 8px;
+}
+.managedLink { margin-left: auto; color: var(--accent); font-weight: 600; text-decoration: none; }
+.saveErr {
+  padding: 10px 22px; color: var(--red); font-size: 13px;
+  background: color-mix(in oklab, var(--red) 10%, transparent);
+  border-top: 1px solid color-mix(in oklab, var(--red) 25%, transparent);
+}
+
+/* ── Page shell ───────────────────────────────────────── */
+.pageLoading { flex: 1; display: flex; align-items: center; justify-content: center; }
+.page { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.pageTabs { display: flex; align-items: center; gap: 4px; padding: 12px clamp(14px, 4vw, 28px) 0; flex-shrink: 0; }
+.tabBtn {
+  position: relative; padding: 8px 2px; margin-right: 12px;
+  background: none; border: none; cursor: pointer;
+  font-size: 22px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1;
+  transition: color .15s;
+}
+.tabBadge {
+  margin-left: 7px; font-size: 11px; font-weight: 700; padding: 2px 6px;
+  border-radius: 8px; background: var(--accent); vertical-align: middle;
+}
+.header { padding: 12px clamp(14px, 4vw, 28px) 16px; border-bottom: 1px solid var(--border); }
+.headerRow { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.headerActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.viewToggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.searchIcon2 { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.searchInput {
+  padding-left: 34px; height: 34px; font-size: 13px; width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+}
+.body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.errBox {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px; text-align: center;
+}
+.errText { color: var(--muted); font-size: 14px; }
+
+/* ── Classes that share an element with a global class ──
+   Written .x.x.x so they outrank `.btn` / `.btn:hover` / `input[type=date]`
+   the way the inline styles they replaced did. */
+.addChipBtn.addChipBtn.addChipBtn { border-radius: 999px; padding: 4px 10px; border-style: dashed; }
+.subTabBtn.subTabBtn.subTabBtn { flex: 1; justify-content: center; gap: 6px; border: none; border-radius: 7px; }
+.sendBtn.sendBtn.sendBtn { height: 38px; }
+.selfStart.selfStart.selfStart { align-self: flex-start; }
+.addFieldBtn.addFieldBtn.addFieldBtn { margin-left: auto; padding: 3px 8px; font-size: 12px; }
+.cfMiniBtn.cfMiniBtn.cfMiniBtn { padding: 2px 5px; }
+.cfMiniDanger.cfMiniDanger.cfMiniDanger { color: var(--red); }
+.closeBtn.closeBtn.closeBtn { margin-left: auto; padding: 4px 6px; }
+.pickerBtn.pickerBtn.pickerBtn {
+  width: 100%; justify-content: space-between; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.dateInput.dateInput.dateInput {
+  height: 38px; padding: 0 12px; font-size: 13px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  width: 100%;
+}
+.segBtn.segBtn.segBtn { flex: 1; justify-content: center; }
+.delBtn.delBtn.delBtn { color: var(--red); border-color: color-mix(in oklab, var(--red) 30%, transparent); }
+.bold.bold.bold { font-weight: 600; }
+.viewBtn.viewBtn.viewBtn { border: none; border-radius: 7px; }
+.searchClear.searchClear.searchClear { position: absolute; right: 4px; top: 4px; width: 26px; height: 26px; padding: 0; }
+.filterBar.filterBar.filterBar { display: flex; gap: 10px; flex-wrap: wrap; }
+.filterSep.filterSep.filterSep { width: 1px; height: 24px; background: var(--border); }

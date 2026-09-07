@@ -11,6 +11,7 @@ import { passwordProblem } from '@/lib/form-rules';
 import {
   Check, Copy, ArrowRight, ArrowLeft, Loader2, KeyRound, Building2, Globe, ShieldCheck,
 } from 'lucide-react';
+import s from './setup-wizard.module.css';
 
 const TOKEN_KEY = 'eam_setup_token';
 
@@ -202,33 +203,28 @@ export function SetupWizard({ initial }: { initial: Initial }) {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, overflowY: 'auto',
-        background: 'radial-gradient(ellipse at 20% 0%, color-mix(in oklab, var(--accent) 14%, var(--bg)) 0%, var(--bg) 60%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
-        padding: '48px 20px',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 540 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 22 }}>
+    <div className={s.page}>
+      <div className={s.container}>
+        <div className={s.logoRow}>
           <Logo size={26} />
         </div>
 
         {/* Step indicator */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        <div className={s.stepsRow}>
           {STEPS.map((label, i) => {
             const n = i + 1;
             const active = n === step;
             const done = n < step;
             return (
-              <div key={label} style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{
-                  height: 4, borderRadius: 99,
-                  background: done || active ? 'var(--accent)' : 'var(--border)',
-                  opacity: done ? 0.6 : 1, transition: 'background .2s',
-                }} />
-                <div style={{ fontSize: 11, marginTop: 6, color: active ? 'var(--text)' : 'var(--muted)', fontWeight: active ? 600 : 400 }}>
+              <div key={label} className={s.stepItem}>
+                <div
+                  className={s.stepBar}
+                  style={{
+                    background: done || active ? 'var(--accent)' : 'var(--border)',
+                    opacity: done ? 0.6 : 1,
+                  }}
+                />
+                <div className={s.stepLabel} style={{ color: active ? 'var(--text)' : 'var(--muted)', fontWeight: active ? 600 : 400 }}>
                   {label}
                 </div>
               </div>
@@ -236,7 +232,7 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           })}
         </div>
 
-        <div className="card fade-in" style={{ padding: '28px 28px 24px' }}>
+        <div className={`card fade-in ${s.card}`}>
           {/* STEP 1 — token */}
           {step === 1 && (
             <>
@@ -247,9 +243,9 @@ export function SetupWizard({ initial }: { initial: Initial }) {
                 placeholder={t('setup.tokenPlaceholder')} onChange={(e) => setTokenInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') verifyToken(); }}
               />
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '10px 0 0', lineHeight: 1.5 }}>
+              <p className={s.tokenHint}>
                 {t('setup.tokenHint')}
-                <code style={{ display: 'block', marginTop: 6, padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 11.5 }}>
+                <code className={s.tokenCode}>
                   docker compose logs eam-meet | grep -A2 &quot;SETUP&quot;
                 </code>
               </p>
@@ -265,14 +261,14 @@ export function SetupWizard({ initial }: { initial: Initial }) {
             <>
               <StepHead icon={<Building2 size={18} />} title={t('setup.identityTitle')} sub={t('setup.identitySub')} />
               <FieldLabel>{t('setup.languageLabel')}</FieldLabel>
-              <Select value={wsLanguage} onChange={changeWizardLanguage} options={LANG_OPTIONS} style={{ height: 38 }} />
-              <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0', lineHeight: 1.55 }}>{t('setup.languageHint')}</p>
+              <Select value={wsLanguage} onChange={changeWizardLanguage} options={LANG_OPTIONS} className={s.selectH38} />
+              <p className={s.hintSmall}>{t('setup.languageHint')}</p>
               <FieldLabel style={{ marginTop: 14 }}>{t('setup.nameLabel')}</FieldLabel>
               <input className="field" value={wsName} placeholder={t('setup.namePlaceholder')} onChange={(e) => setWsName(e.target.value)} />
               <FieldLabel style={{ marginTop: 14 }}>{t('setup.domainLabel')}</FieldLabel>
               <input className="field" value={wsDomain} placeholder={t('setup.domainPlaceholder')} onChange={(e) => setWsDomain(e.target.value)} />
               <FieldLabel style={{ marginTop: 14 }}>{t('setup.timezoneLabel')}</FieldLabel>
-              <Select value={wsTimezone} onChange={setWsTimezone} options={TZ_OPTIONS} style={{ height: 38 }} />
+              <Select value={wsTimezone} onChange={setWsTimezone} options={TZ_OPTIONS} className={s.selectH38} />
               <NavRow>
                 <span />
                 <PrimaryBtn onClick={saveIdentity} busy={busy}>{t('setup.next')}</PrimaryBtn>
@@ -288,8 +284,8 @@ export function SetupWizard({ initial }: { initial: Initial }) {
               <WizToggle label={t('setup.emailPassword')} desc={t('setup.emailPasswordDesc')} value={passwordEnabled} onChange={setPasswordEnabled} />
 
               {googleEnabled && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
+                <div className={s.divider}>
+                  <div className={s.googleHint}>
                     {t.rich('setup.googleSetupHint', { b: (chunks) => <b>{chunks}</b> })}
                   </div>
                   <CopyRow label={t('setup.redirectUriLabel')} value={redirectUri} copied={copied === 'r'} onCopy={() => copy(redirectUri, 'r')} />
@@ -302,13 +298,13 @@ export function SetupWizard({ initial }: { initial: Initial }) {
               )}
 
               {passwordEnabled && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div className={s.divider}>
                   <WizToggle label={t('setup.selfRegLabel')} desc={t('setup.selfRegDesc')} value={selfReg} onChange={setSelfReg} />
                   {selfReg && (
                     <>
                       <FieldLabel style={{ marginTop: 12 }}>{t('setup.allowedDomainsLabel')}</FieldLabel>
                       <input className="field" value={selfRegDomains} placeholder="company.com, team.com" onChange={(e) => setSelfRegDomains(e.target.value)} />
-                      <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: '6px 0 0' }}>{t('setup.allowedDomainsHint')}</p>
+                      <p className={s.hintTiny}>{t('setup.allowedDomainsHint')}</p>
                     </>
                   )}
                 </div>
@@ -342,15 +338,10 @@ export function SetupWizard({ initial }: { initial: Initial }) {
                 </>
               ) : status === 'authenticated' ? (
                 <>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                    background: 'color-mix(in oklab, var(--green) 12%, transparent)',
-                    border: '1px solid color-mix(in oklab, var(--green) 30%, transparent)',
-                    borderRadius: 10, fontSize: 13, marginBottom: 16,
-                  }}>
-                    <Check size={16} style={{ color: 'var(--green)' }} /> {t('setup.signedInGoogle')}
+                  <div className={s.successBox}>
+                    <Check size={16} className={s.greenIcon} /> {t('setup.signedInGoogle')}
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                  <p className={s.hintMuted}>
                     {t.rich('setup.finishHint', { code: (chunks) => <code>{chunks}</code> })}
                   </p>
                   <NavRow>
@@ -360,10 +351,10 @@ export function SetupWizard({ initial }: { initial: Initial }) {
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                  <p className={s.hintMuted}>
                     {t('setup.signInGooglePrompt')}
                   </p>
-                  <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px 16px', fontWeight: 600 }}
+                  <button className={`btn btn-primary ${s.fullBtn}`}
                     onClick={() => { sessionStorage.setItem(TOKEN_KEY, token); signIn('google', { callbackUrl: '/setup' }); }}>
                     <Globe size={16} /> {t('setup.signInGoogle')}
                   </button>
@@ -377,13 +368,13 @@ export function SetupWizard({ initial }: { initial: Initial }) {
           )}
 
           {err && (
-            <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--danger)', background: 'color-mix(in oklab, var(--danger) 10%, transparent)', padding: '9px 12px', borderRadius: 8 }}>
+            <div className={s.errBox}>
               {err}
             </div>
           )}
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>
+        <div className={s.footer}>
           {t('setup.footer')}
         </div>
       </div>
@@ -395,27 +386,27 @@ export function SetupWizard({ initial }: { initial: Initial }) {
 
 function StepHead({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: string }) {
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
-        <span style={{ color: 'var(--accent)' }}>{icon}</span>
-        <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>{title}</h1>
+    <div className={s.stepHeadWrap}>
+      <div className={s.stepHeadRow}>
+        <span className={s.accentIcon}>{icon}</span>
+        <h1 className={s.stepHeadTitle}>{title}</h1>
       </div>
-      <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>{sub}</p>
+      <p className={s.stepHeadSub}>{sub}</p>
     </div>
   );
 }
 
 function FieldLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, ...style }}>{children}</div>;
+  return <div className={s.fieldLabel} style={style}>{children}</div>;
 }
 
 function NavRow({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, gap: 12 }}>{children}</div>;
+  return <div className={s.navRow}>{children}</div>;
 }
 
 function PrimaryBtn({ children, onClick, busy, disabled }: { children: React.ReactNode; onClick: () => void; busy?: boolean; disabled?: boolean }) {
   return (
-    <button className="btn btn-primary" style={{ padding: '10px 18px', fontWeight: 600, justifyContent: 'center' }}
+    <button className={`btn btn-primary ${s.primaryBtn}`}
       onClick={onClick} disabled={busy || disabled}>
       {busy ? <Loader2 size={15} className="spin" /> : <>{children} <ArrowRight size={15} /></>}
     </button>
@@ -424,7 +415,7 @@ function PrimaryBtn({ children, onClick, busy, disabled }: { children: React.Rea
 
 function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button className="btn btn-ghost" style={{ padding: '10px 14px', fontSize: 13, color: 'var(--muted)' }} onClick={onClick}>
+    <button className={`btn btn-ghost ${s.ghostBtn}`} onClick={onClick}>
       {children}
     </button>
   );
@@ -432,16 +423,15 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick: (
 
 function WizToggle({ label, desc, value, onChange }: { label: string; desc?: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', gap: 14 }}>
+    <div className={s.toggleRow}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>{label}</div>
-        {desc && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>}
+        <div className={s.toggleLabel}>{label}</div>
+        {desc && <div className={s.toggleDesc}>{desc}</div>}
       </div>
-      <button type="button" aria-label={label} onClick={() => onChange(!value)} style={{
-        width: 38, height: 22, borderRadius: 999, border: 'none', flexShrink: 0,
-        background: value ? 'var(--accent)' : 'var(--surface-3)', position: 'relative', cursor: 'pointer', transition: 'background .15s',
+      <button type="button" aria-label={label} onClick={() => onChange(!value)} className={s.toggleTrack} style={{
+        background: value ? 'var(--accent)' : 'var(--surface-3)',
       }}>
-        <span style={{ position: 'absolute', top: 3, left: value ? 19 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
+        <span className={s.toggleDot} style={{ top: 3, left: value ? 19 : 3, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }} />
       </button>
     </div>
   );
@@ -450,12 +440,12 @@ function WizToggle({ label, desc, value, onChange }: { label: string; desc?: str
 function CopyRow({ label, value, copied, onCopy }: { label: string; value: string; copied: boolean; onCopy: () => void }) {
   const t = useTranslations();
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', borderRadius: 8, padding: '8px 10px' }}>
-        <code style={{ flex: 1, fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</code>
-        <button className="btn btn-ghost btn-icon" style={{ flexShrink: 0, height: 26, width: 26 }} title={t('setup.copy')} onClick={onCopy}>
-          {copied ? <Check size={13} style={{ color: 'var(--green)' }} /> : <Copy size={13} />}
+    <div className={s.copyRow}>
+      <div className={s.copyLabel}>{label}</div>
+      <div className={s.copyValueRow}>
+        <code className={s.copyCode}>{value}</code>
+        <button className={`btn btn-ghost btn-icon ${s.copyBtn}`} title={t('setup.copy')} onClick={onCopy}>
+          {copied ? <Check size={13} className={s.greenIcon} /> : <Copy size={13} />}
         </button>
       </div>
     </div>

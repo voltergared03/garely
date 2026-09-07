@@ -9,6 +9,7 @@ import { AvatarStack } from '@/components/ui/avatar';
 import { fmtTime, fmtRelative, zonedFormFields } from '@/lib/utils';
 import { useWorkspaceTz } from '@/hooks/use-workspace-tz';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import s from './page.module.css';
 
 interface Participant {
   user: { id: string; name: string | null; image: string | null } | null;
@@ -74,12 +75,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
     re.test(part) ? (
       <mark
         key={i}
-        style={{
-          background: 'color-mix(in oklab, var(--accent) 30%, transparent)',
-          color: 'inherit',
-          borderRadius: 2,
-          padding: '0 2px',
-        }}
+        className={s.highlight}
       >
         {part}
       </mark>
@@ -219,69 +215,37 @@ export default function ArchivePage() {
   const groups = useMemo(() => groupByDay(filtered, locale, tz), [filtered, locale, tz]);
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      <div className='page-container' style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className={s.page}>
+      <div className={`page-container ${s.container}`}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              margin: '0 0 6px',
-            }}
-          >
+        <div className={s.header}>
+          <h1 className={s.title}>
             {t('archive.title')}
           </h1>
-          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 14, lineHeight: 1.5 }}>
+          <p className={s.subtitle}>
             {t('archive.subtitle')}
           </p>
         </div>
 
         {/* Search + Filter */}
-        <div className='archive-filter-bar' style={{ display: 'flex', gap: 12, marginBottom: 24, alignItems: 'center' }}>
+        <div className={`archive-filter-bar ${s.filterBar}`}>
           {/* Search input */}
           <div
-            className="field"
-            style={{
-              flex: 1,
-              minWidth: 240,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              position: 'relative',
-            }}
+            className={`field ${s.searchField}`}
           >
-            <Search size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+            <Search size={15} className={s.searchIcon} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('archive.searchPlaceholder')}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--text)',
-                fontSize: 14,
-              }}
+              className={s.searchInput}
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
                 aria-label={t('common.clear')}
-                className="btn-icon"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--muted)',
-                  padding: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderRadius: 6,
-                }}
+                className={`btn-icon ${s.clearBtn}`}
               >
                 <X size={14} />
               </button>
@@ -290,27 +254,15 @@ export default function ArchivePage() {
 
           {/* Segmented filter */}
           <div
-            style={{
-              display: 'flex',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 3,
-              gap: 2,
-            }}
+            className={s.segmented}
           >
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
+                className={s.tabBtn}
                 style={{
-                  padding: '6px 14px',
-                  fontSize: 13,
                   fontWeight: activeFilter === tab.key ? 600 : 400,
-                  borderRadius: 8,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all .15s',
                   background: activeFilter === tab.key ? 'var(--surface-2)' : 'transparent',
                   color: activeFilter === tab.key ? 'var(--text)' : 'var(--muted)',
                   boxShadow: activeFilter === tab.key ? '0 1px 3px rgba(0,0,0,.12)' : 'none',
@@ -324,12 +276,12 @@ export default function ArchivePage() {
 
         {/* Loading */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
+          <div className={s.loadingWrap}>
             <RefreshCw
               size={24}
-              style={{ animation: 'spin 1s linear infinite', marginBottom: 12, opacity: 0.5 }}
+              className={s.loadingIcon}
             />
-            <div style={{ fontSize: 14 }}>{t('common.loading')}</div>
+            <div className={s.loadingText}>{t('common.loading')}</div>
             <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -337,21 +289,13 @@ export default function ArchivePage() {
         {/* Empty state */}
         {!loading && groups.length === 0 && (
           <div
-            className="card"
-            style={{
-              textAlign: 'center',
-              padding: '60px 40px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 12,
-            }}
+            className={`card ${s.emptyCard}`}
           >
-            <Search size={48} style={{ color: 'var(--muted)', opacity: 0.3 }} />
-            <div style={{ fontSize: 16, fontWeight: 600 }}>
+            <Search size={48} className={s.emptyIcon} />
+            <div className={s.emptyTitle}>
               {search.trim() ? t('archive.emptySearchTitle') : t('archive.emptyTitle')}
             </div>
-            <div style={{ color: 'var(--muted)', fontSize: 14, maxWidth: 360 }}>
+            <div className={s.emptyDesc}>
               {search.trim()
                 ? t('archive.emptySearchDesc', { query: search })
                 : t('archive.emptyDesc')}
@@ -361,27 +305,23 @@ export default function ArchivePage() {
 
         {/* Delete confirm modal */}
         {confirmDelete && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'var(--overlay)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-          }} onClick={closeConfirm}>
-            <div className="card" style={{ maxWidth: 420, width: '100%', padding: '28px 24px' }}
+          <div className={s.modalOverlay} onClick={closeConfirm}>
+            <div className={`card ${s.modalCard}`}
               onClick={e => e.stopPropagation()}>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+              <div className={s.modalTitle}>
                 {recBlocked ? t('archive.deleteHasRecordingTitle') : t('archive.deleteConfirmTitle')}
               </div>
-              <div style={{ color: 'var(--text-2)', fontSize: 14, marginBottom: deleteErr ? 12 : 20, lineHeight: 1.5 }}>
+              <div className={s.modalBody} style={{ marginBottom: deleteErr ? 12 : 20 }}>
                 {recBlocked
                   ? t('archive.deleteHasRecordingBody', { title: confirmDelete.title })
                   : t('archive.deleteConfirmBody', { title: confirmDelete.title })}
               </div>
               {deleteErr && (
-                <div style={{ color: 'var(--danger-fg)', fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>{deleteErr}</div>
+                <div className={s.modalError}>{deleteErr}</div>
               )}
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <div className={s.modalActions}>
                 <button className="btn" onClick={closeConfirm}>{t('common.cancel')}</button>
-                <button className="btn" onClick={recBlocked ? handleDeleteWithRecording : handleDelete} disabled={!!deletingId}
-                  style={{ background: 'color-mix(in oklab, var(--red) 22%, var(--surface))', color: 'var(--danger-fg)', borderColor: 'color-mix(in oklab, var(--red) 40%, var(--border))' }}>
+                <button className={`btn ${s.deleteBtn}`} onClick={recBlocked ? handleDeleteWithRecording : handleDelete} disabled={!!deletingId}>
                   <Trash2 size={14} /> {deletingId ? t('archive.deleting') : (recBlocked ? t('archive.deleteWithRecording') : t('common.delete'))}
                 </button>
               </div>
@@ -392,46 +332,28 @@ export default function ArchivePage() {
         {/* Results grouped by day */}
         {!loading &&
           groups.map((group, gi) => (
-            <div key={gi} style={{ marginBottom: 28 }}>
+            <div key={gi} className={s.group}>
               {/* Day header */}
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  marginBottom: 12,
-                }}
+                className={s.dayHeader}
               >
                 <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: 'var(--text-2)',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className={s.dayLabel}
                 >
                   {group.label}
                 </span>
                 <div
-                  style={{
-                    flex: 1,
-                    height: 1,
-                    background: 'var(--border)',
-                  }}
+                  className={s.dayLine}
                 />
                 <span
-                  style={{
-                    fontSize: 11.5,
-                    color: 'var(--muted)',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className={s.dayCount}
                 >
                   {t('common.meetings', { count: group.meetings.length })}
                 </span>
               </div>
 
               {/* Meeting rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className={s.rowsWrap}>
                 {group.meetings.map((m) => (
                   <MeetingRow key={m.id} meeting={m} searchQuery={search} isAdmin={isAdmin} onDelete={() => { setRecBlocked(false); setDeleteErr(null); setConfirmDelete(m); }} mobile={isMobile} tz={tz} />
                 ))}
@@ -459,19 +381,10 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { m
   return (
     <Link
       href={`/meetings/${meeting.id}/report`}
+      className={s.row}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        padding: '12px 14px',
         background: hovered ? 'var(--surface-2)' : 'transparent',
-        border: '1px solid',
         borderColor: hovered ? 'var(--border-2)' : 'var(--border)',
-        borderRadius: 12,
-        transition: 'all .15s',
-        textDecoration: 'none',
-        color: 'inherit',
-        cursor: 'pointer',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -479,104 +392,78 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { m
       {/* Time + duration — desktop: fixed left column; mobile: folded into the meta row */}
       {!mobile && (
         <>
-          <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
-            <div className="mono" style={{ fontSize: 13, fontWeight: 600 }}>
+          <div className={s.timeCol}>
+            <div className={`mono ${s.timeText}`}>
               {start ? fmtTime(start, tz) : '--:--'}
             </div>
-            <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+            <div className={`mono ${s.durationText}`}>
               {t('common.minutes', { count: meeting.durationMin })}
             </div>
           </div>
-          <div style={{ width: 1, height: 36, background: 'var(--border)', flexShrink: 0 }} />
+          <div className={s.divider} />
         </>
       )}
 
       {/* Title + chips + transcript matches */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+      <div className={s.titleWrap}>
+        <div className={s.titleRow}>
           <span
-            style={{
-              fontWeight: 600,
-              fontSize: 14,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
+            className={s.titleText}
           >
             {meeting.title}
           </span>
           {meeting.recurrence && (
             <span
-              className="chip"
-              style={{ flexShrink: 0 }}
+              className={`chip ${s.recurBadge}`}
             >
               <RefreshCw size={10} /> {t('archive.recurringBadge')}
             </span>
           )}
           {hasReport && (
             <span
-              className="chip"
-              style={{
-                flexShrink: 0,
-                background: 'color-mix(in oklab, var(--accent-2) 15%, transparent)',
-                borderColor: 'color-mix(in oklab, var(--accent-2) 30%, transparent)',
-                color: 'var(--accent-2)',
-              }}
+              className={`chip ${s.reportBadge}`}
             >
               <Sparkles size={10} /> {t('archive.aiReportBadge')}
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, minWidth: 0, flexWrap: mobile ? 'wrap' : 'nowrap' }}>
+        <div className={s.metaRow} style={{ flexWrap: mobile ? 'wrap' : 'nowrap' }}>
           {mobile && (
             <>
-              <span className="mono" style={{ flexShrink: 0 }}>{start ? fmtTime(start, tz) : '--:--'} · {t('common.minutes', { count: meeting.durationMin })}</span>
-              <span style={{ flexShrink: 0 }}>&middot;</span>
+              <span className={`mono ${s.mobileTimeSpan}`}>{start ? fmtTime(start, tz) : '--:--'} · {t('common.minutes', { count: meeting.durationMin })}</span>
+              <span className={s.dotSpan}>&middot;</span>
             </>
           )}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <span className={s.usersSpan}>
             <Users size={12} />
             {t('common.participants', { count: users.length })}
           </span>
-          <span style={{ flexShrink: 0 }}>&middot;</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{meeting.createdBy.name || 'Unknown'}</span>
+          <span className={s.dotSpan}>&middot;</span>
+          <span className={s.createdBySpan}>{meeting.createdBy.name || 'Unknown'}</span>
         </div>
 
         {/* Transcript matches */}
         {hasTranscriptMatches && (
-          <div style={{ marginTop: 8 }}>
+          <div className={s.matchesWrap}>
             <div
-              style={{
-                fontSize: 11.5,
-                color: 'var(--muted)',
-                marginBottom: 4,
-                fontWeight: 500,
-              }}
+              className={s.matchesLabel}
             >
               {t('archive.foundInTranscript', { count: totalSnippets })}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+            <div className={s.langBadgesWrap}>
               {matches.map((tm) => (
                 <span key={tm.language} className="lang-badge">
                   {tm.language}
                 </span>
               ))}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div className={s.snippetsWrap}>
               {matches.flatMap((tm) =>
                 tm.snippets.slice(0, 2).map((snippet, si) => (
                   <div
                     key={`${tm.language}-${si}`}
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--text-2)',
-                      lineHeight: 1.5,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '100%',
-                    }}
+                    className={s.snippetItem}
                   >
                     &ldquo;...{highlightMatch(snippet, searchQuery)}...&rdquo;
                   </div>
@@ -588,7 +475,7 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { m
       </div>
 
       {/* Avatar stack (hidden on narrow screens — participant count is in the meta row) */}
-      <div className="archive-row-avatars" style={{ flexShrink: 0 }}>
+      <div className={`archive-row-avatars ${s.avatarWrap}`}>
         <AvatarStack users={users} max={4} />
       </div>
 
@@ -596,12 +483,11 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { m
       {isAdmin && (
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }}
-          className="btn btn-ghost btn-icon archive-del-btn"
+          className={`btn btn-ghost btn-icon archive-del-btn ${s.delBtn}`}
           title={t('archive.deleteMeeting')}
           style={{
-            width: 30, height: 30, flexShrink: 0, color: 'var(--muted)',
+            color: 'var(--muted)',
             opacity: hovered ? 1 : 0,
-            transition: 'opacity .15s, color .15s',
           }}
           onMouseEnter={e => (e.currentTarget.style.color = '#fca5a5')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
@@ -613,11 +499,9 @@ function MeetingRow({ meeting, searchQuery, isAdmin, onDelete, mobile, tz }: { m
       {/* Chevron */}
       <ChevronRight
         size={16}
+        className={s.chevron}
         style={{
-          color: 'var(--muted)',
-          flexShrink: 0,
           opacity: hovered ? 1 : 0.5,
-          transition: 'opacity .15s',
         }}
       />
     </Link>

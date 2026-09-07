@@ -36,6 +36,7 @@ import { ParticipantTile } from './components/ParticipantTile';
 import { RoomDeviceSelect } from './components/RoomDeviceSelect';
 import { ControlBtn, MoreItem } from './components/ControlBtn';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import css from './page.module.css';
 
 /* ══════════════════════════════════════════════════════════
    ROOM CONTENT — rendered inside <LiveKitRoom>
@@ -507,67 +508,45 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
   const langFlag: Record<string, string> = { uk: '🇺🇦', en: '🇬🇧', ru: '🇷🇺' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#111317' }}>
+    <div className={css.shell} style={{ background: '#111317' }}>
       <RoomAudioRenderer />
       {!isGuest && <AdmissionPanel meetingId={meetingId} />}
 
       {/* ── Floating Reactions ──────────── */}
       {floatingReactions.map(r => (
-        <div key={r.id} style={{
-          position: 'fixed', left: `${r.x}%`, bottom: 100, zIndex: 300,
-          pointerEvents: 'none',
-          animation: 'reactionFloat 3s ease-out forwards',
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 40 }}>{r.emoji}</span>
-            <div style={{
-              fontSize: 10, color: 'rgba(255,255,255,.7)',
-              background: 'var(--overlay)', padding: '2px 8px',
-              borderRadius: 6, marginTop: 2, whiteSpace: 'nowrap',
-              backdropFilter: 'blur(4px)',
-            }}>{r.sender}</div>
+        <div key={r.id} className={css.reaction} style={{ left: `${r.x}%` }}>
+          <div className={css.center}>
+            <span className={css.reactionEmoji}>{r.emoji}</span>
+            <div className={css.reactionSender} style={{ color: 'rgba(255,255,255,.7)' }}>{r.sender}</div>
           </div>
         </div>
       ))}
 
       {/* ── Action Item Toasts ──────────── */}
-      <div style={{
-        position: 'fixed', top: 70, right: 20, zIndex: 250,
-        display: 'flex', flexDirection: 'column', gap: 8,
-        maxWidth: 340, pointerEvents: 'auto',
-      }}>
+      <div className={css.toastStack}>
         {detectedActions.map(action => (
-          <div key={action.id} style={{
-            display: 'flex', gap: 10, padding: '12px 14px',
-            background: 'rgba(30, 32, 40, 0.95)', backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(167,139,250,.3)', borderRadius: 14,
+          <div key={action.id} className={css.toast} style={{
+            background: 'rgba(30, 32, 40, 0.95)',
+            border: '1px solid rgba(167,139,250,.3)',
             boxShadow: '0 8px 30px rgba(0,0,0,.4)',
-            animation: 'fadeIn .2s ease',
           }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-              background: 'rgba(167,139,250,.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Zap size={16} style={{ color: 'var(--purple)' }} />
+            <div className={css.toastIcon} style={{ background: 'rgba(167,139,250,.15)' }}>
+              <Zap size={16} className={css.iconPurple} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--purple)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            <div className={css.flex1min}>
+              <div className={css.toastLabel}>
                 Action Item
               </div>
-              <div style={{ fontSize: 13, color: 'var(--on-accent)', lineHeight: 1.4 }}>
+              <div className={css.toastTitle}>
                 {action.title}
               </div>
               {action.assignee && (
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 3 }}>
+                <div className={css.toastAssignee} style={{ color: 'rgba(255,255,255,.5)' }}>
                   → {action.assignee}
                 </div>
               )}
             </div>
-            <button onClick={() => dismissAction(action.id)} style={{
-              background: 'none', border: 'none', color: 'rgba(255,255,255,.3)',
-              cursor: 'pointer', padding: 2, flexShrink: 0, alignSelf: 'flex-start',
-            }}>
+            <button onClick={() => dismissAction(action.id)} className={css.toastClose} style={{ color: 'rgba(255,255,255,.3)' }}>
               <X size={14} />
             </button>
           </div>
@@ -576,44 +555,22 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
       {/* Share popup - fixed overlay */}
       {showSharePopup && (
-        <div onClick={() => setShowSharePopup(false)} style={{
-          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.4)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            width: '100%', maxWidth: 420, padding: '24px 22px',
+        <div onClick={() => setShowSharePopup(false)} className={css.modalOverlay} style={{ background: 'rgba(0,0,0,.4)' }}>
+          <div onClick={(e) => e.stopPropagation()} className={css.shareCard} style={{
             background: '#1e2028', border: '1px solid rgba(255,255,255,.1)',
-            borderRadius: 16, boxShadow: '0 20px 60px var(--overlay)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--on-accent)' }}>{tr('room.inviteParticipants')}</div>
-              <button onClick={() => setShowSharePopup(false)} style={{
-                width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: 'var(--hover)', color: 'rgba(255,255,255,.5)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}><X size={14} /></button>
+            <div className={css.shareHead}>
+              <div className={css.shareTitle}>{tr('room.inviteParticipants')}</div>
+              <button onClick={() => setShowSharePopup(false)} className={css.shareClose} style={{ color: 'rgba(255,255,255,.5)' }}><X size={14} /></button>
             </div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 16, lineHeight: 1.5 }}>
+            <div className={css.shareHint} style={{ color: 'rgba(255,255,255,.5)' }}>
               {tr('room.inviteHint')}
             </div>
-            <div style={{
-              display: 'flex', gap: 8, alignItems: 'center',
-              padding: '10px 14px', background: 'var(--hover)',
-              borderRadius: 12, border: '1px solid var(--hover)', marginBottom: 12,
-            }}>
-              <Link2 size={15} style={{ color: 'rgba(255,255,255,.4)', flexShrink: 0 }} />
-              <div style={{
-                flex: 1, fontSize: 13, color: 'rgba(255,255,255,.7)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontFamily: 'var(--mono)',
-              }}>{shareLink}</div>
+            <div className={css.linkRow}>
+              <Link2 size={15} className={css.iconShrink} style={{ color: 'rgba(255,255,255,.4)' }} />
+              <div className={css.linkText} style={{ color: 'rgba(255,255,255,.7)' }}>{shareLink}</div>
             </div>
-            <button onClick={() => { copyShareLink(); }} style={{
-              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 16px', borderRadius: 12, border: 'none', cursor: 'pointer',
-              background: linkCopied ? '#22c55e' : 'var(--accent)', color: 'var(--on-accent)',
-              fontSize: 14, fontWeight: 600, transition: 'background .15s',
-            }}>
+            <button onClick={() => { copyShareLink(); }} className={css.copyBtn} style={{ background: linkCopied ? '#22c55e' : 'var(--accent)' }}>
               {linkCopied ? <><Check size={15} /> {tr('room.linkCopied')}</> : <><Link2 size={15} /> {tr('room.copyLink')}</>}
             </button>
           </div>
@@ -621,78 +578,54 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
       )}
 
       {/* ── TOP BAR ──────────────────────── */}
-      <div className="room-top-bar" style={{
-        flexShrink: 0, display: 'flex', alignItems: 'center',
-        padding: '8px 16px', gap: 12,
-        background: '#1a1d23', borderBottom: '1px solid var(--hover)',
-      }}>
+      <div className={`room-top-bar ${css.topBar}`} style={{ background: '#1a1d23' }}>
         <Logo />
         {recording && (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500,
-            background: 'rgba(239,68,68,.15)', color: 'var(--danger-fg)',
-            border: '1px solid rgba(239,68,68,.3)',
+          <span className={css.recPill} style={{
+            background: 'rgba(239,68,68,.15)', border: '1px solid rgba(239,68,68,.3)',
           }}>
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%', background: 'var(--danger)',
-              animation: 'pulseDot 1.6s ease-in-out infinite', display: 'inline-block',
-            }} />
+            <span className={css.recDot} />
             REC
           </span>
         )}
-        <span className="room-timer" style={{ fontSize: 12, color: 'rgba(255,255,255,.45)', fontFamily: 'monospace' }}>
+        <span className={`room-timer ${css.timer}`} style={{ color: 'rgba(255,255,255,.45)' }}>
           {fmtTime(elapsed)}
         </span>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
+        <div className={css.spacer} />
+        <div className={css.peopleCount} style={{ color: 'rgba(255,255,255,.5)' }}>
           <Users size={14} /> {humanCount}
         </div>
       </div>
 
       {/* ── MAIN AREA (video + sidebar) ── */}
-      <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+      <div className={css.mainArea}>
 
         {/* ── Video area ─────────────────── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        <div className={css.videoCol}>
 
-          <div style={{ flex: 1, padding: 8, display: 'flex', gap: 8, minHeight: 0, overflow: 'hidden' }}>
+          <div className={css.stage}>
             {hasScreenShare ? (
-              <div style={{ display: 'flex', flex: 1, gap: 8, minHeight: 0 }}>
-                <div style={{
-                  flex: 1, borderRadius: 12, overflow: 'hidden', background: '#000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  position: 'relative', minWidth: 0,
-                }}>
+              <div className={css.screenWrap}>
+                <div className={css.screenMain} style={{ background: '#000' }}>
                   {mainScreen?.publication?.track && (
                     <VideoTrack trackRef={mainScreen}
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   )}
-                  <div style={{
-                    position: 'absolute', bottom: 10, left: 12,
-                    padding: '4px 10px', borderRadius: 6,
-                    background: 'var(--overlay)', backdropFilter: 'blur(8px)',
-                    fontSize: 12, color: 'var(--on-accent)',
-                  }}>
+                  <div className={css.screenLabel}>
                     📺 {mainScreen?.participant?.name || tr('room.screenShare')}
                   </div>
                 </div>
-                <div className="room-filmstrip" style={{
-                  width: 180, display: 'flex', flexDirection: 'column', gap: 6,
-                  overflowY: 'auto', flexShrink: 0,
-                }}>
+                <div className={`room-filmstrip ${css.filmstrip}`}>
                   {visibleCameraTracks.map(track => (
                     <ParticipantTile key={track.participant.sid} track={track} small />
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="room-video-grid" style={{
-                flex: 1, display: 'grid',
+              <div className={`room-video-grid ${css.videoGrid}`} style={{
                 // Doubled columns let an odd last tile span two units and land centred.
                 gridTemplateColumns: `repeat(${gridCols * 2}, 1fr)`,
                 gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
-                gap: 10, minHeight: 0,
               }}>
                 {visibleCameraTracks.map((track, i) => {
                   const inLastRow = i >= (gridRows - 1) * gridCols;
@@ -700,9 +633,8 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                   // than left-aligned against an empty quadrant.
                   const offset = inLastRow && lastRowGap > 0 && i === (gridRows - 1) * gridCols ? lastRowGap : 0;
                   return (
-                    <div key={track.participant.sid} style={{
+                    <div key={track.participant.sid} className={css.gridCell} style={{
                       gridColumn: `${offset ? `${offset + 1} / ` : ''}span 2`,
-                      minWidth: 0, minHeight: 0,
                     }}>
                       <ParticipantTile track={track} fill />
                     </div>
@@ -713,11 +645,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
           </div>
 
           {/* ── CONTROL BAR ──────────────── */}
-          <div className="room-controls" style={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 8, padding: '10px 16px',
-            background: '#1a1d23', borderTop: '1px solid var(--hover)',
-          }}>
+          <div className={`room-controls ${css.controls}`} style={{ background: '#1a1d23' }}>
             <ControlBtn active={micOn} onClick={toggleMic} danger={!micOn}
               icon={micOn ? <Mic size={20} /> : <MicOff size={20} />} label={micOn ? tr('room.microphone') : tr('room.turnOn')} />
             <ControlBtn active={camOn} onClick={toggleCam} danger={!camOn}
@@ -730,26 +658,15 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             )}
 
             {/* Reactions */}
-            <div style={{ position: 'relative' }}>
+            <div className={css.rel}>
               <ControlBtn active={showReactionPicker} onClick={() => setShowReactionPicker(!showReactionPicker)}
                 icon={<Smile size={20} />} label={tr('room.reactions')} />
               {showReactionPicker && (
                 <>
-                  <div onClick={() => setShowReactionPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                  <div style={{
-                    position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-                    padding: '8px 10px', zIndex: 100,
-                    background: '#1e2028', border: '1px solid var(--hover-2)',
-                    borderRadius: 14, boxShadow: '0 20px 50px var(--overlay)',
-                    display: 'flex', gap: 4,
-                  }}>
+                  <div onClick={() => setShowReactionPicker(false)} className={css.backdrop} />
+                  <div className={css.reactionPicker} style={{ background: '#1e2028' }}>
                     {REACTIONS.map(emoji => (
-                      <button key={emoji} onClick={() => sendReaction(emoji)} style={{
-                        width: 40, height: 40, borderRadius: 10, border: 'none',
-                        background: 'var(--hover)', cursor: 'pointer',
-                        fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all .12s',
-                      }}
+                      <button key={emoji} onClick={() => sendReaction(emoji)} className={css.reactionBtn}
                         onMouseEnter={e => { e.currentTarget.style.background = 'var(--hover-2)'; e.currentTarget.style.transform = 'scale(1.2)'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'var(--hover)'; e.currentTarget.style.transform = 'scale(1)'; }}
                       >
@@ -762,20 +679,13 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             </div>
 
             {/* ⋮ More — secondary actions (record / invite / devices; +screen, CC on mobile) */}
-            <div style={{ position: 'relative' }}>
+            <div className={css.rel}>
               <ControlBtn active={showMore} onClick={() => { if (!showMore) enumerateDevices(); setShowMore(!showMore); }}
                 icon={<MoreVertical size={20} />} label={tr('room.more')} />
               {showMore && (
                 <>
-                  <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-                  <div style={{
-                    position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%', transform: 'translateX(-50%)',
-                    width: 264, maxWidth: 'calc(100vw - 24px)', maxHeight: '68vh', overflowY: 'auto',
-                    padding: 8, zIndex: 100,
-                    background: '#1e2028', border: '1px solid var(--hover-2)',
-                    borderRadius: 14, boxShadow: '0 20px 50px var(--overlay)',
-                    display: 'flex', flexDirection: 'column', gap: 2,
-                  }}>
+                  <div onClick={() => setShowMore(false)} className={css.backdrop} />
+                  <div className={css.moreMenu} style={{ background: '#1e2028' }}>
                     {isMobile && (
                       <MoreItem icon={screenOn ? <MonitorOff size={17} /> : <Monitor size={17} />} active={screenOn}
                         label={tr('room.screen')} onClick={() => { toggleScreen(); setShowMore(false); }} />
@@ -786,8 +696,8 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                       <MoreItem icon={<UserPlus size={17} />}
                         label={tr('room.invite')} onClick={() => { setShowSharePopup(true); setShowMore(false); }} />
                     )}
-                    <div style={{ height: 1, background: 'var(--hover)', margin: '6px 4px' }} />
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,.4)', padding: '2px 8px 6px' }}>{tr('room.devices')}</div>
+                    <div className={css.menuDivider} />
+                    <div className={css.menuLabel} style={{ color: 'rgba(255,255,255,.4)' }}>{tr('room.devices')}</div>
                     <RoomDeviceSelect label={tr('room.microphone')} icon={<Mic size={13} />}
                       devices={devices.filter(d => d.kind === 'audioinput')}
                       value={selectedMic} onChange={switchMic} />
@@ -802,7 +712,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
               )}
             </div>
 
-            <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
+            <div className={`room-controls-divider ${css.ctrlDivider}`} style={{ background: 'rgba(255,255,255,.1)' }} />
 
             {/* Panel — participants / chat / transcript / notes / AI in one tabbed surface */}
             <ControlBtn active={!!sidePanel}
@@ -810,15 +720,10 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
               icon={<Sidebar size={20} />} label={tr('room.panel')}
               badge={humanCount > 1 ? humanCount : undefined} />
 
-            <div className="room-controls-divider" style={{ width: 1, height: 28, background: 'rgba(255,255,255,.1)', margin: '0 2px' }} />
+            <div className={`room-controls-divider ${css.ctrlDivider}`} style={{ background: 'rgba(255,255,255,.1)' }} />
 
-            <button className="room-leave-btn" onClick={leaveMeeting} title={tr('room.leave')} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 20px', borderRadius: 24, cursor: 'pointer',
-              background: 'var(--danger)', color: 'var(--on-accent)', border: 'none',
-              fontSize: 14, fontWeight: 600, transition: 'background .15s', flexShrink: 0,
-            }}>
-              <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
+            <button className={`room-leave-btn ${css.leaveBtn}`} onClick={leaveMeeting} title={tr('room.leave')}>
+              <Phone size={18} className={css.phoneIcon} />
               <span className="room-leave-label">{tr('room.leave')}</span>
             </button>
           </div>
@@ -826,15 +731,9 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
         {/* ── SIDE PANEL ─────────────────── */}
         {sidePanel && (
-          <div className="room-side-panel" style={{
-            width: 400, flexShrink: 0, display: 'flex', flexDirection: 'column',
-            background: '#1a1d23', borderLeft: '1px solid var(--hover)',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'stretch',
-              borderBottom: '1px solid var(--hover)', flexShrink: 0,
-            }}>
-              <div style={{ display: 'flex', flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+          <div className={`room-side-panel ${css.sidePanel}`} style={{ background: '#1a1d23' }}>
+            <div className={css.tabsBar}>
+              <div className={css.tabsScroll}>
                 {([
                   ...(hasBriefing ? [{ id: 'agenda' as const, label: tr('room.agenda'), icon: <ListChecks size={16} />, badge: agendaItems.length }] : []),
                   { id: 'participants', label: tr('room.participants'), icon: <Users size={16} />, badge: humanCount > 1 ? humanCount : 0 },
@@ -845,67 +744,52 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                 ] as const).map((tab) => {
                   const on = sidePanel === tab.id;
                   return (
-                    <button key={tab.id} onClick={() => setSidePanel(tab.id)} title={tab.label} style={{
-                      position: 'relative', flex: '1 1 0', minWidth: 0,
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                      padding: '10px 6px', cursor: 'pointer', background: 'none', border: 'none',
+                    <button key={tab.id} onClick={() => setSidePanel(tab.id)} title={tab.label} className={css.tabBtn} style={{
                       borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent',
-                      color: on ? '#fff' : 'rgba(255,255,255,.5)', transition: 'color .15s',
+                      color: on ? '#fff' : 'rgba(255,255,255,.5)',
                     }}>
                       {tab.icon}
-                      <span style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tab.label}</span>
+                      <span className={css.tabLabel}>{tab.label}</span>
                       {tab.badge > 0 && (
-                        <span style={{
-                          position: 'absolute', top: 4, right: 6,
-                          minWidth: 15, height: 15, padding: '0 3px', borderRadius: 8,
-                          background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 9, fontWeight: 700,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>{tab.badge > 9 ? '9+' : tab.badge}</span>
+                        <span className={css.tabBadge}>{tab.badge > 9 ? '9+' : tab.badge}</span>
                       )}
                     </button>
                   );
                 })}
               </div>
-              <button onClick={() => setSidePanel(null)} aria-label="Close" style={{
-                flexShrink: 0, background: 'none', border: 'none', color: 'rgba(255,255,255,.4)',
-                cursor: 'pointer', padding: '0 14px', display: 'flex', alignItems: 'center',
-                borderLeft: '1px solid var(--hover)',
-              }}><X size={16} /></button>
+              <button onClick={() => setSidePanel(null)} aria-label="Close" className={css.panelClose} style={{ color: 'rgba(255,255,255,.4)' }}><X size={16} /></button>
             </div>
 
             {/* ── Agenda panel (meeting briefing: description + питання) ── */}
             {sidePanel === 'agenda' && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 24px', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div className={css.agendaPane}>
                 {meetingInfo?.title && (
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--on-accent)', lineHeight: 1.35, letterSpacing: '-0.01em' }}>
+                  <div className={css.agendaTitle}>
                     {meetingInfo.title}
                   </div>
                 )}
                 {briefingDescription && (
                   <div>
-                    <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', marginBottom: 7 }}>
+                    <div className={css.sectionLabel} style={{ color: 'rgba(255,255,255,.4)' }}>
                       {tr('meetingForm.description')}
                     </div>
-                    <div style={{ fontSize: 13.5, color: 'rgba(255,255,255,.8)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    <div className={css.briefingText} style={{ color: 'rgba(255,255,255,.8)' }}>
                       {briefingDescription}
                     </div>
                   </div>
                 )}
                 {agendaItems.length > 0 && (
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'rgba(255,255,255,.4)', marginBottom: 10 }}>
+                    <div className={css.sectionLabelRow} style={{ color: 'rgba(255,255,255,.4)' }}>
                       <ListChecks size={13} /> {tr('schedule.agendaHeading')}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className={css.colGap8}>
                       {agendaItems.map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                          <span style={{
-                            flexShrink: 0, width: 22, height: 22, borderRadius: 6,
+                        <div key={idx} className={css.agendaRow}>
+                          <span className={css.agendaNum} style={{
                             background: 'rgba(59,130,246,.15)', color: '#93c5fd',
-                            fontSize: 11, fontWeight: 700,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1,
                           }}>{idx + 1}</span>
-                          <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,.85)', lineHeight: 1.5 }}>{item}</span>
+                          <span className={css.agendaItem} style={{ color: 'rgba(255,255,255,.85)' }}>{item}</span>
                         </div>
                       ))}
                     </div>
@@ -916,7 +800,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
             {/* ── Participants panel ── */}
             {sidePanel === 'participants' && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', minHeight: 0 }}>
+              <div className={css.participantsPane}>
                 {humanParticipants.map(p => {
                   const isLocal = p.isLocal;
                   const identity = p.identity || '';
@@ -925,57 +809,39 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                   const isCamEnabled = p.isCameraEnabled;
 
                   return (
-                    <div key={p.sid} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 16px',
-                      transition: 'background .1s',
-                    }}
+                    <div key={p.sid} className={css.pRow}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--hover)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       {/* Avatar */}
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: isGuestUser ? '#6366f1' : 'var(--accent)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 15, fontWeight: 700, color: 'var(--on-accent)', flexShrink: 0,
-                      }}>
+                      <div className={css.pAvatar} style={{ background: isGuestUser ? '#6366f1' : 'var(--accent)' }}>
                         {(p.name || identity || 'U')[0]?.toUpperCase()}
                       </div>
 
                       {/* Name + badge */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          fontSize: 13, fontWeight: 600, color: 'var(--on-accent)',
-                        }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div className={css.flex1min}>
+                        <div className={css.pName}>
+                          <span className={css.ellipsis}>
                             {p.name || identity}
                           </span>
                           {isLocal && (
-                            <span style={{
-                              fontSize: 10, padding: '1px 5px', borderRadius: 4,
-                              background: 'rgba(59,130,246,.2)', color: '#93c5fd',
-                            }}>{tr('room.you')}</span>
+                            <span className={css.miniBadge} style={{ background: 'rgba(59,130,246,.2)', color: '#93c5fd' }}>{tr('room.you')}</span>
                           )}
                           {isGuestUser && (
-                            <span style={{
-                              fontSize: 10, padding: '1px 5px', borderRadius: 4,
-                              background: 'rgba(99,102,241,.2)', color: '#a5b4fc',
-                            }}>{tr('room.guest')}</span>
+                            <span className={css.miniBadge} style={{ background: 'rgba(99,102,241,.2)', color: '#a5b4fc' }}>{tr('room.guest')}</span>
                           )}
                         </div>
                         {/* Media status */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <div className={css.pMedia}>
                           {isMicEnabled ? (
                             <Mic size={11} style={{ color: 'rgba(255,255,255,.35)' }} />
                           ) : (
-                            <MicOff size={11} style={{ color: 'var(--danger-fg)' }} />
+                            <MicOff size={11} className={css.iconDanger} />
                           )}
                           {isCamEnabled ? (
                             <Video size={11} style={{ color: 'rgba(255,255,255,.35)' }} />
                           ) : (
-                            <VideoOff size={11} style={{ color: 'var(--danger-fg)' }} />
+                            <VideoOff size={11} className={css.iconDanger} />
                           )}
                         </div>
                       </div>
@@ -986,13 +852,10 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                           onClick={() => kickParticipant(identity)}
                           disabled={kickingId === identity}
                           title={tr('room.removeFromMeeting')}
+                          className={css.kickBtn}
                           style={{
-                            width: 32, height: 32, borderRadius: 8,
                             border: '1px solid rgba(239,68,68,.2)',
                             background: kickingId === identity ? 'rgba(239,68,68,.2)' : 'transparent',
-                            color: 'var(--danger-fg)', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all .15s', flexShrink: 0,
                             opacity: kickingId === identity ? 0.5 : 1,
                           }}
                           onMouseEnter={e => { if (kickingId !== identity) e.currentTarget.style.background = 'rgba(239,68,68,.15)'; }}
@@ -1006,21 +869,17 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                 })}
 
                 {humanCount === 0 && (
-                  <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40 }}>
-                    <Users size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
+                  <div className={css.emptyState} style={{ color: 'rgba(255,255,255,.25)' }}>
+                    <Users size={28} className={css.emptyIcon} />
                     <div>{tr('room.noParticipants')}</div>
                   </div>
                 )}
 
                 {canKick && humanCount > 1 && (
-                  <div style={{
-                    margin: '16px 16px 0', padding: '10px 12px',
-                    background: 'rgba(255,255,255,.03)',
-                    borderRadius: 10, border: '1px solid var(--hover)',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 11.5, color: 'rgba(255,255,255,.35)',
+                  <div className={css.adminHint} style={{
+                    background: 'rgba(255,255,255,.03)', color: 'rgba(255,255,255,.35)',
                   }}>
-                    <Shield size={13} style={{ flexShrink: 0 }} />
+                    <Shield size={13} className={css.iconShrink} />
                     <span>{tr('room.canRemoveParticipants')}</span>
                   </div>
                 )}
@@ -1030,47 +889,35 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
             {/* ── Chat panel ── */}
             {sidePanel === 'chat' && (
               <>
-                <div ref={chatScrollRef} style={{
-                  flex: 1, overflowY: 'auto', padding: '12px 14px',
-                  display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0,
-                }}>
+                <div ref={chatScrollRef} className={css.chatScroll}>
                   {chatMessages.length === 0 && (
-                    <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40 }}>
-                      <MessageSquare size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
+                    <div className={css.emptyState} style={{ color: 'rgba(255,255,255,.25)' }}>
+                      <MessageSquare size={28} className={css.emptyIcon} />
                       <div>{tr('room.noMessages')}</div>
                     </div>
                   )}
                   {chatMessages.map((m, i) => (
                     <div key={i}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-2)' }}>
+                      <div className={css.chatMeta}>
+                        <span className={css.chatFrom}>
                           {m.from?.name || m.from?.identity || tr('room.you')}
                         </span>
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>
+                        <span className={css.chatTime} style={{ color: 'rgba(255,255,255,.25)' }}>
                           {new Date(m.timestamp).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', lineHeight: 1.45 }}>{m.message}</div>
+                      <div className={css.chatText} style={{ color: 'rgba(255,255,255,.8)' }}>{m.message}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{
-                  flexShrink: 0, padding: '10px 12px',
-                  borderTop: '1px solid var(--hover)',
-                  display: 'flex', gap: 8,
-                }}>
+                <div className={css.composer}>
                   <input value={chatInput} onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSendChat()}
                     placeholder={tr('room.messagePlaceholder')}
-                    style={{
-                      flex: 1, padding: '8px 12px', borderRadius: 8,
-                      background: 'var(--hover)', border: '1px solid rgba(255,255,255,.1)',
-                      color: 'var(--on-accent)', fontSize: 13, outline: 'none',
-                    }} />
-                  <button onClick={handleSendChat} disabled={isSending || !chatInput.trim()} style={{
-                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                    className={css.chatInput}
+                    style={{ border: '1px solid rgba(255,255,255,.1)' }} />
+                  <button onClick={handleSendChat} disabled={isSending || !chatInput.trim()} className={css.sendBtn} style={{
                     background: chatInput.trim() ? 'var(--accent)' : 'var(--hover)',
-                    color: 'var(--on-accent)', border: 'none', display: 'flex', alignItems: 'center',
                     opacity: chatInput.trim() ? 1 : 0.4,
                   }}><Send size={16} /></button>
                 </div>
@@ -1079,30 +926,27 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
             {/* ── Transcript panel ── */}
             {sidePanel === 'transcript' && (
-              <div ref={transcriptScrollRef} style={{
-                flex: 1, overflowY: 'auto', padding: '12px 14px',
-                display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0,
-              }}>
+              <div ref={transcriptScrollRef} className={css.txScroll}>
                 {transcripts.length === 0 && Object.keys(interimRef.current).length === 0 && (
-                  <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40, lineHeight: 1.6 }}>
-                    <Languages size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
+                  <div className={css.emptyStateTall} style={{ color: 'rgba(255,255,255,.25)' }}>
+                    <Languages size={28} className={css.emptyIcon} />
                     <div>{tr('room.transcriptEmptyLine1')}</div>
                     <div>{tr('room.transcriptEmptyLine2')}</div>
                   </div>
                 )}
                 {groupedTranscripts.map(e => (
                   <div key={e.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{e.speaker}</span>
-                      <span style={{ fontSize: 10, opacity: 0.5 }}>{langFlag[e.language] || '🌐'}</span>
+                    <div className={css.txMeta}>
+                      <span className={css.txSpeaker}>{e.speaker}</span>
+                      <span className={css.txFlag}>{langFlag[e.language] || '🌐'}</span>
                     </div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,.7)', lineHeight: 1.5 }}>{e.text}</div>
+                    <div className={css.txText} style={{ color: 'rgba(255,255,255,.7)' }}>{e.text}</div>
                   </div>
                 ))}
                 {Object.entries(interimRef.current).map(([speaker, text]) => (
-                  <div key={`int-${speaker}`} style={{ opacity: 0.45 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{speaker} <span style={{ fontSize: 9, color: '#93c5fd' }}>...</span></div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', fontStyle: 'italic', lineHeight: 1.5 }}>{text}</div>
+                  <div key={`int-${speaker}`} className={css.txInterim}>
+                    <div className={css.txSpeakerInterim}>{speaker} <span className={css.txDots} style={{ color: '#93c5fd' }}>...</span></div>
+                    <div className={css.txInterimText} style={{ color: 'rgba(255,255,255,.5)' }}>{text}</div>
                   </div>
                 ))}
               </div>
@@ -1110,17 +954,12 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
 
             {/* ── Notes panel ── */}
             {sidePanel === 'notes' && (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <div style={{
-                  flexShrink: 0, padding: '8px 14px',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  borderBottom: '1px solid var(--hover)',
-                  fontSize: 11, color: 'rgba(255,255,255,.35)',
-                }}>
+              <div className={css.notesPane}>
+                <div className={css.notesHead} style={{ color: 'rgba(255,255,255,.35)' }}>
                   {notesSaving ? (
-                    <><Save size={11} style={{ animation: 'spin .8s linear infinite' }} /> {tr('common.saving')}</>
+                    <><Save size={11} className={css.spin} /> {tr('common.saving')}</>
                   ) : notesFailed ? (
-                    <span role="alert" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--danger-fg)' }}>
+                    <span role="alert" className={css.notesFailed}>
                       <AlertCircle size={11} />
                       {notesLastSaved
                         ? tr('room.notesSaveFailedSince', { time: notesLastSaved })
@@ -1136,25 +975,21 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                   value={notesContent}
                   onChange={e => handleNotesChange(e.target.value)}
                   placeholder={tr('room.notesPlaceholder')}
-                  style={{
-                    flex: 1, resize: 'none', border: 'none', outline: 'none',
-                    padding: '14px 14px', fontSize: 13, lineHeight: 1.6,
-                    background: 'transparent', color: 'rgba(255,255,255,.85)',
-                    fontFamily: 'inherit', minHeight: 0,
-                  }}
+                  className={css.notesArea}
+                  style={{ background: 'transparent', color: 'rgba(255,255,255,.85)' }}
                 />
               </div>
             )}
 
             {/* ── AI Notes panel ── */}
             {sidePanel === 'ai-notes' && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '14px', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className={css.aiPane}>
                 {!liveAiNotes ? (
-                  <div style={{ textAlign: 'center', color: 'rgba(255,255,255,.25)', fontSize: 13, marginTop: 40, lineHeight: 1.6 }}>
-                    <Sparkles size={28} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
+                  <div className={css.emptyStateTall} style={{ color: 'rgba(255,255,255,.25)' }}>
+                    <Sparkles size={28} className={css.emptyIcon} />
                     <div>{tr('room.aiEmptyLine1')}</div>
                     <div>{tr('room.aiEmptyLine2')}</div>
-                    <div style={{ fontSize: 11, marginTop: 12, color: 'rgba(255,255,255,.15)' }}>
+                    <div className={css.aiHintSmall} style={{ color: 'rgba(255,255,255,.15)' }}>
                       {tr('room.aiUpdatesAuto')}
                     </div>
                   </div>
@@ -1163,17 +998,13 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                     {/* Summary */}
                     {liveAiNotes.summary && (
                       <div>
-                        <div style={{
-                          fontSize: 10, fontWeight: 600, color: 'var(--accent-2)',
-                          textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
-                          display: 'flex', alignItems: 'center', gap: 5,
-                        }}>
+                        <div className={`${css.aiLabel} ${css.aiLabelSummary}`}>
                           <Sparkles size={11} /> {tr('room.summary')}
                         </div>
-                        <div style={{
-                          fontSize: 13, color: 'rgba(255,255,255,.75)', lineHeight: 1.6,
-                          padding: '10px 12px', background: 'rgba(59,130,246,.06)',
-                          borderRadius: 10, border: '1px solid rgba(59,130,246,.1)',
+                        <div className={css.aiSummary} style={{
+                          color: 'rgba(255,255,255,.75)',
+                          background: 'rgba(59,130,246,.06)',
+                          border: '1px solid rgba(59,130,246,.1)',
                         }}>
                           {liveAiNotes.summary}
                         </div>
@@ -1183,19 +1014,13 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                     {/* Decisions */}
                     {liveAiNotes.decisions.length > 0 && (
                       <div>
-                        <div style={{
-                          fontSize: 10, fontWeight: 600, color: 'var(--success)',
-                          textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
-                          display: 'flex', alignItems: 'center', gap: 5,
-                        }}>
+                        <div className={`${css.aiLabel} ${css.aiLabelDecisions}`}>
                           <Check size={11} /> {tr('room.decisions')}
                         </div>
                         {liveAiNotes.decisions.map((d, i) => (
-                          <div key={i} style={{
-                            fontSize: 13, color: 'rgba(255,255,255,.7)', lineHeight: 1.5,
-                            padding: '6px 10px', marginBottom: 4,
+                          <div key={i} className={css.aiItem} style={{
+                            color: 'rgba(255,255,255,.7)',
                             borderLeft: '2px solid rgba(16,185,129,.4)',
-                            paddingLeft: 10,
                           }}>
                             {d}
                           </div>
@@ -1206,19 +1031,13 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                     {/* Action Items */}
                     {liveAiNotes.actionItems.length > 0 && (
                       <div>
-                        <div style={{
-                          fontSize: 10, fontWeight: 600, color: 'var(--purple)',
-                          textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6,
-                          display: 'flex', alignItems: 'center', gap: 5,
-                        }}>
+                        <div className={`${css.aiLabel} ${css.aiLabelActions}`}>
                           <Zap size={11} /> Action Items
                         </div>
                         {liveAiNotes.actionItems.map((a, i) => (
-                          <div key={i} style={{
-                            fontSize: 13, color: 'rgba(255,255,255,.7)', lineHeight: 1.5,
-                            padding: '6px 10px', marginBottom: 4,
+                          <div key={i} className={css.aiItem} style={{
+                            color: 'rgba(255,255,255,.7)',
                             borderLeft: '2px solid rgba(167,139,250,.4)',
-                            paddingLeft: 10,
                           }}>
                             {a}
                           </div>
@@ -1227,10 +1046,7 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
                     )}
 
                     {/* Updated timestamp */}
-                    <div style={{
-                      fontSize: 10, color: 'rgba(255,255,255,.2)', textAlign: 'center',
-                      marginTop: 8,
-                    }}>
+                    <div className={css.aiUpdated} style={{ color: 'rgba(255,255,255,.2)' }}>
                       {tr('room.updatedAt', { time: new Date(liveAiNotes.updatedAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}
                     </div>
                   </>
@@ -1280,24 +1096,25 @@ function RoomContent({ meetingId, joinToken, isGuest, canKick, openTranscript, r
       {leaveChoice && (
         <div
           onClick={() => setLeaveChoice(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(6,8,12,.62)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          className={css.leaveOverlay} style={{ background: 'rgba(6,8,12,.62)' }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            style={{ width: 'min(420px, 100%)', background: 'var(--card, #16181d)', border: '1px solid var(--hover-2)', borderRadius: 14, padding: '20px 22px', color: '#e8e8ea', boxShadow: '0 24px 70px -20px rgba(0,0,0,.75)' }}
+            className={css.leaveCard}
+            style={{ background: 'var(--card, #16181d)', color: '#e8e8ea', boxShadow: '0 24px 70px -20px rgba(0,0,0,.75)' }}
           >
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{tr('room.leaveTitle')}</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#a9a9b4', marginBottom: 18 }}>{tr('room.leaveBody')}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button className="btn btn-primary" onClick={exitRoom} style={{ width: '100%', fontWeight: 600 }}>
+            <div className={css.leaveTitle}>{tr('room.leaveTitle')}</div>
+            <div className={css.leaveBody} style={{ color: '#a9a9b4' }}>{tr('room.leaveBody')}</div>
+            <div className={css.colGap8}>
+              <button className={`btn btn-primary ${css.dialogBtnBold}`} onClick={exitRoom}>
                 {tr('room.leaveOnly')}
               </button>
-              <button className="btn" onClick={() => void endMeetingForEveryone()} style={{ width: '100%' }}>
+              <button className={`btn ${css.dialogBtn}`} onClick={() => void endMeetingForEveryone()}>
                 {tr('room.endForAll')}
               </button>
-              <button className="btn btn-ghost" onClick={() => setLeaveChoice(false)} style={{ width: '100%', color: 'var(--muted)' }}>
+              <button className={`btn btn-ghost ${css.dialogBtnGhost}`} onClick={() => setLeaveChoice(false)}>
                 {tr('common.cancel')}
               </button>
             </div>
@@ -1402,13 +1219,11 @@ export default function MeetingRoomPage() {
 
   if (error) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#111317', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{t('room.error')}</div>
-          <div style={{ color: '#999', marginBottom: 16, maxWidth: 360 }}>{error}</div>
-          <button onClick={() => router.push('/')} style={{
-            padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: 'var(--on-accent)', border: 'none', cursor: 'pointer',
-          }}>{t('room.goHome')}</button>
+      <div className={css.fullscreen} style={{ background: '#111317' }}>
+        <div className={css.errBox}>
+          <div className={css.errTitle}>{t('room.error')}</div>
+          <div className={css.errMsg} style={{ color: '#999' }}>{error}</div>
+          <button onClick={() => router.push('/')} className={css.homeBtn}>{t('room.goHome')}</button>
         </div>
       </div>
     );
@@ -1416,15 +1231,14 @@ export default function MeetingRoomPage() {
 
   if (waiting && !token) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#111317', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', padding: 24, maxWidth: 380 }}>
-          <div style={{
-            width: 40, height: 40, border: '3px solid rgba(255,255,255,.15)',
-            borderTop: '3px solid var(--accent)', borderRadius: '50%',
-            animation: 'spin .8s linear infinite', margin: '0 auto 18px',
+      <div className={css.fullscreen} style={{ background: '#111317' }}>
+        <div className={css.waitBox}>
+          <div className={css.spinnerLg} style={{
+            border: '3px solid rgba(255,255,255,.15)',
+            borderTop: '3px solid var(--accent)',
           }} />
-          <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{t('room.waitingTitle')}</div>
-          <div style={{ color: 'rgba(255,255,255,.6)', fontSize: 14, lineHeight: 1.5 }}>{t('room.waitingDesc')}</div>
+          <div className={css.waitTitle}>{t('room.waitingTitle')}</div>
+          <div className={css.waitDesc} style={{ color: 'rgba(255,255,255,.6)' }}>{t('room.waitingDesc')}</div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -1433,14 +1247,13 @@ export default function MeetingRoomPage() {
 
   if (!token || !wsUrl) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#111317', color: 'var(--on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 32, height: 32, border: '3px solid rgba(255,255,255,.15)',
-            borderTop: '3px solid var(--accent)', borderRadius: '50%',
-            animation: 'spin .8s linear infinite',
+      <div className={css.fullscreen} style={{ background: '#111317' }}>
+        <div className={css.connRow}>
+          <div className={css.spinnerSm} style={{
+            border: '3px solid rgba(255,255,255,.15)',
+            borderTop: '3px solid var(--accent)',
           }} />
-          <span style={{ fontSize: 15, color: 'rgba(255,255,255,.6)' }}>{t('room.connecting')}</span>
+          <span className={css.connText} style={{ color: 'rgba(255,255,255,.6)' }}>{t('room.connecting')}</span>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -1448,7 +1261,7 @@ export default function MeetingRoomPage() {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#111317' }}>
+    <div className={css.pageRoot} style={{ background: '#111317' }}>
       <LiveKitRoom
         serverUrl={wsUrl}
         token={token}

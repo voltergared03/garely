@@ -1,0 +1,792 @@
+/* Dashboard — static styles lifted out of dashboard-client.tsx.
+   Classes that sit on top of a global class (.card, .btn, .chip, .field,
+   .field-label, .page-container) are doubled (.x.x) so they keep winning
+   exactly where the inline style used to win. */
+
+/* ── Page shell ─────────────────────────────── */
+.root {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.page.page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Mobile greeting ────────────────────────── */
+.greetingBlock {
+  margin-bottom: 18px;
+}
+.greetingTitle {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.greetingDate {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+  text-transform: capitalize;
+}
+
+/* ── Mobile next-meeting hero ───────────────── */
+.heroCard.heroCard {
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 20%, var(--surface)) 0%, var(--surface) 72%);
+  border-color: color-mix(in oklab, var(--accent) 34%, var(--border));
+}
+.heroGlow {
+  position: absolute;
+  top: -50px;
+  right: -40px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--accent) 26%, transparent);
+  filter: blur(55px);
+  pointer-events: none;
+}
+.heroTopRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.heroChip.heroChip {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  color: var(--info-fg);
+}
+.heroUntil {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.rel {
+  position: relative;
+}
+.heroTitle {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.heroMeta {
+  color: var(--text-2);
+  font-size: 13px;
+}
+.heroJoin.heroJoin {
+  position: relative;
+  text-decoration: none;
+  width: 100%;
+  justify-content: center;
+  padding: 14px;
+  font-weight: 600;
+  gap: 8px;
+}
+
+/* ── Mobile hero — no meetings ──────────────── */
+.emptyHero.emptyHero {
+  padding: 24px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+.emptyIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+.emptyDesc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.emptyCta.emptyCta {
+  text-decoration: none;
+  width: 100%;
+  justify-content: center;
+  padding: 13px;
+  margin-top: 4px;
+  gap: 8px;
+}
+
+/* ── Icon tints ─────────────────────────────── */
+.accentIcon {
+  color: var(--accent);
+}
+.accent2Icon {
+  color: var(--accent-2);
+}
+.greenIcon {
+  color: var(--green);
+}
+
+/* ── Mobile quick actions ───────────────────── */
+.quickGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.quickCard.quickCard {
+  text-decoration: none;
+  color: inherit;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quickIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quickIconGreen {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--green) 14%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quickLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* ── Desktop hero ───────────────────────────── */
+.desktopHero.desktopHero {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.deskHeroCard.deskHeroCard {
+  padding: 24px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 14%, var(--surface)) 0%, var(--surface) 60%);
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.deskHeroRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.deskHeroChip.deskHeroChip {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--info-fg);
+}
+.deskHeroTitle {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.deskHeroMeta {
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+.deskHeroDesc {
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.deskHeroFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+.actionRow {
+  display: flex;
+  gap: 8px;
+}
+.deskHeroEmpty {
+  color: var(--muted);
+  padding: 20px 0;
+}
+
+/* ── Link/button helpers ────────────────────── */
+.noUnderline.noUnderline {
+  text-decoration: none;
+}
+.noUnderlineShrink.noUnderlineShrink {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.shrink0.shrink0 {
+  flex-shrink: 0;
+}
+.flexMin {
+  flex: 1;
+  min-width: 0;
+}
+.minW0.minW0 {
+  min-width: 0;
+}
+
+/* ── My tasks ───────────────────────────────── */
+.sectionRight {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.overdueBadge {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: color-mix(in oklab, var(--red) 18%, transparent);
+  color: var(--danger-fg);
+  font-weight: 600;
+}
+.allLink.allLink {
+  text-decoration: none;
+  color: var(--muted);
+}
+.noTasks.noTasks {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.taskList.taskList {
+  padding: 0;
+  overflow: hidden;
+}
+.taskRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: background .15s;
+}
+.taskCheck {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.taskDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--amber);
+}
+.priorityDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.aiIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.taskTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.duePill {
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.moreLink {
+  display: block;
+  padding: 10px 16px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ── Meeting lists / grids ──────────────────── */
+.stackList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.grid14.grid14 {
+  display: grid;
+  gap: 14px;
+}
+
+/* ── Recent reports ─────────────────────────── */
+.reportCard.reportCard {
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: all .15s;
+}
+.reportMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.reportTitle {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ── Welcome / empty state ──────────────────── */
+.welcomeCard.welcomeCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 22px;
+}
+.welcomeIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.welcomeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.welcomeDesc {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ── Modals — shared ────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.overlayScroll {
+  overflow-y: auto;
+}
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* ── Delete confirm ─────────────────────────── */
+.confirmCard.confirmCard {
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 24px;
+}
+.confirmTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.confirmDesc {
+  color: var(--text-2);
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+/* Tripled: out-ranks the global `.btn:hover` (0,2,0) regardless of sheet order,
+   the way the old inline style did. */
+.dangerBtn.dangerBtn.dangerBtn {
+  background: color-mix(in oklab, var(--red) 22%, var(--surface));
+  color: var(--danger-fg);
+  border-color: color-mix(in oklab, var(--red) 40%, var(--border));
+}
+
+/* ── Edit meeting modal ─────────────────────── */
+.editCard.editCard {
+  max-width: 560px;
+  width: 100%;
+  padding: 24px 22px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.editHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.editTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+.editBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.noResize.noResize {
+  resize: none;
+}
+.editActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* ── Edit modal — agenda ────────────────────── */
+.agendaHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.agendaLabel.agendaLabel {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.aiBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+.agendaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 5px 8px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.agendaIdx {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  min-width: 14px;
+  text-align: center;
+}
+/* No `outline: none` here on purpose: the global input:focus-visible ring
+   (globals.css) is the intended keyboard focus state for this row. */
+.agendaInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 12.5px;
+  color: var(--text);
+  padding: 0;
+}
+.agendaDel {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.agendaAddRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.agendaAddInput.agendaAddInput {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+/* ── Edit modal — when/duration ─────────────── */
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Edit modal — participants ──────────────── */
+.pRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  margin-top: 6px;
+}
+.pRowSel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+.pName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+}
+.pNameSel {
+  flex: 1;
+  font-size: 13px;
+}
+.chipXs.chipXs {
+  font-size: 10px;
+}
+.btn24.btn24 {
+  width: 24px;
+  height: 24px;
+}
+.searchWrap {
+  position: relative;
+  margin-top: 6px;
+}
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.searchInput.searchInput {
+  padding-left: 30px;
+  font-size: 13px;
+}
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 60;
+}
+.dropItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+.dropName {
+  font-size: 13px;
+  font-weight: 500;
+}
+.dropEmail {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Meeting context menu ───────────────────── */
+.btn30.btn30 {
+  width: 30px;
+  height: 30px;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  z-index: 50;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 160px;
+  overflow: hidden;
+}
+.menuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+.menuItemDanger {
+  color: var(--danger-fg);
+}
+
+/* ── Section wrapper ────────────────────────── */
+.section {
+  margin-bottom: 28px;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+.sectionRightText {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Meeting row (today) ────────────────────── */
+.meetingRow {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all .15s;
+  color: inherit;
+}
+.rowTime {
+  width: 46px;
+  text-align: center;
+}
+.rowTimeVal {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rowTimeDur {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.rowDivider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+}
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.rowTitle {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ── Meeting card (upcoming) ────────────────── */
+.mcard.mcard {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mcardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mcardTimeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.mcardTime {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.mcardTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.mcardMeta {
+  font-size: 13px;
+  color: var(--muted);
+}
+.mcardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

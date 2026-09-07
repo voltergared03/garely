@@ -17,6 +17,7 @@ import {
 import { Select } from '@/components/ui/select';
 import { Avatar } from '@/components/ui/avatar';
 import type { Meeting, WsUser } from '../lib/types';
+import s from './CalendarEditModal.module.css';
 
 /* ------------------------------------------------------------------ */
 /*  CalendarEditModal                                                 */
@@ -136,19 +137,15 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'var(--overlay)', zIndex: 110,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-      overflowY: 'auto',
-    }} onClick={onClose}>
-      <div className="card" style={{ maxWidth: 560, width: '100%', padding: '24px 22px', maxHeight: '90vh', overflowY: 'auto', animation: 'fadeIn .15s' }}
+    <div className={s.overlay} onClick={onClose}>
+      <div className={`card ${s.modal}`}
         onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{t('calendar.editMeeting')}</div>
+        <div className={s.headerRow}>
+          <div className={s.title}>{t('calendar.editMeeting')}</div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className={s.formCol}>
           <Field label={t('meetingForm.title')} error={titleErr} required>
             {(f) => (
               <input {...f} className="field" value={title}
@@ -157,69 +154,61 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
           </Field>
           <div>
             <label className="field-label">{t('meetingForm.description')}</label>
-            <textarea className="field" rows={2} value={description}
+            <textarea className={`field ${s.textareaNoResize}`} rows={2} value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder={t('meetingForm.descriptionPlaceholder')} style={{ resize: 'none' }} />
+              placeholder={t('meetingForm.descriptionPlaceholder')} />
           </div>
 
           {/* Agenda */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <label className="field-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div className={s.agendaHeaderRow}>
+              <label className={`field-label ${s.agendaLabel}`}>
                 <ListChecksIcon size={11} /> {t('calendar.agendaCount', { count: agenda.length })}
               </label>
               <button type="button" onClick={generateAgenda}
                 disabled={aiAgendaLoading || title.trim().length < 3}
+                className={s.aiAgendaBtn}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px',
-                  borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600,
-                  background: 'color-mix(in oklab, var(--accent) 12%, transparent)',
                   color: title.trim().length < 3 ? 'var(--muted)' : 'var(--accent)',
                   cursor: aiAgendaLoading || title.trim().length < 3 ? 'not-allowed' : 'pointer',
                   opacity: title.trim().length < 3 ? 0.5 : 1,
                 }}>
-                {aiAgendaLoading ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={11} />}
+                {aiAgendaLoading ? <Loader2 size={11} className={s.spin} /> : <Wand2 size={11} />}
                 AI
               </button>
             </div>
             {agenda.map((item, idx) => (
-              <div key={idx} style={{
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4,
-                padding: '5px 8px', background: 'var(--surface)', borderRadius: 6,
-                border: '1px solid var(--border)',
-              }}>
-                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, minWidth: 14, textAlign: 'center' }}>{idx + 1}</span>
+              <div key={idx} className={s.agendaItem}>
+                <span className={s.agendaIndex}>{idx + 1}</span>
                 <input value={item} onChange={e => setAgenda(prev => prev.map((x, i) => i === idx ? e.target.value : x))}
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 12.5, color: 'var(--text)', padding: 0 }} />
+                  className={s.agendaItemInput} />
                 <button type="button" onClick={() => setAgenda(prev => prev.filter((_, i) => i !== idx))}
-                  style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent',
-                    color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  className={s.agendaRemoveBtn}>
                   <X size={10} />
                 </button>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <input className="field" placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
+            <div className={s.addItemRow}>
+              <input className={`field ${s.addItemInput}`} placeholder={t('meetingForm.addAgendaItem')} value={newAgendaItem}
                 onChange={e => setNewAgendaItem(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }}
-                style={{ flex: 1, fontSize: 12, padding: '6px 10px' }} />
-              <button type="button" className="btn btn-sm" onClick={() => { if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } }}
-                disabled={!newAgendaItem.trim()} style={{ flexShrink: 0 }}>
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } } }} />
+              <button type="button" className={`btn btn-sm ${s.addItemBtn}`} onClick={() => { if (newAgendaItem.trim()) { setAgenda(p => [...p, newAgendaItem.trim()]); setNewAgendaItem(''); } }}
+                disabled={!newAgendaItem.trim()}>
                 <Plus size={12} />
               </button>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
+          <div className={s.gridThree}>
+            <div className={s.minW0}>
               <label className="field-label"><Calendar size={11} /> {t('meetingForm.date')}</label>
-              <input className="field" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ minWidth: 0 }} />
+              <input className={`field ${s.minW0}`} type="date" value={date} onChange={e => setDate(e.target.value)} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div className={s.minW0}>
               <label className="field-label">{t('meetingForm.time')}</label>
-              <input className="field" type="time" value={time} onChange={e => setTime(e.target.value)} style={{ minWidth: 0 }} />
+              <input className={`field ${s.minW0}`} type="time" value={time} onChange={e => setTime(e.target.value)} />
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div className={s.minW0}>
               <label className="field-label">{t('meetingForm.duration')}</label>
               <Select value={String(duration)} onChange={(v) => setDuration(parseInt(v))} style={{ minWidth: 0 }}
                 options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
@@ -230,59 +219,43 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
           <div>
             <label className="field-label"><UsersIcon size={11} /> {t('calendar.participantsCount', { count: selectedUsers.length + 1 })}</label>
             {meeting.createdBy && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
-                background: 'var(--surface)', borderRadius: 8, marginBottom: 6, marginTop: 6,
-              }}>
+              <div className={s.participantRow}>
                 <Avatar name={meeting.createdBy.name || 'U'} image={meeting.createdBy.image} size="sm" />
-                <div style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{meeting.createdBy.name}</div>
-                <span className="chip" style={{ fontSize: 10 }}>{t('calendar.organizer')}</span>
+                <div className={s.participantName}>{meeting.createdBy.name}</div>
+                <span className={`chip ${s.organizerChip}`}>{t('calendar.organizer')}</span>
               </div>
             )}
 
             {selectedUsers.map(u => (
-              <div key={u.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
-                background: 'var(--surface)', borderRadius: 8, marginBottom: 4,
-              }}>
+              <div key={u.id} className={s.selectedUserRow}>
                 <Avatar name={u.name || 'U'} image={u.image} size="sm" />
-                <div style={{ flex: 1, fontSize: 13 }}>{u.name}</div>
-                <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24 }}
+                <div className={s.participantNameSm}>{u.name}</div>
+                <button className={`btn btn-ghost btn-icon ${s.removeBtn24}`}
                   onClick={() => setSelectedUsers(p => p.filter(x => x.id !== u.id))}>
                   <X size={11} />
                 </button>
               </div>
             ))}
 
-            <div ref={searchRef} style={{ position: 'relative', marginTop: 6 }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-                <input className="field" placeholder={t('meetingForm.addParticipant')}
+            <div ref={searchRef} className={s.searchWrap}>
+              <div className={s.searchInner}>
+                <Search size={13} className={s.searchIcon} />
+                <input className={`field ${s.searchInput}`} placeholder={t('meetingForm.addParticipant')}
                   value={userSearch} onChange={e => { setUserSearch(e.target.value); setShowDropdown(true); }}
-                  onFocus={() => setShowDropdown(true)}
-                  style={{ paddingLeft: 30, fontSize: 13 }} />
+                  onFocus={() => setShowDropdown(true)} />
               </div>
               {showDropdown && filteredUsers.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  borderRadius: 10, maxHeight: 180, overflowY: 'auto', zIndex: 60,
-                  boxShadow: '0 8px 24px rgba(0,0,0,.3)',
-                }}>
+                <div className={s.dropdown}>
                   {filteredUsers.slice(0, 6).map(u => (
                     <button key={u.id} onClick={() => { setSelectedUsers(p => [...p, u]); setUserSearch(''); setShowDropdown(false); }}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '9px 12px', background: 'transparent', border: 'none',
-                        cursor: 'pointer', textAlign: 'left', color: 'var(--text)',
-                      }}
+                      className={s.dropdownItem}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <Avatar name={u.name || 'U'} image={u.image} size="sm" />
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div>
+                        <div className={s.dropdownItemName}>{u.name}</div>
+                        <div className={s.dropdownItemEmail}>{u.email}</div>
                       </div>
                     </button>
                   ))}
@@ -292,7 +265,7 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        <div className={s.footerRow}>
           <button className="btn" onClick={onClose}>{t('common.cancel')}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !title.trim()}>
             <Save size={14} /> {saving ? t('common.saving') : t('common.save')}

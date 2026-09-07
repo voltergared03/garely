@@ -1,0 +1,903 @@
+/* Meeting report page — static styles lifted out of inline style={{}} blocks.
+   Every colour here is the exact var(--*) the inline style already used. */
+
+/* The global `spin` keyframes are not reachable from a CSS Module (css-loader
+   scopes animation names), so the same declaration is repeated locally. */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Loading state ─────────────────────────────────────── */
+.loadingWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.loadingText {
+  color: var(--muted);
+  font-size: 13px;
+}
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Empty / generating / failed report state ──────────── */
+.centerWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stateCard.stateCard {
+  text-align: center;
+  padding: 48px 40px;
+  max-width: 420px;
+}
+.stateSpinner {
+  color: var(--accent);
+  margin-bottom: 14px;
+  animation: spin 0.8s linear infinite;
+}
+.stateIconDanger {
+  margin-bottom: 14px;
+  opacity: 0.8;
+}
+.stateIconMuted {
+  color: var(--muted);
+  margin-bottom: 14px;
+  opacity: 0.5;
+}
+.stateTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.stateDesc {
+  color: var(--muted);
+  margin-bottom: 20px;
+  font-size: 13.5px;
+}
+.stateActions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Citation chips (extended report + chat) ───────────── */
+.cites {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.chatCites {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: baseline;
+  margin: 0 3px;
+}
+.chatBold {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Topic sub-section (decisions / tasks / questions) ─── */
+.section {
+  margin-top: 14px;
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.sectionIcon {
+  display: inline-flex;
+}
+.sectionLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.sectionItem {
+  display: flex;
+  gap: 10px;
+}
+.sectionDot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 7px;
+}
+.sectionItemText {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.metaMuted {
+  color: var(--muted);
+}
+
+/* ── Page shell + header ───────────────────────────────── */
+.page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px clamp(14px, 4vw, 28px) 80px;
+}
+.header {
+  margin-bottom: 24px;
+}
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.aiChip.aiChip {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--info-fg);
+}
+.headerMeta {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sendMsg {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Tabs ──────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  font-size: 13.5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+
+/* ── Summary tab layout ────────────────────────────────── */
+.summaryGrid {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.summaryText {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.flex1 {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Action items ──────────────────────────────────────── */
+.countChip.countChip {
+  font-size: 10.5px;
+  padding: 2px 7px;
+}
+.actionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.2s;
+}
+.checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: all 0.15s;
+}
+.onAccent {
+  color: var(--on-accent);
+}
+.progressDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.itemText {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.metaMono {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.extLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.iconBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+
+/* ── Decisions ─────────────────────────────────────────── */
+.decisionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+}
+.decNum {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: color-mix(in oklab, var(--green) 14%, transparent);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.decText {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+/* ── Analytics: stats, language bar, speaker bars ──────── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.statCard {
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.statLabel {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.statValue {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.blockGap {
+  margin-bottom: 18px;
+}
+.blockLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.blockLabelLg {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.langBar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-2);
+  margin-bottom: 8px;
+}
+.langSeg {
+  transition: width 0.5s ease;
+}
+.langLegend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legendLabel {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.legendPct {
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--text);
+}
+.stack8 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.speakerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.rowCenter8 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.speakerName {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.speakerPct {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  font-weight: 600;
+}
+.speakerTrack {
+  height: 5px;
+  background: var(--bg-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.speakerFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+/* ── Follow-ups ────────────────────────────────────────── */
+.followRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+}
+.followIcon {
+  color: var(--pink);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.followText {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+/* ── Recording card ────────────────────────────────────── */
+.recStatus {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+}
+.recIconDanger {
+  color: var(--danger-fg);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.recIconMuted {
+  color: var(--muted);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.recText {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.recBox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--bg-2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.playBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--teal) 16%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.playIcon {
+  color: var(--teal);
+  margin-left: 2px;
+}
+.recInfo {
+  flex: 1;
+  min-width: 150px;
+}
+.recName {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recMeta {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.recPerm {
+  font-size: 10.5px;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.recActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.dangerBtn.dangerBtn {
+  color: var(--red);
+}
+
+/* ── Detailed (topics) tab ─────────────────────────────── */
+.stack16 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.topicCard.topicCard {
+  padding: 18px 20px;
+}
+.topicRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.topicNum {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--mono);
+}
+.topicTitle {
+  font-weight: 600;
+  font-size: 15.5px;
+  line-height: 1.35;
+}
+.topicDisc {
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.65;
+}
+.emptyCard.emptyCard {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--muted);
+}
+.emptyIcon {
+  opacity: 0.4;
+  margin-bottom: 10px;
+}
+.emptyTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.emptyDesc {
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+
+/* ── Transcript: fix-language panel ────────────────────── */
+.fixPanel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.fixHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.accentIcon {
+  color: var(--accent);
+}
+.fixTitle {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.fixDesc {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.trackRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--surface-3);
+  border-radius: 8px;
+}
+.trackName {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  flex: 1;
+  min-width: 120px;
+}
+.fixMsg {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+/* ── Transcript: toolbar + search ──────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.searchWrap {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.searchInput.searchInput {
+  padding-left: 34px;
+}
+.searchTools {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.searchCount {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.clearBtn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.clearIcon {
+  color: var(--text-2);
+}
+
+/* ── Transcript: segment list ──────────────────────────── */
+.segList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.segRow {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  transition: background 0.15s;
+  background: transparent;
+}
+.segHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.segName {
+  font-weight: 600;
+  font-size: 13px;
+}
+.segText {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.65;
+}
+.noResults {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.noResultsIcon {
+  margin-bottom: 10px;
+  opacity: 0.4;
+}
+.noResultsTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ── Chat tab ──────────────────────────────────────────── */
+.chatWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  min-height: 420px;
+}
+.chatGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(110% 55% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 72%);
+}
+.chatScroll {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chatEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+}
+.chatOrb.chatOrb {
+  margin-bottom: 18px;
+}
+.chatTitle {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.chatIntro {
+  font-size: 13.5px;
+  color: var(--muted);
+  max-width: 420px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.chatSuggests {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+  width: 100%;
+  max-width: 560px;
+}
+.suggestText {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.chatList {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 10px 0 4px;
+}
+.bubbleRow.bubbleRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.aiAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(150deg, color-mix(in oklab, var(--accent) 26%, var(--surface)), var(--surface));
+  border: 1px solid color-mix(in oklab, var(--accent) 36%, var(--border));
+  color: var(--accent-2);
+}
+.bubble {
+  max-width: 82%;
+  padding: 11px 15px;
+  border-radius: 16px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.composerWrap {
+  position: relative;
+  padding-top: 12px;
+}
+.composerInner {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.composerFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+.disclaimer {
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.clearChatBtn.clearChatBtn {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+}

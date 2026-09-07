@@ -13,6 +13,7 @@ import { signOut } from 'next-auth/react';
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locales';
 import { Toggle, FieldWrapper } from '../components/shared';
 import { PasswordSection } from './PasswordSection';
+import s from './ProfileTab.module.css';
 
 // Two-way Google Calendar sync — per-user OAuth into a dedicated "Garely"
 // calendar: events created/edited/deleted there become Garely meetings and
@@ -59,51 +60,45 @@ function GoogleCalendarCard() {
   const broken = conn && conn.status !== 'active';
 
   return (
-    <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <CalendarIcon size={15} style={{ color: 'var(--accent)' }} /> {t('settings.gcalTitle')}
+    <div className={`card ${s.cardPad}`}>
+      <div className={s.gcalTitle}>
+        <CalendarIcon size={15} className={s.gcalIcon} /> {t('settings.gcalTitle')}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{t('settings.gcalDesc')}</div>
+      <div className={s.gcalDesc}>{t('settings.gcalDesc')}</div>
 
       {flash === 'connected' && (
-        <div style={{ fontSize: 12.5, color: 'var(--green)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className={s.gcalFlashOk}>
           <Check size={13} /> {t('settings.gcalConnected')}
         </div>
       )}
       {(flash === 'denied' || flash === 'error' || flash === 'invalid' || flash === 'noscope') && (
-        <div style={{ fontSize: 12.5, color: 'var(--red)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className={s.gcalFlashErr}>
           <AlertCircle size={13} /> {t('settings.gcalConnectFailed')}
         </div>
       )}
 
       {loading ? (
-        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{t('common.loading')}</div>
+        <div className={s.gcalLoading}>{t('common.loading')}</div>
       ) : conn ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span className="chip" style={broken ? {
-              background: 'color-mix(in oklab, var(--red) 14%, transparent)', color: 'var(--danger-fg)',
-              borderColor: 'color-mix(in oklab, var(--red) 30%, transparent)',
-            } : {
-              background: 'var(--success-bg)', color: 'var(--success-fg)',
-              borderColor: 'color-mix(in oklab, var(--green) 30%, transparent)',
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: broken ? 'var(--red)' : 'var(--green)' }} />
+        <div className={s.connWrap}>
+          <div className={s.connRow}>
+            <span className={`chip ${broken ? s.chipBroken : s.chipOk}`}>
+              <span className={s.statusDot} style={{ background: broken ? 'var(--red)' : 'var(--green)' }} />
               {broken ? t('settings.gcalStatusBroken') : t('settings.gcalStatusActive')}
             </span>
-            {conn.googleEmail && <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{conn.googleEmail}</span>}
+            {conn.googleEmail && <span className={`mono ${s.connEmail}`}>{conn.googleEmail}</span>}
           </div>
           {conn.lastSyncedAt && (
-            <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+            <div className={s.lastSync}>
               {t('settings.gcalLastSync')} {new Date(conn.lastSyncedAt).toLocaleString()}
             </div>
           )}
           {broken && (
-            <div style={{ fontSize: 12, color: 'var(--red)', lineHeight: 1.5 }}>{t('settings.gcalReconnectHint')}</div>
+            <div className={s.reconnectHint}>{t('settings.gcalReconnectHint')}</div>
           )}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className={s.btnRow}>
             {broken && (
-              <a className="btn btn-primary btn-sm" href="/api/integrations/google/connect" style={{ textDecoration: 'none' }}>
+              <a className={`btn btn-primary btn-sm ${s.linkReset}`} href="/api/integrations/google/connect">
                 <Link2 size={13} /> {t('settings.gcalReconnect')}
               </a>
             )}
@@ -113,8 +108,7 @@ function GoogleCalendarCard() {
           </div>
         </div>
       ) : (
-        <a className="btn btn-primary btn-sm" href="/api/integrations/google/connect"
-          style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <a className={`btn btn-primary btn-sm ${s.connectLink}`} href="/api/integrations/google/connect">
           <Link2 size={13} /> {t('settings.gcalConnect')}
         </a>
       )}
@@ -205,30 +199,30 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
     router.refresh();
   }, [updateSession, router]);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>{t('common.loading')}</div>;
+  if (loading) return <div className={s.loadingWrap}>{t('common.loading')}</div>;
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 18 }}>
-        <button className={saved ? 'btn' : 'btn btn-primary'} onClick={saveSettings} disabled={saving} style={{ fontWeight: 600 }}>
+    <div className={s.container}>
+      <div className={s.headerRow}>
+        <button className={`${saved ? 'btn' : 'btn btn-primary'} ${s.saveBtn}`} onClick={saveSettings} disabled={saving}>
           {saved ? <><Check size={15} /> {t('common.saved')}</> : saving ? t('common.saving') : <><Save size={15} /> {t('common.save')}</>}
         </button>
       </div>
 
-      <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 18 }}>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.profileHeader}>
           <Avatar name={user?.name ?? 'User'} image={user?.image} size="lg" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>{user?.name ?? 'User'}</div>
-            <div className="mono" style={{ fontSize: 12, color: 'var(--muted)' }}>{user?.email}</div>
-            <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
-              <span className="chip" style={{ background: 'var(--success-bg)', color: 'var(--success-fg)', borderColor: 'color-mix(in oklab, var(--green) 30%, transparent)' }}>
+          <div className={s.flex1}>
+            <div className={s.userName}>{user?.name ?? 'User'}</div>
+            <div className={`mono ${s.userEmail}`}>{user?.email}</div>
+            <div className={s.ssoRow}>
+              <span className={`chip ${s.ssoChip}`}>
                 <Globe size={11} /> Google SSO
               </span>
             </div>
           </div>
         </div>
-        <div className="settings-grid-2" style={{ display: 'grid', gap: 14 }}>
+        <div className={`settings-grid-2 ${s.fieldsGrid}`}>
           <FieldWrapper label={t('settings.name')}><input className="field" value={name} onChange={(e) => setName(e.target.value)} /></FieldWrapper>
           <FieldWrapper label={t('settings.role')}><input className="field" value={displayRole} onChange={(e) => setDisplayRole(e.target.value)} placeholder="Product Manager" /></FieldWrapper>
           <FieldWrapper label={t('settings.timezone')}>
@@ -256,21 +250,21 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
         {/* Outside the grid: the switch is its own control, not a labelled field, and
             it saves on click rather than waiting for the form's Save — theme is a
             preview-as-you-pick setting, so making it wait would be the wrong model. */}
-        <div style={{ marginTop: 14 }}>
+        <div className={s.themeWrap}>
           <ThemeToggle />
         </div>
       </div>
 
-      <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.audioVideo')}</div>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.sectionTitle}>{t('settings.audioVideo')}</div>
         <Toggle label={t('settings.micOnJoin')} value={micOnJoin} onChange={setMicOnJoin} />
         <Toggle label={t('settings.camOnJoin')} value={camOnJoin} onChange={setCamOnJoin} />
         <Toggle label={t('settings.liveTranscriptDefault')} value={liveTranscript} onChange={setLiveTranscript} />
 
       </div>
 
-      <div className="card" style={{ padding: '18px 22px', marginBottom: 18 }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.notifications')}</div>
+      <div className={`card ${s.cardPad}`}>
+        <div className={s.sectionTitle}>{t('settings.notifications')}</div>
         <PushToggle />
         <Toggle label={t('settings.emailReminder')} value={emailReminder} onChange={setEmailReminder} />
         <Toggle label={t('settings.emailReport')} value={emailReport} onChange={setEmailReport} />
@@ -280,16 +274,16 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
 
       <GoogleCalendarCard />
 
-      <div className="card" style={{ padding: '18px 22px' }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{t('settings.security')}</div>
+      <div className={`card ${s.cardPadOnly}`}>
+        <div className={s.sectionTitle}>{t('settings.security')}</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
         <PasswordSection hasPassword={hasPassword} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+        <div className={s.securityRow}>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--red)' }}>{t('settings.signOutTitle')}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{t('settings.signOutDesc')}</div>
+            <div className={s.signOutTitle}>{t('settings.signOutTitle')}</div>
+            <div className={s.signOutDesc}>{t('settings.signOutDesc')}</div>
           </div>
-          <button className="btn btn-sm" onClick={() => signOut()} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--red)', borderColor: 'color-mix(in oklab, var(--red) 30%, var(--border))' }}>
+          <button className={`btn btn-sm ${s.signOutBtn}`} onClick={() => signOut()}>
             <LogOut size={13} /> {t('sidebar.signOut')}
           </button>
         </div>

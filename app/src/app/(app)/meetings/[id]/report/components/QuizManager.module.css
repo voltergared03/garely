@@ -1,0 +1,283 @@
+/* Shared input look (textarea + text inputs) */
+.input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+}
+.textarea {
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Loading state */
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+.spinMuted {
+  animation: spin 1s linear infinite;
+  color: var(--muted);
+}
+
+/* Modal body */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* Section labels + row headers */
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* Same label, but as a standalone block heading it carries its own bottom gap
+   (the .rowBetween wrapper supplies it for the inline variants). */
+.sectionLabelBlock {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.rowBetween {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+/* Results list */
+.resultsCard {
+  padding: 0;
+  overflow: hidden;
+}
+.resultRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scoreText {
+  color: var(--green);
+  font-weight: 600;
+  font-family: var(--mono, monospace);
+}
+.pendingText {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Participants */
+.selectAllBtn {
+  font-size: 12px;
+  color: var(--muted);
+}
+.emptyNote {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 8px 0;
+}
+.chipsWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.guestNote {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* Open-book toggle */
+.openBookBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.flexOne {
+  flex: 1;
+}
+.openBookTitle {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.openBookHint {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.toggleTrack {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+}
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: left 0.15s;
+}
+
+/* Questions */
+.generateHint {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 12px 0;
+  text-align: center;
+}
+.questionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.questionCard {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.questionHeader {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.questionIndex {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  padding-top: 8px;
+}
+.iconDangerBtn {
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  padding: 6px;
+  flex-shrink: 0;
+}
+.iconMutedBtn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+}
+.typeRow {
+  display: flex;
+  gap: 6px;
+  padding-left: 22px;
+}
+.typeBtn {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.optionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 22px;
+}
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.correctBtn {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.onAccent {
+  color: var(--on-accent);
+}
+.addOptionBtn {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--muted);
+}
+.addQuestionBtn {
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.deleteQuizBtn {
+  background: none;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+}
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

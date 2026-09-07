@@ -8,6 +8,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select } from '@/components/ui/select';
+import s from './DepartmentsTab.module.css';
 
 interface DeptMember { userId: string; isLead: boolean; name: string | null; email: string | null; image?: string | null }
 interface Dept { id: string; name: string; color: string | null; teableBaseId: string | null; clickupListId?: string | null; taskCount: number; meetingCount: number; members: DeptMember[] }
@@ -129,17 +130,17 @@ export function DepartmentsTab() {
   };
 
   const countChip = (icon: React.ReactNode, n: number, label: string) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)' }}>
-      {icon}<b style={{ fontWeight: 600 }}>{n}</b> <span style={{ color: 'var(--muted)' }}>{label}</span>
+    <span className={s.chipRow}>
+      {icon}<b className={s.chipCount}>{n}</b> <span className={s.chipLabel}>{label}</span>
     </span>
   );
 
   return (
-    <div style={{ maxWidth: 880, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{t('settings.tabDepartments')}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{t('departments.subtitle')}</div>
+    <div className={s.wrap}>
+      <div className={s.headerRow}>
+        <div className={s.headerTitleWrap}>
+          <div className={s.headerTitle}>{t('settings.tabDepartments')}</div>
+          <div className={s.headerSubtitle}>{t('departments.subtitle')}</div>
         </div>
         <button className="btn btn-primary" onClick={() => { setCreating((c) => !c); setNewName(''); }}>
           <Plus size={14} /> {t('departments.add')}
@@ -147,25 +148,25 @@ export function DepartmentsTab() {
       </div>
 
       {creating && (
-        <div className="card" style={{ padding: 16, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className={`card ${s.createCard}`}>
           <input
             className="field" autoFocus value={newName} placeholder={t('departments.namePlaceholder')}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') createDept(); if (e.key === 'Escape') setCreating(false); }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('departments.color')}</span>
+          <div className={s.colorRow}>
+            <span className={s.colorLabel}>{t('departments.color')}</span>
             {COLORS.map((c) => (
-              <button key={c} onClick={() => setNewColor(c)} aria-label={c} style={{
-                width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
+              <button key={c} onClick={() => setNewColor(c)} aria-label={c} className={s.swatch} style={{
+                background: c,
                 border: newColor === c ? '2px solid var(--text)' : '2px solid transparent',
               }} />
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div className={s.createActions}>
             <button className="btn btn-sm" onClick={() => setCreating(false)}>{t('common.cancel')}</button>
             <button className="btn btn-primary btn-sm" onClick={createDept} disabled={busy || !newName.trim()}>
-              {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />} {t('departments.create')}
+              {busy ? <Loader2 size={13} className={s.spinIcon} /> : <Check size={13} />} {t('departments.create')}
             </button>
           </div>
         </div>
@@ -175,11 +176,11 @@ export function DepartmentsTab() {
         // Departments arrive as a list of cards, so the wait shows that shape rather
         // than a spinner: nothing jumps when the data lands, and the page already
         // reads as "a list, loading" instead of "something, somewhere".
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} role="status" aria-busy="true">
+        <div className={s.skeletonWrap} role="status" aria-busy="true">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div key={i} className={`card ${s.skeletonCard}`}>
               <Skeleton w={30} h={30} radius={9} style={{ flexShrink: 0 }} />
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
+              <span className={s.skeletonTextWrap}>
                 <Skeleton w="34%" h={13} />
                 <Skeleton w="18%" h={10} />
               </span>
@@ -187,65 +188,63 @@ export function DepartmentsTab() {
           ))}
         </div>
       ) : depts.length === 0 ? (
-        <div className="card" style={{ padding: '40px 24px', textAlign: 'center' }}>
-          <Building2 size={28} style={{ color: 'var(--muted)', opacity: 0.5, marginBottom: 10 }} />
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t('departments.empty')}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>{t('departments.emptyHint')}</div>
+        <div className={`card ${s.emptyCard}`}>
+          <Building2 size={28} className={s.emptyIcon} />
+          <div className={s.emptyTitle}>{t('departments.empty')}</div>
+          <div className={s.emptyHint}>{t('departments.emptyHint')}</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className={s.listWrap}>
           {depts.map((d) => {
             const isOpen = expanded === d.id;
             const dot = d.color || 'var(--accent)';
             const nonMembers = users.filter((u) => !d.members.some((m) => m.userId === u.id));
             return (
-              <div key={d.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
-                  <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28, flexShrink: 0 }}
+              <div key={d.id} className={`card ${s.deptCard}`}>
+                <div className={s.deptHeader}>
+                  <button className={`btn btn-ghost btn-icon ${s.toggleBtn}`}
                     onClick={() => setExpanded(isOpen ? null : d.id)} aria-label="toggle">
                     {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
-                  <span style={{ width: 12, height: 12, borderRadius: 4, background: dot, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <span className={s.dot} style={{ background: dot }} />
+                  <div className={s.nameWrap}>
                     {editId === d.id ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <input className="field" autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') renameDept(d); if (e.key === 'Escape') setEditId(null); }}
-                          style={{ height: 30, fontSize: 13.5, padding: '4px 8px', maxWidth: 240 }} />
-                        <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.save')} onClick={() => renameDept(d)}><Check size={14} /></button>
-                        <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.cancel')} onClick={() => setEditId(null)}><X size={14} /></button>
+                      <div className={s.editRow}>
+                        <input className={`field ${s.editInput}`} autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') renameDept(d); if (e.key === 'Escape') setEditId(null); }} />
+                        <button className={`btn btn-ghost btn-icon ${s.iconBtn26}`} title={t('common.save')} onClick={() => renameDept(d)}><Check size={14} /></button>
+                        <button className={`btn btn-ghost btn-icon ${s.iconBtn26}`} title={t('common.cancel')} onClick={() => setEditId(null)}><X size={14} /></button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-                        <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26, flexShrink: 0, opacity: 0.8 }} title={t('common.edit')}
+                      <div className={s.nameRow}>
+                        <span className={s.nameText}>{d.name}</span>
+                        <button className={`btn btn-ghost btn-icon ${s.editIconBtn}`} title={t('common.edit')}
                           onClick={() => { setEditId(d.id); setEditVal(d.name); }}><Pencil size={13} /></button>
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+                  <div className={s.statsRow}>
                     {clickupOn && !d.clickupListId && (
-                      <span className="chip" title={t('departments.clickupUnmappedHint')}
-                        style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)' }}>
+                      <span className={`chip ${s.warnChip}`} title={t('departments.clickupUnmappedHint')}>
                         <AlertTriangle size={10} /> {t('departments.clickupUnmapped')}
                       </span>
                     )}
-                    {countChip(<UsersIcon size={13} style={{ color: 'var(--muted)' }} />, d.members.length, t('departments.members'))}
-                    {countChip(<ListChecks size={13} style={{ color: 'var(--muted)' }} />, d.taskCount, t('departments.tasks'))}
-                    <button className="btn btn-ghost btn-icon" style={{ width: 30, height: 30, color: 'var(--red)' }} title={t('common.delete')} onClick={() => deleteDept(d)}>
+                    {countChip(<UsersIcon size={13} className={s.iconMuted} />, d.members.length, t('departments.members'))}
+                    {countChip(<ListChecks size={13} className={s.iconMuted} />, d.taskCount, t('departments.tasks'))}
+                    <button className={`btn btn-ghost btn-icon ${s.deleteBtn}`} title={t('common.delete')} onClick={() => deleteDept(d)}>
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
                 {isOpen && (
-                  <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', background: 'var(--surface-2)' }}>
+                  <div className={s.panel}>
                     {/* color */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('departments.color')}</span>
+                    <div className={s.panelColorRow}>
+                      <span className={s.colorLabel}>{t('departments.color')}</span>
                       {COLORS.map((c) => (
-                        <button key={c} onClick={() => setColor(d, c)} aria-label={c} style={{
-                          width: 20, height: 20, borderRadius: '50%', background: c, cursor: 'pointer',
+                        <button key={c} onClick={() => setColor(d, c)} aria-label={c} className={s.swatchSm} style={{
+                          background: c,
                           border: (d.color || COLORS[0]) === c ? '2px solid var(--text)' : '2px solid transparent',
                         }} />
                       ))}
@@ -253,11 +252,11 @@ export function DepartmentsTab() {
 
                     {/* ClickUp destination list */}
                     {clickupOn && (
-                      <div style={{ marginBottom: 14 }}>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 8 }}>
+                      <div className={s.clickupBlock}>
+                        <div className={s.sectionLabel}>
                           {t('departments.clickupList')}
                         </div>
-                        <div style={{ maxWidth: 380 }}>
+                        <div className={s.selectMax380}>
                           <Select
                             value={d.clickupListId ?? ''}
                             placeholder={t('departments.clickupPick')}
@@ -269,34 +268,34 @@ export function DepartmentsTab() {
                             style={{ height: 34, fontSize: 13 }}
                           />
                         </div>
-                        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
+                        <div className={s.hintText}>
                           {t('departments.clickupListHint')}
                         </div>
                       </div>
                     )}
 
                     {/* members */}
-                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600, marginBottom: 8 }}>
+                    <div className={s.sectionLabel}>
                       {t('departments.members')}
                     </div>
                     {d.members.length === 0 ? (
-                      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>{t('departments.noMembers')}</div>
+                      <div className={s.noMembersText}>{t('departments.noMembers')}</div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                      <div className={s.membersList}>
                         {d.members.map((m) => (
-                          <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', background: 'var(--surface)', borderRadius: 10 }}>
+                          <div key={m.userId} className={s.memberRow}>
                             <Avatar name={m.name || m.email || '?'} image={m.image} size="sm" />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name || m.email}</span>
-                                {m.isLead && <span className="chip" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)' }}><Crown size={10} /> {t('departments.lead')}</span>}
+                            <div className={s.memberInfo}>
+                              <div className={s.memberNameRow}>
+                                <span className={s.memberNameText}>{m.name || m.email}</span>
+                                {m.isLead && <span className={`chip ${s.warnChip}`}><Crown size={10} /> {t('departments.lead')}</span>}
                               </div>
                             </div>
-                            <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28, color: m.isLead ? 'var(--amber)' : 'var(--muted)' }}
+                            <button className={`btn btn-ghost btn-icon ${s.iconBtn28}`} style={{ color: m.isLead ? 'var(--amber)' : 'var(--muted)' }}
                               title={m.isLead ? t('departments.removeLead') : t('departments.makeLead')} onClick={() => toggleLead(d, m)}>
                               <Crown size={14} />
                             </button>
-                            <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28, color: 'var(--red)' }}
+                            <button className={`btn btn-ghost btn-icon ${s.removeBtn}`}
                               title={t('departments.removeMember')} onClick={() => removeMember(d, m.userId)}>
                               <X size={14} />
                             </button>
@@ -306,7 +305,7 @@ export function DepartmentsTab() {
                     )}
 
                     {nonMembers.length > 0 && (
-                      <div style={{ maxWidth: 320 }}>
+                      <div className={s.addMemberWrap}>
                         <Select
                           value=""
                           placeholder={t('departments.addMember')}

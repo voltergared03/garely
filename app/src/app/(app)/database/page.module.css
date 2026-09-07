@@ -1,0 +1,74 @@
+/* Page shell */
+.page { flex: 1; min-height: 0; overflow-y: auto; width: 100%; }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 30px clamp(20px, 5vw, 56px) 60px; }
+.headRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.kicker { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 9px; }
+.pageTitle { font-size: 32px; font-weight: 700; margin: 0; letter-spacing: -0.02em; line-height: 1.05; }
+.subtitle { color: var(--muted); font-size: 14px; margin-top: 7px; }
+.createBtn { font-weight: 600; flex-shrink: 0; }
+.loadingRow { display: flex; justify-content: center; padding: 80px; }
+
+/* Modals */
+.errText { color: var(--danger); font-size: 12.5px; margin-bottom: 14px; }
+.rowEnd { display: flex; justify-content: flex-end; gap: 8px; }
+.fieldMb18 { width: 100%; margin-bottom: 18px; }
+.desc { margin: 0 0 18px; color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.dangerBtn { color: var(--on-accent); font-weight: 600; }
+/* Tripled (0,3,0) so the destructive fill out-ranks globals.css `.btn:hover` (0,2,0),
+   which would otherwise repaint the button var(--surface-2) while hovered.
+   border-color is deliberately left to `.btn:hover`, as it was before the migration. */
+.dangerBtn.dangerBtn.dangerBtn { background: var(--danger); }
+
+/* Base card */
+.card {
+  position: relative; cursor: pointer; border-radius: 14px; background: var(--surface); overflow: hidden;
+  min-height: 162px; display: flex;
+  transition: transform .14s, border-color .14s, box-shadow .14s;
+  animation-name: fadeIn; animation-duration: .35s; animation-timing-function: ease; animation-fill-mode: both;
+}
+.accentBar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.cardBody { padding: 16px 16px 14px 22px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.cardHead { display: flex; align-items: flex-start; justify-content: space-between; }
+.iconWrap { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.menuBtn { width: 30px; height: 30px; transition: opacity .12s; }
+.cardTitle { font-size: 16px; font-weight: 600; margin-top: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chipsRow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; flex: 1; align-content: flex-start; }
+.emptyChip { font-size: 12px; color: var(--muted-2, var(--muted)); }
+.chip {
+  display: inline-flex; align-items: center; max-width: 100%; padding: 2px 9px; border-radius: 7px;
+  background: var(--surface-2); border: 1px solid var(--border); font-size: 11.5px; color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chipMuted { color: var(--muted); }
+.chipIcon { margin-right: 5px; opacity: 0.6; }
+.metaRow { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); margin-top: 12px; }
+.lockRow { display: inline-flex; align-items: center; gap: 3px; }
+
+/* Card overflow menu (portal) */
+.menuPanel {
+  width: 196px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 14px 44px var(--overlay); padding: 6px; z-index: 2000;
+}
+.colorRow { display: flex; gap: 5px; padding: 8px 10px 6px; flex-wrap: wrap; }
+.swatch { width: 18px; height: 18px; border-radius: 5px; cursor: pointer; }
+.divider { height: 1px; background: var(--border); margin: 4px 0; }
+.menuRow {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: none;
+  border-radius: 8px; background: transparent; cursor: pointer; font-size: 13px; text-align: left;
+}
+
+/* Ghost (create) card */
+.ghost {
+  min-height: 162px; border-radius: 14px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  transition: border-color .14s, background .14s, color .14s;
+  animation-name: fadeIn; animation-duration: .35s; animation-timing-function: ease; animation-fill-mode: both;
+}
+.ghostLabel { font-weight: 600; font-size: 14px; }
+
+/* Local copies of the global keyframes (globals.css:379) — CSS Modules localise
+   animation names, so `animation-name: fadeIn` cannot reach the global @keyframes. */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

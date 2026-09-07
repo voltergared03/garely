@@ -32,6 +32,7 @@ import { PriorityChip } from './components/PriorityChip';
 import { ReportCard } from './components/ReportCard';
 import { HighlightText } from './components/HighlightText';
 import { QuizManager } from './components/QuizManager';
+import css from './page.module.css';
 
 /* ─── Main page component ───────────────────────────────────────── */
 
@@ -842,50 +843,32 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
   if (loading) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            border: '3px solid var(--border)',
-            borderTopColor: 'var(--accent)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-        <span style={{ color: 'var(--muted)', fontSize: 13 }}>{tr('report.loading')}</span>
+      <div className={css.loadingWrap}>
+        <div className={css.spinner} />
+        <span className={css.loadingText}>{tr('report.loading')}</span>
       </div>
     );
   }
 
   if (!meeting || !report) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 420 }}>
+      <div className={css.centerWrap}>
+        <div className={`card ${css.stateCard}`}>
           {reportStatus === 'generating' ? (
             <>
-              <Loader2 size={40} style={{ color: 'var(--accent)', marginBottom: 14, animation: 'spin 0.8s linear infinite' }} />
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.generatingTitle')}</div>
-              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>{tr('report.generatingDesc')}</div>
+              <Loader2 size={40} className={css.stateSpinner} />
+              <div className={css.stateTitle}>{tr('report.generatingTitle')}</div>
+              <div className={css.stateDesc}>{tr('report.generatingDesc')}</div>
               <button className="btn" onClick={() => router.push('/')}>
                 <ChevronLeft size={14} /> {tr('report.toDashboard')}
               </button>
             </>
           ) : reportStatus === 'failed' ? (
             <>
-              <FileText size={40} style={{ color: 'var(--danger, #e5484d)', marginBottom: 14, opacity: 0.8 }} />
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.failedTitle')}</div>
-              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>{tr('report.failedDesc')}</div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <FileText size={40} className={css.stateIconDanger} style={{ color: 'var(--danger, #e5484d)' }} />
+              <div className={css.stateTitle}>{tr('report.failedTitle')}</div>
+              <div className={css.stateDesc}>{tr('report.failedDesc')}</div>
+              <div className={css.stateActions}>
                 {canRetryReport && (
                   <button className="btn btn-primary" onClick={retryReport}>
                     <Sparkles size={14} /> {tr('report.retry')}
@@ -898,9 +881,9 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
             </>
           ) : (
             <>
-              <FileText size={40} style={{ color: 'var(--muted)', marginBottom: 14, opacity: 0.5 }} />
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tr('report.notFoundTitle')}</div>
-              <div style={{ color: 'var(--muted)', marginBottom: 20, fontSize: 13.5 }}>
+              <FileText size={40} className={css.stateIconMuted} />
+              <div className={css.stateTitle}>{tr('report.notFoundTitle')}</div>
+              <div className={css.stateDesc}>
                 {tr('report.notFoundDesc')}
               </div>
               <button className="btn" onClick={() => router.push('/')}>
@@ -919,7 +902,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
   // Clickable transcript-timestamp chips for an extended-report item.
   const renderCites = (cites: number[]) =>
     cites && cites.length > 0 ? (
-      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, marginLeft: 6, verticalAlign: 'middle' }}>
+      <span className={css.cites}>
         {cites.slice(0, 10).map((ct, i) => (
           <button key={i} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(ct)}>
             {formatTimestamp(ct)}
@@ -957,7 +940,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
           out.push(<span key={`t${k++}`}>{m[1]}</span>);
         } else {
           out.push(
-            <span key={`c${k++}`} style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, verticalAlign: 'baseline', margin: '0 3px' }}>
+            <span key={`c${k++}`} className={css.chatCites}>
               {chips.map((seg, j) => (
                 <button key={j} className="cite-chip" title={tr('report.jumpToTranscript')} onClick={() => jumpToTime(seg.startTime)}>
                   {seg.timestamp}
@@ -968,7 +951,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
         }
       } else {
         out.push(
-          <strong key={`b${k++}`} style={{ fontWeight: 600, color: 'var(--text)' }}>
+          <strong key={`b${k++}`} className={css.chatBold}>
             {m[2]}
           </strong>
         );
@@ -987,20 +970,20 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
     items: { text: string; meta?: string | null; cites: number[] }[]
   ) =>
     items.length > 0 ? (
-      <div style={{ marginTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-          <span style={{ color, display: 'inline-flex' }}>{icon}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+      <div className={css.section}>
+        <div className={css.sectionHead}>
+          <span className={css.sectionIcon} style={{ color }}>{icon}</span>
+          <span className={css.sectionLabel}>
             {label}
           </span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <div className={css.sectionList}>
           {items.map((it, i) => (
-            <div key={i} style={{ display: 'flex', gap: 10 }}>
-              <span style={{ flexShrink: 0, width: 6, height: 6, borderRadius: '50%', background: color, marginTop: 7 }} />
-              <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
+            <div key={i} className={css.sectionItem}>
+              <span className={css.sectionDot} style={{ background: color }} />
+              <div className={css.sectionItemText}>
                 {it.text}
-                {it.meta ? <span style={{ color: 'var(--muted)' }}> — {it.meta}</span> : null}
+                {it.meta ? <span className={css.metaMuted}> — {it.meta}</span> : null}
                 {renderCites(it.cites)}
               </div>
             </div>
@@ -1012,31 +995,26 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
   /* ─── Render ──────────────────────────────────────────────────── */
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+    <div className={css.page}>
       {saveToast}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px clamp(14px, 4vw, 28px) 80px' }}>
+      <div className={css.container}>
         {/* ─── Header ─────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        <div className={css.header}>
+          <div className={css.headerTop}>
+            <div className={css.headerLeft}>
               <button className="btn btn-ghost btn-icon" aria-label={tr('common.back')} onClick={() => router.back()}>
                 <ChevronLeft size={16} />
               </button>
               <span
-                className="chip"
-                style={{
-                  background: 'color-mix(in oklab, var(--accent) 18%, transparent)',
-                  borderColor: 'color-mix(in oklab, var(--accent) 40%, transparent)',
-                  color: 'var(--info-fg)',
-                }}
+                className={`chip ${css.aiChip}`}
               >
                 <Sparkles size={11} /> {tr('report.aiReportChip')}
               </span>
-              <span style={{ color: 'var(--muted)', fontSize: 12.5 }}>
+              <span className={css.headerMeta}>
                 {fmtRelative(scheduledDate, locale, tz)} &bull; {fmtDateLong(scheduledDate, locale, tz)} &bull; {fmtTime(scheduledDate, tz)}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div className={css.headerActions}>
               <button className="btn btn-sm" onClick={copySummary}>
                 {copied ? <Check size={13} /> : <Copy size={13} />}
                 {copied ? tr('report.copied') : tr('report.copySummary')}
@@ -1045,7 +1023,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 <Download size={13} /> .pdf
               </button>
               <button className="btn btn-sm btn-primary" onClick={sendReport} disabled={sending}>
-                {sending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />} {tr('report.sendToTeam')}
+                {sending ? <Loader2 size={13} className={css.spinning} /> : <Send size={13} />} {tr('report.sendToTeam')}
               </button>
               <QuizManager
                 meetingId={meetingId}
@@ -1054,14 +1032,14 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 canManage={canRetryReport}
               />
               {sendMsg && (
-                <span style={{ fontSize: 12, color: sendMsg.ok ? 'var(--green)' : 'var(--danger-fg)', display: 'inline-flex', alignItems: 'center' }}>
+                <span className={css.sendMsg} style={{ color: sendMsg.ok ? 'var(--green)' : 'var(--danger-fg)' }}>
                   {sendMsg.text}
                 </span>
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', flex: 1, minWidth: 0 }}>
+          <div className={css.titleRow}>
+            <h1 className={css.title}>
               {meeting.title}
             </h1>
             <AvatarStack users={participantNames} max={5} size="sm" />
@@ -1069,7 +1047,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
         </div>
 
         {/* ─── Tabs ───────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+        <div className={css.tabs}>
           {[
             { key: 'summary' as const, label: tr('report.tabSummary'), icon: ListChecks },
             { key: 'detailed' as const, label: tr('report.tabDetailed'), icon: Sparkles },
@@ -1079,20 +1057,11 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              className={css.tab}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                padding: '10px 16px',
-                fontSize: 13.5,
                 fontWeight: activeTab === tab.key ? 600 : 500,
                 color: activeTab === tab.key ? 'var(--text)' : 'var(--muted)',
-                background: 'transparent',
-                border: 'none',
                 borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                marginBottom: -1,
               }}
             >
               <tab.icon size={14} />
@@ -1103,12 +1072,12 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
         {/* ─── Summary Tab ────────────────────────────────────────── */}
         {activeTab === 'summary' && (
-          <div className="report-main-grid" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
+          <div className={`report-main-grid ${css.summaryGrid}`}>
             {/* Left column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div className={css.col}>
               {/* Підсумок */}
               <ReportCard icon={Sparkles} title={tr('report.summary')} accentColor="var(--accent)">
-                <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.7 }}>
+                <p className={css.summaryText}>
                   {report.summary}
                 </p>
               </ReportCard>
@@ -1120,10 +1089,8 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 accentColor="var(--amber)"
                 badge={
                   <span
-                    className="chip"
+                    className={`chip ${css.countChip}`}
                     style={{
-                      fontSize: 10.5,
-                      padding: '2px 7px',
                       background: doneCount === actionItems.length
                         ? 'color-mix(in oklab, var(--green) 16%, transparent)'
                         : 'var(--surface-2)',
@@ -1137,67 +1104,51 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                   </span>
                 }
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div className={css.list}>
                   {actionItems.map((item) => (
                     <div
                       key={item.id}
+                      className={css.actionRow}
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        padding: '12px 0',
-                        borderBottom: '1px solid var(--border)',
                         opacity: item.done ? 0.55 : 1,
-                        transition: 'opacity 0.2s',
                       }}
                     >
                       <button
                         onClick={() => toggleActionItem(item.id)}
                         disabled={item.clickupManaged || item.linearManaged}
+                        className={css.checkbox}
                         style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 6,
                           border: item.done ? 'none' : item.status === 'in_progress' ? '2px solid var(--warn)' : '2px solid var(--border-2)',
                           background: item.done ? 'var(--green)' : 'transparent',
                           cursor: (item.clickupManaged || item.linearManaged) ? 'default' : 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          marginTop: 1,
-                          transition: 'all 0.15s',
                         }}
                       >
                         {item.done
-                          ? <Check size={12} style={{ color: 'var(--on-accent)' }} />
+                          ? <Check size={12} className={css.onAccent} />
                           : item.status === 'in_progress'
-                            ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)' }} />
+                            ? <span className={css.progressDot} />
                             : null}
                       </button>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className={css.flex1}>
                         <div
+                          className={css.itemText}
                           style={{
-                            fontSize: 13.5,
-                            fontWeight: 500,
-                            lineHeight: 1.5,
                             textDecoration: item.done ? 'line-through' : 'none',
                             color: item.done ? 'var(--muted)' : 'var(--text)',
-                            marginBottom: 6,
                           }}
                         >
                           {item.text}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div className={css.metaRow}>
                           <ReportAssigneeDropdown item={item} options={assignOptions.length ? assignOptions : users} onToggle={toggleAssignee} />
                           {item.dueDate && (
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                            <span className={css.metaMono}>
                               {tr('report.due', { date: `${new Date(item.dueDate).getDate()}.${String(new Date(item.dueDate).getMonth() + 1).padStart(2, '0')}` })}
                             </span>
                           )}
                           <PriorityChip priority={item.priority} />
                           {(item.clickupManaged || item.linearManaged) && (
-                            <a href={(item.linearManaged ? item.linearUrl : item.clickupUrl) || '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'color-mix(in oklab, var(--accent) 14%, transparent)', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                            <a href={(item.linearManaged ? item.linearUrl : item.clickupUrl) || '#'} target="_blank" rel="noopener noreferrer" className={css.extLink}>
                               {item.linearManaged ? 'Linear ↗' : 'ClickUp ↗'}
                             </a>
                           )}
@@ -1211,13 +1162,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                         <button
                           onClick={() => deleteActionItem(item.id, item.clickupManaged)}
                           title={tr('report.deleteActionItem')}
-                          style={{
-                            width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
-                            border: '1px solid transparent', background: 'transparent',
-                            color: 'var(--muted)', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all .15s',
-                          }}
+                          className={css.iconBtn}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklab, var(--red) 14%, transparent)'; e.currentTarget.style.color = '#fca5a5'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)'; }}
                         >
@@ -1231,37 +1176,19 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
               {/* Decisions */}
               <ReportCard icon={CheckCircle} title={tr('report.decisions')} accentColor="var(--green)">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div className={css.list}>
                   {report.decisions.map((decision, i) => (
                     <div
                       key={i}
+                      className={css.decisionRow}
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        padding: '11px 0',
                         borderBottom: i < report.decisions.length - 1 ? '1px solid var(--border)' : 'none',
                       }}
                     >
-                      <span
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 7,
-                          background: 'color-mix(in oklab, var(--green) 14%, transparent)',
-                          color: 'var(--green)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 12,
-                          fontWeight: 700,
-                          fontFamily: 'var(--mono)',
-                          flexShrink: 0,
-                        }}
-                      >
+                      <span className={css.decNum}>
                         {i + 1}
                       </span>
-                      <span style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6 }}>{decision}</span>
+                      <span className={css.decText}>{decision}</span>
                     </div>
                   ))}
                 </div>
@@ -1269,18 +1196,11 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
             </div>
 
             {/* Right column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div className={css.col}>
               {/* Analytics */}
               <ReportCard icon={Users} title={tr('report.analytics')} accentColor="var(--purple)">
                 {/* Stats grid */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 10,
-                    marginBottom: 18,
-                  }}
-                >
+                <div className={css.statsGrid}>
                   {[
                     { label: tr('report.statDuration'), value: (analytics?.durationMin || 0) < 1 ? tr('report.durationUnderMin') : tr('common.minutes', { count: analytics?.durationMin || 0 }), icon: Clock, color: 'var(--accent)' },
                     { label: tr('report.statWords'), value: analytics?.wordsCount?.toLocaleString() || "0", icon: FileText, color: 'var(--green)' },
@@ -1289,17 +1209,12 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                   ].map((stat) => (
                     <div
                       key={stat.label}
-                      style={{
-                        padding: '12px 14px',
-                        background: 'var(--bg-2)',
-                        borderRadius: 10,
-                        border: '1px solid var(--border)',
-                      }}
+                      className={css.statCard}
                     >
-                      <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                      <div className={css.statLabel}>
                         {stat.label}
                       </div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: stat.color, letterSpacing: '-0.02em' }}>
+                      <div className={css.statValue} style={{ color: stat.color }}>
                         {stat.value}
                       </div>
                     </div>
@@ -1307,47 +1222,35 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 </div>
 
                 {/* Language distribution bar */}
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8, fontWeight: 500 }}>
+                <div className={css.blockGap}>
+                  <div className={css.blockLabel}>
                     {tr('report.langDistribution')}
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      height: 8,
-                      borderRadius: 999,
-                      overflow: 'hidden',
-                      background: 'var(--bg-2)',
-                      marginBottom: 8,
-                    }}
-                  >
+                  <div className={css.langBar}>
                     {(analytics?.languages || []).map((lang) => (
                       <div
                         key={lang.code}
+                        className={css.langSeg}
                         style={{
                           width: `${lang.pct}%`,
                           background: lang.color,
-                          transition: 'width 0.5s ease',
                         }}
                       />
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                  <div className={css.langLegend}>
                     {(analytics?.languages || []).map((lang) => (
-                      <div key={lang.code} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div key={lang.code} className={css.legendItem}>
                         <span
+                          className={css.legendDot}
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
                             background: lang.color,
-                            flexShrink: 0,
                           }}
                         />
-                        <span style={{ fontSize: 11.5, color: 'var(--text-2)' }}>
+                        <span className={css.legendLabel}>
                           {lang.label}
                         </span>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--mono)', color: 'var(--text)' }}>
+                        <span className={css.legendPct}>
                           {lang.pct}%
                         </span>
                       </div>
@@ -1357,36 +1260,27 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
                 {/* Speaker time bars */}
                 <div>
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10, fontWeight: 500 }}>
+                  <div className={css.blockLabelLg}>
                     {tr('report.speakerTime')}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className={css.stack8}>
                     {(analytics?.speakers || []).map((speaker) => (
                       <div key={speaker.name}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className={css.speakerHead}>
+                          <div className={css.rowCenter8}>
                             <Avatar name={speaker.name} image={speaker.image || null} size="sm" />
-                            <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{speaker.name}</span>
+                            <span className={css.speakerName}>{speaker.name}</span>
                           </div>
-                          <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', fontWeight: 600 }}>
+                          <span className={css.speakerPct}>
                             {speaker.pct}%
                           </span>
                         </div>
-                        <div
-                          style={{
-                            height: 5,
-                            background: 'var(--bg-2)',
-                            borderRadius: 999,
-                            overflow: 'hidden',
-                          }}
-                        >
+                        <div className={css.speakerTrack}>
                           <div
+                            className={css.speakerFill}
                             style={{
-                              height: '100%',
                               width: `${speaker.pct}%`,
                               background: getAvatarColor(speaker.name),
-                              borderRadius: 999,
-                              transition: 'width 0.5s ease',
                             }}
                           />
                         </div>
@@ -1398,23 +1292,20 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
               {/* Follow-ups */}
               <ReportCard icon={ChevronRight} title={tr('report.followUpsTitle')} accentColor="var(--pink)">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div className={css.list}>
                   {report.followUps.map((item, i) => (
                     <div
                       key={i}
+                      className={css.followRow}
                       style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
-                        padding: '10px 0',
                         borderBottom: i < report.followUps.length - 1 ? '1px solid var(--border)' : 'none',
                       }}
                     >
                       <ChevronRight
                         size={14}
-                        style={{ color: 'var(--pink)', flexShrink: 0, marginTop: 3 }}
+                        className={css.followIcon}
                       />
-                      <span style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>{item}</span>
+                      <span className={css.followText}>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -1427,17 +1318,16 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 <ReportCard icon={Video} title={tr('report.recording')} accentColor={recording.status === 'failed' ? 'var(--danger)' : 'var(--muted)'}>
                   <div
                     role={recording.status === 'failed' ? 'alert' : undefined}
+                    className={css.recStatus}
                     style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 12,
-                      padding: '12px 16px', borderRadius: 10,
                       background: recording.status === 'failed' ? 'var(--danger-bg)' : 'var(--bg-2)',
                       border: `1px solid ${recording.status === 'failed' ? 'color-mix(in oklab, var(--danger) 30%, transparent)' : 'var(--border)'}`,
                     }}
                   >
                     {recording.status === 'failed'
-                      ? <AlertCircle size={16} style={{ color: 'var(--danger-fg)', flexShrink: 0, marginTop: 1 }} />
-                      : <Clock size={16} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />}
-                    <div style={{ fontSize: 13, lineHeight: 1.55, color: recording.status === 'failed' ? 'var(--danger-fg)' : 'var(--text-2)' }}>
+                      ? <AlertCircle size={16} className={css.recIconDanger} />
+                      : <Clock size={16} className={css.recIconMuted} />}
+                    <div className={css.recText} style={{ color: recording.status === 'failed' ? 'var(--danger-fg)' : 'var(--text-2)' }}>
                       {recording.status === 'failed' ? tr('report.recordingFailed') : tr('report.recordingProcessing')}
                     </div>
                   </div>
@@ -1445,39 +1335,23 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
               )}
               {recording && recording.status === 'ready' && (
                 <ReportCard icon={Video} title={tr('report.recording')} accentColor="var(--teal)">
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 14,
-                      padding: '12px 16px',
-                      background: 'var(--bg-2)',
-                      borderRadius: 10,
-                      border: '1px solid var(--border)',
-                      flexWrap: 'wrap',
-                    }}
-                  >
+                  <div className={css.recBox}>
                     <a
                       href={recording.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={tr('report.play')}
-                      style={{
-                        width: 42, height: 42, borderRadius: 10,
-                        background: 'color-mix(in oklab, var(--teal) 16%, transparent)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, cursor: 'pointer', textDecoration: 'none',
-                      }}
+                      className={css.playBtn}
                     >
-                      <Play size={18} style={{ color: 'var(--teal)', marginLeft: 2 }} />
+                      <Play size={18} className={css.playIcon} />
                     </a>
-                    <div style={{ flex: 1, minWidth: 150 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recording.fileName}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                    <div className={css.recInfo}>
+                      <div className={css.recName}>{recording.fileName}</div>
+                      <div className={css.recMeta}>
                         {recording.durationSec ? tr('common.minutes', { count: Math.floor(recording.durationSec / 60) }) : ''}
                         {recording.fileSize ? `${recording.durationSec ? ' • ' : ''}${(recording.fileSize / 1048576).toFixed(0)} MB` : ''}
                       </div>
-                      <div style={{ fontSize: 10.5, marginTop: 4, color: recording.permanent ? 'var(--green)' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <div className={css.recPerm} style={{ color: recording.permanent ? 'var(--green)' : 'var(--muted)' }}>
                         {recording.permanent ? (
                           <><Bookmark size={11} /> {tr('report.storedForever')}</>
                         ) : (
@@ -1485,7 +1359,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                         )}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <div className={css.recActions}>
                       <a className="btn btn-ghost btn-icon" href={recording.url} download={recording.fileName} title={tr('report.download')}>
                         <Download size={15} />
                       </a>
@@ -1496,14 +1370,13 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                         title={recording.permanent ? tr('report.revert7Day') : tr('report.storeForever')}
                         style={{ color: recording.permanent ? 'var(--green)' : 'var(--muted)' }}
                       >
-                        {recBusy ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : recording.permanent ? <Clock size={15} /> : <Bookmark size={15} />}
+                        {recBusy ? <Loader2 size={15} className={css.spinning} /> : recording.permanent ? <Clock size={15} /> : <Bookmark size={15} />}
                       </button>
                       <button
-                        className="btn btn-ghost btn-icon"
+                        className={`btn btn-ghost btn-icon ${css.dangerBtn}`}
                         onClick={deleteRecording}
                         disabled={recBusy}
                         title={tr('report.deleteRecording')}
-                        style={{ color: 'var(--red)' }}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -1519,32 +1392,17 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
         {activeTab === 'detailed' && (
           <div>
             {report.topics && report.topics.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div className={css.stack16}>
                 {report.topics.map((topic, ti) => (
-                  <div key={ti} className="card fade-in" style={{ padding: '18px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                      <span
-                        style={{
-                          flexShrink: 0,
-                          width: 26,
-                          height: 26,
-                          borderRadius: 8,
-                          background: 'color-mix(in oklab, var(--accent) 16%, transparent)',
-                          color: 'var(--accent)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          fontFamily: 'var(--mono)',
-                        }}
-                      >
+                  <div key={ti} className={`card fade-in ${css.topicCard}`}>
+                    <div className={css.topicRow}>
+                      <span className={css.topicNum}>
                         {ti + 1}
                       </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 15.5, lineHeight: 1.35 }}>{topic.title}</div>
+                      <div className={css.flex1}>
+                        <div className={css.topicTitle}>{topic.title}</div>
                         {topic.discussion ? (
-                          <div style={{ marginTop: 6, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.65 }}>
+                          <div className={css.topicDisc}>
                             {topic.discussion}
                           </div>
                         ) : null}
@@ -1572,10 +1430,10 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 ))}
               </div>
             ) : (
-              <div className="card" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--muted)' }}>
-                <Sparkles size={28} style={{ opacity: 0.4, marginBottom: 10 }} />
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-2)' }}>{tr('report.noExtended')}</div>
-                <div style={{ fontSize: 12.5, marginTop: 4 }}>{tr('report.noExtendedDesc')}</div>
+              <div className={`card ${css.emptyCard}`}>
+                <Sparkles size={28} className={css.emptyIcon} />
+                <div className={css.emptyTitle}>{tr('report.noExtended')}</div>
+                <div className={css.emptyDesc}>{tr('report.noExtendedDesc')}</div>
               </div>
             )}
           </div>
@@ -1585,42 +1443,26 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
         {activeTab === 'transcript' && (
           <div>
             {canFixLanguage && tracks.length > 0 && (
-              <div
-                style={{
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <Languages size={15} style={{ color: 'var(--accent)' }} />
-                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+              <div className={css.fixPanel}>
+                <div className={css.fixHead}>
+                  <Languages size={15} className={css.accentIcon} />
+                  <span className={css.fixTitle}>
                     {tr('report.fixLangTitle')}
                   </span>
                 </div>
-                <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                <p className={css.fixDesc}>
                   {tr('report.fixLangDesc')}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className={css.stack8}>
                   {tracks.map((t) => {
                     const sel = trackLangSel[t.id] ?? (t.detectedLanguage || '');
                     const busy = fixingId === t.id;
                     return (
                       <div
                         key={t.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          flexWrap: 'wrap',
-                          padding: '8px 10px',
-                          background: 'var(--surface-3)',
-                          borderRadius: 8,
-                        }}
+                        className={css.trackRow}
                       >
-                        <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, flex: 1, minWidth: 120 }}>
+                        <span className={css.trackName}>
                           {t.speakerName || t.participantIdentity}
                         </span>
                         <Select
@@ -1640,7 +1482,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                           disabled={busy || !sel}
                           onClick={() => runFixLanguage(t.id)}
                         >
-                          {busy ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Languages size={13} />}
+                          {busy ? <Loader2 size={13} className={css.spinning} /> : <Languages size={13} />}
                           {busy ? tr('report.fixLangBusy') : tr('report.fixLangAction')}
                         </button>
                       </div>
@@ -1649,9 +1491,8 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 </div>
                 {fixMsg && (
                   <div
+                    className={css.fixMsg}
                     style={{
-                      marginTop: 10,
-                      fontSize: 12.5,
                       color: fixMsg.ok ? 'var(--success, #22c55e)' : 'var(--danger, var(--danger))',
                     }}
                   >
@@ -1661,65 +1502,29 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
               </div>
             )}
             {/* Toolbar */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 14,
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ position: 'relative', flex: 1, maxWidth: 420 }}>
+            <div className={css.toolbar}>
+              <div className={css.searchWrap}>
                 <Search
                   size={14}
-                  style={{
-                    position: 'absolute',
-                    left: 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: 'var(--muted)',
-                    pointerEvents: 'none',
-                  }}
+                  className={css.searchIcon}
                 />
                 <input
-                  className="field"
+                  className={`field ${css.searchInput}`}
                   placeholder={tr('report.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ paddingLeft: 34, paddingRight: searchQuery ? 68 : 12 }}
+                  style={{ paddingRight: searchQuery ? 68 : 12 }}
                 />
                 {searchQuery && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 8,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>
+                  <div className={css.searchTools}>
+                    <span className={css.searchCount}>
                       {tr('report.transcriptCount', { shown: filteredTranscripts.length, total: meeting.transcripts.length })}
                     </span>
                     <button
                       onClick={() => setSearchQuery('')}
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: '50%',
-                        background: 'var(--surface-3)',
-                        border: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                      }}
+                      className={css.clearBtn}
                     >
-                      <X size={10} style={{ color: 'var(--text-2)' }} />
+                      <X size={10} className={css.clearIcon} />
                     </button>
                   </div>
                 )}
@@ -1731,7 +1536,7 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
             </div>
 
             {/* Transcript list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div className={css.segList}>
               {filteredTranscripts.map((segment, idx) => {
                 const langClass = `lang-${segment.language}`;
                 const langLabel = segment.language.toUpperCase();
@@ -1739,28 +1544,20 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                   <div
                     key={segment.id}
                     id={`seg-${idx}`}
-                    className="fade-in"
-                    style={{
-                      display: 'flex',
-                      gap: 14,
-                      padding: '14px 16px',
-                      borderRadius: 12,
-                      transition: 'background 0.15s',
-                      background: 'transparent',
-                    }}
+                    className={`fade-in ${css.segRow}`}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
                   >
                     <Avatar name={segment.speakerName} image={segment.speakerImage || null} size="md" />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{segment.speakerName}</span>
+                    <div className={css.flex1}>
+                      <div className={css.segHead}>
+                        <span className={css.segName}>{segment.speakerName}</span>
                         <span className={`lang-badge ${langClass}`}>{langLabel}</span>
-                        <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
+                        <span className={css.metaMono}>
                           {segment.timestamp}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.65 }}>
+                      <div className={css.segText}>
                         <HighlightText text={segment.text} query={searchQuery} />
                       </div>
                     </div>
@@ -1768,16 +1565,10 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                 );
               })}
               {filteredTranscripts.length === 0 && searchQuery && (
-                <div
-                  style={{
-                    textAlign: 'center',
-                    padding: '40px 20px',
-                    color: 'var(--muted)',
-                  }}
-                >
-                  <Search size={28} style={{ marginBottom: 10, opacity: 0.4 }} />
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{tr('report.nothingFound')}</div>
-                  <div style={{ fontSize: 12.5, marginTop: 4 }}>
+                <div className={css.noResults}>
+                  <Search size={28} className={css.noResultsIcon} />
+                  <div className={css.noResultsTitle}>{tr('report.nothingFound')}</div>
+                  <div className={css.emptyDesc}>
                     {tr('report.tryAnotherSearch')}
                   </div>
                 </div>
@@ -1788,59 +1579,28 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
 
         {/* ─── Chat Tab ───────────────────────────────────────────── */}
         {activeTab === 'chat' && (
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 200px)', minHeight: 420 }}>
+          <div className={css.chatWrap}>
             {/* Ambient glow from the top */}
             <div
               aria-hidden
-              style={{
-                position: 'absolute',
-                inset: 0,
-                pointerEvents: 'none',
-                background: 'radial-gradient(110% 55% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 72%)',
-              }}
+              className={css.chatGlow}
             />
 
             {/* Messages */}
             <div
               ref={chatScrollRef}
-              style={{
-                position: 'relative',
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
+              className={css.chatScroll}
             >
               {chatMessages.length === 0 ? (
-                <div
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    padding: 16,
-                  }}
-                >
-                  <div className="chat-orb fade-in" style={{ marginBottom: 18 }}>
+                <div className={css.chatEmpty}>
+                  <div className={`chat-orb fade-in ${css.chatOrb}`}>
                     <Sparkles size={26} />
                   </div>
-                  <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>{tr('report.chatTitle')}</div>
-                  <div style={{ fontSize: 13.5, color: 'var(--muted)', maxWidth: 420, lineHeight: 1.6, marginTop: 8 }}>
+                  <div className={css.chatTitle}>{tr('report.chatTitle')}</div>
+                  <div className={css.chatIntro}>
                     {tr('report.chatIntro')}
                   </div>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: 10,
-                      marginTop: 24,
-                      width: '100%',
-                      maxWidth: 560,
-                    }}
-                  >
+                  <div className={css.chatSuggests}>
                     {[
                       { t: tr('report.chatSuggest1'), icon: <Sparkles size={15} /> },
                       { t: tr('report.chatSuggest2'), icon: <CheckCircle size={15} /> },
@@ -1855,53 +1615,35 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                         onClick={() => sendChat(s.t)}
                       >
                         <span className="cs-ico">{s.icon}</span>
-                        <span style={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.35 }}>{s.t}</span>
+                        <span className={css.suggestText}>{s.t}</span>
                         <ChevronRight size={15} className="cs-arrow" />
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div style={{ width: '100%', maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18, padding: '10px 0 4px' }}>
+                <div className={css.chatList}>
                   {chatMessages.map((msg, i) => {
                   const isUser = msg.role === 'user';
                   const streaming = chatBusy && !isUser && i === chatMessages.length - 1 && !msg.content;
                   return (
                     <div
                       key={i}
-                      className={isUser ? 'chat-bubble-user' : 'chat-bubble-ai'}
-                      style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}
+                      className={`${isUser ? 'chat-bubble-user' : 'chat-bubble-ai'} ${css.bubbleRow}`}
+                      style={{ flexDirection: isUser ? 'row-reverse' : 'row' }}
                     >
                       {isUser ? (
                         <Avatar name={session?.user?.name || 'U'} image={session?.user?.image || null} size="sm" />
                       ) : (
-                        <div
-                          style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: 9,
-                            flexShrink: 0,
-                            display: 'grid',
-                            placeItems: 'center',
-                            background: 'linear-gradient(150deg, color-mix(in oklab, var(--accent) 26%, var(--surface)), var(--surface))',
-                            border: '1px solid color-mix(in oklab, var(--accent) 36%, var(--border))',
-                            color: 'var(--accent-2)',
-                          }}
-                        >
+                        <div className={css.aiAvatar}>
                           <Sparkles size={15} />
                         </div>
                       )}
                       <div
+                        className={css.bubble}
                         style={{
-                          maxWidth: '82%',
-                          padding: '11px 15px',
-                          borderRadius: 16,
                           borderTopRightRadius: isUser ? 5 : 16,
                           borderTopLeftRadius: isUser ? 16 : 5,
-                          fontSize: 13.5,
-                          lineHeight: 1.65,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
                           background: isUser ? 'color-mix(in oklab, var(--accent) 18%, transparent)' : 'var(--surface)',
                           border: `1px solid ${isUser ? 'color-mix(in oklab, var(--accent) 34%, transparent)' : 'var(--border)'}`,
                           color: isUser ? 'var(--text)' : 'var(--text-2)',
@@ -1928,8 +1670,8 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
             </div>
 
             {/* Composer */}
-            <div style={{ position: 'relative', paddingTop: 12 }}>
-              <div style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
+            <div className={css.composerWrap}>
+              <div className={css.composerInner}>
                 <div className="chat-composer">
                 <textarea
                   ref={chatTaRef}
@@ -1954,10 +1696,10 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                   {chatBusy ? <Loader2 size={15} className="spin" /> : <Send size={15} />}
                 </button>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, padding: '0 4px' }}>
-                <span style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.4 }}>{tr('report.chatDisclaimer')}</span>
+              <div className={css.composerFoot}>
+                <span className={css.disclaimer}>{tr('report.chatDisclaimer')}</span>
                 {chatMessages.length > 0 && (
-                  <button onClick={clearChat} className="btn btn-ghost btn-sm" style={{ flexShrink: 0, color: 'var(--muted)', fontSize: 12 }}>
+                  <button onClick={clearChat} className={`btn btn-ghost btn-sm ${css.clearChatBtn}`}>
                     <Trash2 size={12} /> {tr('report.chatClear')}
                   </button>
                 )}

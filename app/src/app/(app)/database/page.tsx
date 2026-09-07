@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, type CSSProperties } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createPortal } from 'react-dom';
@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { ShareModal } from './components/ShareModal';
 import { CHOICE_COLORS, type BaseSummary } from './lib/types';
+import s from './page.module.css';
 
 const ACCENTS = ['var(--accent)', 'var(--success)', '#a855f7', 'var(--warn)', 'var(--pink)', 'var(--teal)', '#6366f1', '#f97316'];
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
@@ -75,23 +76,23 @@ export default function DatabaseHome() {
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', width: '100%' }}>
-      <div style={{ maxWidth: 1500, margin: '0 auto', padding: '30px clamp(20px, 5vw, 56px) 60px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 28 }}>
+    <div className={s.page}>
+      <div className={s.wrap}>
+      <div className={s.headRow}>
         <div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 9 }}>
+          <div className={`mono ${s.kicker}`}>
             Garely · {t('title')}
           </div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.05 }}>{t('title')}</h1>
-          <div style={{ color: 'var(--muted)', fontSize: 14, marginTop: 7 }}>{t('subtitle')}</div>
+          <h1 className={s.pageTitle}>{t('title')}</h1>
+          <div className={s.subtitle}>{t('subtitle')}</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setCreateOpen(true)} style={{ fontWeight: 600, flexShrink: 0 }}>
+        <button className={`btn btn-primary ${s.createBtn}`} onClick={() => setCreateOpen(true)}>
           <Plus size={16} /> {t('newBase')}
         </button>
       </div>
 
       {bases === null ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spinner size={22} /></div>
+        <div className={s.loadingRow}><Spinner size={22} /></div>
       ) : (
         <div className="db-bento">
           {bases.map((b, i) => (
@@ -114,26 +115,26 @@ export default function DatabaseHome() {
       <Modal open={createOpen} onClose={() => { setCreateOpen(false); setCreateErr(null); }} title={t('createBase')} width={420}>
         <label className="field-label">{t('baseName')}</label>
         <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} placeholder={t('baseNamePlaceholder')} style={{ width: '100%', marginBottom: createErr ? 8 : 18 }} />
-        {createErr && <div style={{ color: 'var(--danger)', fontSize: 12.5, marginBottom: 14 }}>{createErr}</div>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        {createErr && <div className={s.errText}>{createErr}</div>}
+        <div className={s.rowEnd}>
           <button className="btn btn-ghost" onClick={() => setCreateOpen(false)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={create} disabled={!name.trim() || busy}>{busy ? <Spinner size={15} /> : t('createBase')}</button>
         </div>
       </Modal>
 
       <Modal open={!!renameTarget} onClose={() => setRenameTarget(null)} title={t('renameBaseTitle')} width={420}>
-        <input className="field" autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doRename()} style={{ width: '100%', marginBottom: 18 }} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <input className={`field ${s.fieldMb18}`} autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doRename()} />
+        <div className={s.rowEnd}>
           <button className="btn btn-ghost" onClick={() => setRenameTarget(null)}>{tc('cancel')}</button>
           <button className="btn btn-primary" onClick={doRename} disabled={!renameVal.trim()}>{tc('save')}</button>
         </div>
       </Modal>
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('deleteBase')} width={420}>
-        <p style={{ margin: '0 0 18px', color: 'var(--text-2)', fontSize: 14, lineHeight: 1.5 }}>{t('confirmDeleteBase')}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <p className={s.desc}>{t('confirmDeleteBase')}</p>
+        <div className={s.rowEnd}>
           <button className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>{tc('cancel')}</button>
-          <button className="btn" onClick={doDelete} style={{ background: 'var(--danger)', color: 'var(--on-accent)', fontWeight: 600 }}>{t('deleteBase')}</button>
+          <button className={`btn ${s.dangerBtn}`} onClick={doDelete}>{t('deleteBase')}</button>
         </div>
       </Modal>
 
@@ -142,12 +143,6 @@ export default function DatabaseHome() {
     </div>
   );
 }
-
-const chipStyle: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', maxWidth: '100%', padding: '2px 9px', borderRadius: 7,
-  background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 11.5, color: 'var(--text-2)',
-  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-};
 
 function BaseCard({
   base, accent, index, onOpen, onRename, onRecolor, onShare, onDelete,
@@ -177,48 +172,47 @@ function BaseCard({
       onClick={onOpen}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      className={s.card}
       style={{
-        position: 'relative', cursor: 'pointer', borderRadius: 14, background: 'var(--surface)', overflow: 'hidden',
         border: `1px solid ${hover ? 'var(--border-2, var(--border))' : 'var(--border)'}`,
-        minHeight: 162, display: 'flex',
         transform: hover ? 'translateY(-2px)' : 'none', boxShadow: hover ? '0 14px 36px -16px var(--overlay)' : 'none',
-        transition: 'transform .14s, border-color .14s, box-shadow .14s', animation: 'fadeIn .35s ease both', animationDelay: `${index * 45}ms`,
+        animationDelay: `${index * 45}ms`,
       }}
     >
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: accent }} />
-      <div style={{ padding: '16px 16px 14px 22px', display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: `color-mix(in oklab, ${accent} 22%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className={s.accentBar} style={{ background: accent }} />
+      <div className={s.cardBody}>
+        <div className={s.cardHead}>
+          <div className={s.iconWrap} style={{ background: `color-mix(in oklab, ${accent} 22%, transparent)` }}>
             <Table2 size={21} style={{ color: accent }} />
           </div>
           <button
             ref={btnRef}
             aria-label={t('menu')}
-            className="btn btn-ghost btn-icon"
-            style={{ width: 30, height: 30, opacity: hover || menu ? 1 : 0, transition: 'opacity .12s' }}
+            className={`btn btn-ghost btn-icon ${s.menuBtn}`}
+            style={{ opacity: hover || menu ? 1 : 0 }}
             onClick={(e) => { e.stopPropagation(); const r = btnRef.current!.getBoundingClientRect(); setPos({ left: r.right - 196, top: r.bottom }); setMenu((m) => !m); }}
           >
             <MoreHorizontal size={16} />
           </button>
         </div>
 
-        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{base.name}</div>
+        <div className={s.cardTitle}>{base.name}</div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 11, flex: 1, alignContent: 'flex-start' }}>
+        <div className={s.chipsRow}>
           {previews.length === 0 ? (
-            <span style={{ fontSize: 12, color: 'var(--muted-2, var(--muted))' }}>—</span>
+            <span className={s.emptyChip}>—</span>
           ) : (
             previews.map((n, i) => (
-              <span key={i} style={chipStyle}><Table2 size={10} style={{ marginRight: 5, opacity: 0.6 }} />{n || t('untitled')}</span>
+              <span key={i} className={s.chip}><Table2 size={10} className={s.chipIcon} />{n || t('untitled')}</span>
             ))
           )}
-          {more > 0 && <span style={{ ...chipStyle, color: 'var(--muted)' }}>+{more}</span>}
+          {more > 0 && <span className={`${s.chip} ${s.chipMuted}`}>+{more}</span>}
         </div>
 
-        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--muted)', marginTop: 12 }}>
+        <div className={`mono ${s.metaRow}`}>
           <span>{t('tableCount', { count: base.tableCount })}</span>
           {base.visibility === 'restricted' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Lock size={11} /> {t('accessRestrictedShort')}</span>
+            <span className={s.lockRow}><Lock size={11} /> {t('accessRestrictedShort')}</span>
           )}
         </div>
       </div>
@@ -228,16 +222,17 @@ function BaseCard({
           <div
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            style={{ position: 'fixed', left: Math.max(pos.left, 8), top: pos.top + 4, width: 196, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 14px 44px var(--overlay)', padding: 6, zIndex: 2000 }}
+            className={s.menuPanel}
+            style={{ position: 'fixed', left: Math.max(pos.left, 8), top: pos.top + 4 }}
           >
             <MenuRow icon={<Pencil size={14} />} label={t('rename')} onClick={() => { setMenu(false); onRename(); }} />
             <MenuRow icon={<Share2 size={14} />} label={t('share')} onClick={() => { setMenu(false); onShare(); }} />
-            <div style={{ display: 'flex', gap: 5, padding: '8px 10px 6px', flexWrap: 'wrap' }}>
+            <div className={s.colorRow}>
               {CHOICE_COLORS.slice(0, 8).map((c) => (
-                <button key={c} onClick={() => onRecolor(c)} title={t('recolor')} style={{ width: 18, height: 18, borderRadius: 5, background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid var(--hover-2)', cursor: 'pointer' }} />
+                <button key={c} onClick={() => onRecolor(c)} title={t('recolor')} className={s.swatch} style={{ background: c, border: base.color === c ? '2px solid var(--text)' : '1px solid var(--hover-2)' }} />
               ))}
             </div>
-            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div className={s.divider} />
             <MenuRow icon={<Trash2 size={14} />} label={t('deleteBase')} danger onClick={() => { setMenu(false); onDelete(); }} />
           </div>,
           document.body,
@@ -253,17 +248,16 @@ function GhostCard({ onClick, index, label }: { onClick: () => void; index: numb
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      className={s.ghost}
       style={{
-        minHeight: 162, borderRadius: 14, cursor: 'pointer',
         border: `1.5px dashed ${hover ? 'var(--accent)' : 'var(--border)'}`,
         background: hover ? 'color-mix(in oklab, var(--accent) 7%, transparent)' : 'transparent',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
-        color: hover ? 'var(--accent)' : 'var(--muted)', transition: 'border-color .14s, background .14s, color .14s',
-        animation: 'fadeIn .35s ease both', animationDelay: `${index * 45}ms`,
+        color: hover ? 'var(--accent)' : 'var(--muted)',
+        animationDelay: `${index * 45}ms`,
       }}
     >
       <Plus size={24} />
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+      <span className={s.ghostLabel}>{label}</span>
     </button>
   );
 }
@@ -272,7 +266,8 @@ function MenuRow({ icon, label, onClick, danger }: { icon: React.ReactNode; labe
   return (
     <button
       onClick={onClick}
-      style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', border: 'none', borderRadius: 8, background: 'transparent', color: danger ? 'var(--danger)' : 'var(--text)', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}
+      className={s.menuRow}
+      style={{ color: danger ? 'var(--danger)' : 'var(--text)' }}
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-2)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >

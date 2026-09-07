@@ -1,0 +1,247 @@
+/* page shell */
+.page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px clamp(16px, 4vw, 44px) 64px;
+}
+
+/* header */
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.backLink {
+  padding: 8px;
+  text-decoration: none;
+}
+.titleWrap {
+  flex: 1;
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.subtitle {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.atSign {
+  opacity: 0.5;
+}
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* faux window frame */
+.windowFrame {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+}
+.dots {
+  display: flex;
+  gap: 6px;
+}
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.stageArea {
+  min-height: min(72vh, 720px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+}
+.loadingRow {
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* denied / error */
+.deniedBox {
+  color: var(--muted);
+  max-width: 380px;
+}
+.deniedIcon {
+  color: var(--danger-fg);
+  margin-bottom: 12px;
+}
+.deniedTitle {
+  font-size: 17px;
+  font-weight: 640;
+  color: var(--text);
+}
+.deniedBody {
+  font-size: 14px;
+  margin-top: 8px;
+}
+.deniedBack {
+  margin-top: 18px;
+  text-decoration: none;
+}
+.errorText {
+  color: var(--muted);
+}
+
+/* idle / ready */
+.idleBox {
+  max-width: 460px;
+}
+.ringWrap {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 20px;
+}
+/* doubled selector (0,2,0) so it out-ranks the `animation` shorthand in
+   `.sess-ring` (STYLES, page.tsx:16), which is injected after this sheet and
+   would otherwise reset animation-delay back to 0s on a specificity tie */
+.ringDelay.ringDelay {
+  animation-delay: 1.4s;
+}
+.iconCircle {
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--accent);
+}
+.readyTitle {
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.readyBody {
+  font-size: 14px;
+  margin-top: 8px;
+  line-height: 1.55;
+}
+.inUseBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warn);
+  background: color-mix(in oklab, var(--warn) 13%, transparent);
+  border: 1px solid color-mix(in oklab, var(--warn) 34%, transparent);
+}
+.inUseDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.mt16 {
+  margin-top: 16px;
+}
+.iconMr7 {
+  margin-right: 7px;
+}
+
+/* password prompt */
+.passwordForm {
+  width: 100%;
+  max-width: 360px;
+  text-align: left;
+}
+.lockRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  justify-content: center;
+  margin-bottom: 14px;
+  color: var(--accent);
+}
+.passwordTitle {
+  font-size: 17px;
+  font-weight: 640;
+  color: var(--text);
+  text-align: center;
+}
+.passwordBody {
+  font-size: 13.5px;
+  margin-top: 8px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.passwordInput {
+  width: 100%;
+  margin-top: 16px;
+}
+.passwordActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.flex1 {
+  flex: 1;
+}
+
+/* gateway pending */
+.gatewayBox {
+  max-width: 480px;
+}
+.gatewayPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 12px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--hover-2);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.gatewayDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}

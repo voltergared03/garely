@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import s from './page.module.css';
 
 interface WsUser {
   id: string;
@@ -214,26 +215,20 @@ export default function SchedulePage() {
 
   if (created) {
     return (
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        <div style={{ maxWidth: 620, margin: '60px auto', padding: '0 28px' }}>
-          <div className="card fade-in" style={{ textAlign: 'center', padding: '48px 40px' }}>
-            <div
-              style={{
-                width: 64, height: 64, borderRadius: '50%',
-                background: 'color-mix(in oklab, var(--green) 18%, transparent)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18,
-              }}
-            >
-              <CheckCircle size={32} style={{ color: 'var(--green)' }} />
+      <div className={s.pageScroll}>
+        <div className={s.successWrap}>
+          <div className={`card fade-in ${s.successCard}`}>
+            <div className={s.successIcon}>
+              <CheckCircle size={32} className={s.greenIcon} />
             </div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t('schedule.createdTitle')}</div>
-            <div style={{ color: 'var(--text-2)', marginBottom: 24, fontSize: 14 }}>
+            <div className={s.successTitle}>{t('schedule.createdTitle')}</div>
+            <div className={s.successSub}>
               &laquo;{form.title}&raquo; &mdash; {form.date}, {form.time}
               {selectedUsers.length > 0 && (
                 <span> &bull; {t('common.participants', { count: selectedUsers.length })}</span>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <div className={s.successActions}>
               <button className="btn" onClick={() => router.push('/calendar')}>{t('schedule.toCalendar')}</button>
               <button className="btn btn-primary" onClick={() => router.push('/')}>{t('schedule.toDashboard')}</button>
             </div>
@@ -244,18 +239,18 @@ export default function SchedulePage() {
   }
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
-      <div className='page-container' style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+    <div className={s.pageScroll}>
+      <div className={`page-container ${s.container}`}>
+        <div className={s.headerRow}>
           <button className="btn btn-ghost btn-icon" onClick={() => router.push('/')}>
             <ChevronLeft size={16} />
           </button>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>{t('nav.newMeeting')}</h1>
+          <h1 className={s.headerTitle}>{t('nav.newMeeting')}</h1>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className={s.formStack}>
           {/* Title */}
-          <div className="card" style={{ padding: '18px 22px' }}>
+          <div className={`card ${s.cardPad}`}>
             {/* No visible label by design — the title IS the page heading here. Field
                 still supplies the id/aria wiring so the error below is announced as
                 belonging to this input rather than floating loose in the card. */}
@@ -263,33 +258,31 @@ export default function SchedulePage() {
               {(f) => (
                 <input
                   {...f}
-                  className="field"
+                  className={`field ${s.titleInput}`}
                   aria-label={t('meetingForm.title')}
                   placeholder={t('schedule.titlePlaceholder')}
                   value={form.title}
                   onChange={(e) => set('title', e.target.value)}
-                  style={{ fontSize: 18, fontWeight: 600, background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0 }}
                 />
               )}
             </Field>
             <textarea
-              className="field"
+              className={`field ${s.descInput}`}
               rows={2}
               placeholder={t('schedule.descriptionPlaceholder')}
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
-              style={{ background: 'transparent', border: 'none', resize: 'none', padding: '8px 0 0', fontSize: 13.5 }}
             />
           </div>
 
           {/* Agenda checklist */}
-          <div className="card" style={{ padding: '18px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ListChecks size={15} style={{ color: 'var(--accent)' }} />
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{t('schedule.agendaHeading')}</div>
+          <div className={`card ${s.cardPad}`}>
+            <div className={s.rowBetween}>
+              <div className={s.rowGap8}>
+                <ListChecks size={15} className={s.accentIcon} />
+                <div className={s.sectionTitle}>{t('schedule.agendaHeading')}</div>
                 {agenda.length > 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 7px', borderRadius: 6 }}>
+                  <span className={s.countBadge}>
                     {agenda.length}
                   </span>
                 )}
@@ -298,46 +291,32 @@ export default function SchedulePage() {
                 type="button"
                 onClick={generateAgenda}
                 disabled={aiAgendaLoading || form.title.trim().length < 3}
+                className={s.genBtn}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 12px', borderRadius: 8, border: 'none', cursor: aiAgendaLoading || form.title.trim().length < 3 ? 'not-allowed' : 'pointer',
-                  background: 'color-mix(in oklab, var(--accent) 12%, transparent)',
+                  cursor: aiAgendaLoading || form.title.trim().length < 3 ? 'not-allowed' : 'pointer',
                   color: form.title.trim().length < 3 ? 'var(--muted)' : 'var(--accent)',
-                  fontSize: 12, fontWeight: 600, transition: 'all .15s',
                   opacity: form.title.trim().length < 3 ? 0.5 : 1,
                 }}
               >
-                {aiAgendaLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={13} />}
+                {aiAgendaLoading ? <Loader2 size={13} className={s.spinIcon} /> : <Wand2 size={13} />}
                 {agenda.length > 0 ? t('schedule.regenerate') : t('schedule.generateAi')}
               </button>
             </div>
 
             {agenda.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+              <div className={s.agendaList}>
                 {agenda.map((item, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 10px', background: 'var(--surface)', borderRadius: 8,
-                    border: '1px solid var(--border)',
-                  }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
+                  <div key={idx} className={s.agendaItem}>
+                    <span className={s.agendaIndex}>
                       {idx + 1}
                     </span>
                     <input
                       value={item}
                       onChange={e => updateAgendaItem(idx, e.target.value)}
-                      style={{
-                        flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                        fontSize: 13, color: 'var(--text)', padding: 0,
-                      }}
+                      className={s.agendaInput}
                     />
                     <button type="button" onClick={() => removeAgendaItem(idx)}
-                      style={{
-                        width: 24, height: 24, borderRadius: 6, border: 'none',
-                        background: 'transparent', color: 'var(--muted)', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all .15s', flexShrink: 0,
-                      }}
+                      className={s.agendaRemoveBtn}
                       onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in oklab, var(--red) 15%, transparent)'; e.currentTarget.style.color = '#fca5a5'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)'; }}
                     >
@@ -348,36 +327,34 @@ export default function SchedulePage() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className={s.addItemRow}>
               <input
-                className="field"
+                className={`field ${s.agendaNewInput}`}
                 placeholder={t('meetingForm.addAgendaItem')}
                 value={newItem}
                 onChange={e => setNewItem(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAgendaItem(); } }}
-                style={{ flex: 1, fontSize: 13 }}
               />
-              <button type="button" className="btn" onClick={addAgendaItem}
-                disabled={!newItem.trim()}
-                style={{ flexShrink: 0 }}>
+              <button type="button" className={`btn ${s.shrink0}`} onClick={addAgendaItem}
+                disabled={!newItem.trim()}>
                 <Plus size={14} /> {t('schedule.addItem')}
               </button>
             </div>
 
             {agenda.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12, marginTop: 10, padding: '8px 0' }}>
+              <div className={s.emptyHint}>
                 {t('schedule.agendaEmptyHint')}
               </div>
             )}
           </div>
 
           {/* Date / time / duration — each field on its own row on mobile (3 cols on desktop) */}
-          <div className='card schedule-grid-3' style={{ padding: '18px 22px', display: 'grid', gap: 14 }}>
+          <div className={`card schedule-grid-3 ${s.gridCard}`}>
             <Field label={t('meetingForm.date')} icon={Calendar} error={errors.date}>
-              {(f) => <input {...f} className="field" type="date" value={form.date} onChange={(e) => set('date', e.target.value)} style={{ textAlign: 'left' }} />}
+              {(f) => <input {...f} className={`field ${s.textLeft}`} type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />}
             </Field>
             <Field label={t('schedule.start')} icon={Clock} error={errors.time}>
-              {(f) => <input {...f} className="field" type="time" value={form.time} onChange={(e) => set('time', e.target.value)} style={{ textAlign: 'left' }} />}
+              {(f) => <input {...f} className={`field ${s.textLeft}`} type="time" value={form.time} onChange={(e) => set('time', e.target.value)} />}
             </Field>
             <Field label={t('meetingForm.duration')} error={errors.duration}>
               <Select value={String(form.duration)} onChange={(v) => set('duration', parseInt(v))}
@@ -412,40 +389,34 @@ export default function SchedulePage() {
           </div>
 
           {/* Participants */}
-          <div className="card" style={{ padding: '18px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <Users size={15} style={{ color: 'var(--accent)' }} />
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{t('meetingForm.participants')}</div>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          <div className={`card ${s.cardPad}`}>
+            <div className={s.rowGap8Mb14}>
+              <Users size={15} className={s.accentIcon} />
+              <div className={s.sectionTitle}>{t('meetingForm.participants')}</div>
+              <span className={s.participantCount}>
                 {t('schedule.participantsCountWithYou', { count: selectedUsers.length + 1 })}
               </span>
             </div>
 
             {/* Host (current user) */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-              background: 'var(--surface)', borderRadius: 8, marginBottom: 10,
-            }}>
+            <div className={s.hostRow}>
               <Avatar name={session?.user?.name || 'U'} image={session?.user?.image || null} size="sm" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{session?.user?.name || t('schedule.you')}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{session?.user?.email}</div>
+              <div className={s.flex1}>
+                <div className={s.nameText}>{session?.user?.name || t('schedule.you')}</div>
+                <div className={s.emailText}>{session?.user?.email}</div>
               </div>
-              <span className="chip" style={{ fontSize: 10 }}>{t('common.host')}</span>
+              <span className={`chip ${s.hostBadge}`}>{t('common.host')}</span>
             </div>
 
             {/* Selected participants */}
             {selectedUsers.map(u => (
-              <div key={u.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                background: 'var(--surface)', borderRadius: 8, marginBottom: 6,
-              }}>
+              <div key={u.id} className={s.participantRow}>
                 <Avatar name={u.name || 'U'} image={u.image} size="sm" />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div>
+                <div className={s.flex1}>
+                  <div className={s.nameText}>{u.name}</div>
+                  <div className={s.emailText}>{u.email}</div>
                 </div>
-                <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }}
+                <button className={`btn btn-ghost btn-icon ${s.removeBtnSm}`}
                   onClick={() => removeUser(u.id)}>
                   <X size={12} />
                 </button>
@@ -453,53 +424,36 @@ export default function SchedulePage() {
             ))}
 
             {/* User search */}
-            <div ref={searchRef} style={{ position: 'relative', marginTop: 8 }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+            <div ref={searchRef} className={s.searchWrap}>
+              <div className={s.searchInputWrap}>
+                <Search size={14} className={s.searchIcon} />
                 <input
-                  className="field"
+                  className={`field ${s.searchField}`}
                   placeholder={t('meetingForm.addParticipant')}
                   value={userSearch}
                   onChange={e => { setUserSearch(e.target.value); setShowUserDropdown(true); }}
                   onFocus={() => setShowUserDropdown(true)}
-                  style={{ paddingLeft: 32, fontSize: 13 }}
                 />
               </div>
               {showUserDropdown && filteredUsers.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  borderRadius: 10, maxHeight: 220, overflowY: 'auto', zIndex: 50,
-                  boxShadow: '0 8px 24px rgba(0,0,0,.3)',
-                }}>
+                <div className={s.dropdown} style={{ boxShadow: '0 8px 24px rgba(0,0,0,.3)' }}>
                   {filteredUsers.slice(0, 8).map(u => (
                     <button key={u.id} onClick={() => addUser(u)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '10px 12px', background: 'transparent', border: 'none',
-                        cursor: 'pointer', textAlign: 'left', color: 'var(--text)',
-                        transition: 'background .1s',
-                      }}
+                      className={s.dropdownItem}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       <Avatar name={u.name || 'U'} image={u.image} size="sm" />
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</div>
+                        <div className={s.nameText}>{u.name}</div>
+                        <div className={s.emailText}>{u.email}</div>
                       </div>
                     </button>
                   ))}
                 </div>
               )}
               {showUserDropdown && userSearch && filteredUsers.length === 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                  background: 'var(--surface-2)', border: '1px solid var(--border)',
-                  borderRadius: 10, padding: '14px 16px', zIndex: 50,
-                  boxShadow: '0 8px 24px rgba(0,0,0,.3)',
-                  fontSize: 13, color: 'var(--muted)', textAlign: 'center',
-                }}>
+                <div className={s.noResults} style={{ boxShadow: '0 8px 24px rgba(0,0,0,.3)' }}>
                   {t('schedule.noUsersFound')}
                 </div>
               )}
@@ -507,10 +461,10 @@ export default function SchedulePage() {
           </div>
 
           {/* AI options */}
-          <div className="card" style={{ padding: '18px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Sparkles size={15} style={{ color: 'var(--accent)' }} />
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{t('schedule.aiSectionTitle')}</div>
+          <div className={`card ${s.cardPad}`}>
+            <div className={s.rowGap8Mb12}>
+              <Sparkles size={15} className={s.accentIcon} />
+              <div className={s.sectionTitle}>{t('schedule.aiSectionTitle')}</div>
             </div>
             <Toggle label={t('schedule.toggleTranscription')} value={form.transcription} onChange={(v) => set('transcription', v)} />
             <Toggle label={t('schedule.toggleAiReport')} value={form.aiReport} onChange={(v) => set('aiReport', v)} />
@@ -519,15 +473,15 @@ export default function SchedulePage() {
           </div>
 
           {submitErr && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div className={s.endRow}>
               <Err msg={submitErr} />
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'flex-end', gap: 10 }}>
+          <div className={s.submitRow} style={{ flexDirection: isMobile ? 'column' : 'row' }}>
             <button className="btn" onClick={() => router.push('/')}
               style={isMobile ? { width: '100%', justifyContent: 'center', padding: '13px' } : undefined}>{t('common.cancel')}</button>
-            <button className="btn btn-primary" onClick={submit} disabled={loading}
-              style={{ fontWeight: 600, gap: 8, ...(isMobile ? { width: '100%', justifyContent: 'center', padding: '14px' } : {}) }}>
+            <button className={`btn btn-primary ${s.sendBtn}`} onClick={submit} disabled={loading}
+              style={isMobile ? { width: '100%', justifyContent: 'center', padding: '14px' } : undefined}>
               <Send size={14} /> {loading ? t('schedule.creating') : t('schedule.submit')}
             </button>
           </div>
@@ -560,7 +514,7 @@ function zonedWallTimeToUtcISO(dateStr: string, timeStr: string, tz: string): st
 
 function Err({ msg }: { msg: string }) {
   return (
-    <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--danger-fg)', display: 'flex', alignItems: 'center', gap: 5 }}>
+    <div className={s.errMsg}>
       <AlertCircle size={12} /> {msg}
     </div>
   );
@@ -568,27 +522,17 @@ function Err({ msg }: { msg: string }) {
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', gap: 14,
-      }}
-    >
-      <span style={{ fontSize: 13.5, color: 'var(--text-2)' }}>{label}</span>
+    <label className={s.toggleLabel}>
+      <span className={s.toggleLabelText}>{label}</span>
       <button
         type="button"
         onClick={() => onChange(!value)}
-        style={{
-          width: 38, height: 22, borderRadius: 999, border: 'none', position: 'relative',
-          background: value ? 'var(--accent)' : 'var(--surface-3)', transition: 'background .15s', flexShrink: 0, cursor: 'pointer',
-        }}
+        className={s.toggleTrack}
+        style={{ background: value ? 'var(--accent)' : 'var(--surface-3)' }}
       >
         <span
-          style={{
-            position: 'absolute', top: 3, left: value ? 19 : 3,
-            width: 16, height: 16, borderRadius: '50%',
-            background: '#fff', transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,.3)',
-          }}
+          className={s.toggleThumb}
+          style={{ left: value ? 19 : 3, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }}
         />
       </button>
     </label>

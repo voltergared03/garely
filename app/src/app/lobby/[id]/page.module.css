@@ -1,0 +1,322 @@
+/* Page shell */
+.root {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, color-mix(in oklab, var(--accent) 10%, var(--bg)) 0%, var(--bg) 70%);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.header {
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.centerWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.grid {
+  display: grid;
+  gap: 32px;
+  max-width: 1100px;
+  width: 100%;
+  align-items: center;
+}
+
+/* Controls row under the video preview */
+.controlsRow {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+.deviceWrap {
+  position: relative;
+}
+.deviceBtn {
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+.chevron {
+  transition: transform .2s;
+}
+.deviceOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.devicePanel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 16px;
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px var(--overlay);
+}
+
+/* DeviceSelect */
+.deviceFieldWrap {
+  margin-bottom: 10px;
+}
+.deviceFieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 5px;
+}
+/* Right column: meeting info + join */
+.infoCol {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.scheduledLabel {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 6px;
+}
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.desc {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+.descNoMargin {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+}
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* Agenda / participants panels */
+.panel {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.panelHeadingAgenda {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 10px;
+}
+.panelHeadingParticipants {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 8px;
+}
+.agendaList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agendaItem {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.agendaBadge {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent, var(--accent));
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+.agendaText {
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.participantsRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.participantsCount {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* Join / start buttons */
+.primaryBtn {
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  justify-content: center;
+  border-radius: 14px;
+}
+.hostNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.tooEarlyBox {
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.tooEarlyHeader {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.accentIcon {
+  color: var(--accent);
+}
+.tooEarlyDesc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.encryptedRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* MediaPreview */
+.previewBox {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 60px -20px var(--overlay);
+}
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+}
+.avatarCircle {
+  width: 80px;
+  height: 80px;
+  font-size: 28px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.cameraOffLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+.bottomBar {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+.micIconOn {
+  color: var(--on-accent);
+  flex-shrink: 0;
+}
+.micIconOff {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.micTrack {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.micFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 2px;
+  transition: width .06s linear;
+}
+.userNameLabel {
+  font-size: 11.5px;
+  color: var(--on-accent);
+  flex-shrink: 0;
+}
+
+/* LobbyControlBtn */
+.controlBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}

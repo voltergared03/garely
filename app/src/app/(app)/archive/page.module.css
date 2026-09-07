@@ -1,0 +1,379 @@
+/* Page shell */
+.page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Search + filter bar */
+.filterBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+}
+
+.searchField {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.searchIcon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+
+.segmented {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.tabBtn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+/* Loading state */
+.loadingWrap {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--muted);
+}
+
+.loadingIcon {
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.loadingText {
+  font-size: 14px;
+}
+
+/* Empty state */
+.emptyCard {
+  text-align: center;
+  padding: 60px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.emptyIcon {
+  color: var(--muted);
+  opacity: 0.3;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.emptyDesc {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 360px;
+}
+
+/* Delete confirm modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalCard {
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 24px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.modalBody {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.modalError {
+  color: var(--danger-fg);
+  font-size: 13px;
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* Tripled (0,3,0) so the destructive tint out-ranks globals.css `.btn:hover` (0,2,0). */
+.deleteBtn.deleteBtn.deleteBtn {
+  background: color-mix(in oklab, var(--red) 22%, var(--surface));
+  color: var(--danger-fg);
+  border-color: color-mix(in oklab, var(--red) 40%, var(--border));
+}
+
+/* Day group */
+.group {
+  margin-bottom: 28px;
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dayLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.dayLine {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.dayCount {
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.rowsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Meeting row */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  transition: all .15s;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.timeCol {
+  width: 52px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.timeText {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.durationText {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.titleWrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.titleText {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recurBadge {
+  flex-shrink: 0;
+}
+
+.reportBadge {
+  flex-shrink: 0;
+  background: color-mix(in oklab, var(--accent-2) 15%, transparent);
+  border-color: color-mix(in oklab, var(--accent-2) 30%, transparent);
+  color: var(--accent-2);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.mobileTimeSpan {
+  flex-shrink: 0;
+}
+
+.dotSpan {
+  flex-shrink: 0;
+}
+
+.usersSpan {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.createdBySpan {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.matchesWrap {
+  margin-top: 8px;
+}
+
+.matchesLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.langBadgesWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.snippetsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.snippetItem {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.avatarWrap {
+  flex-shrink: 0;
+}
+
+.delBtn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  transition: opacity .15s, color .15s;
+}
+
+.chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: opacity .15s;
+}
+
+.highlight {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Local copy of the globals.css keyframes — CSS Modules hashes `animation: spin`. */
+@keyframes spin { to { transform: rotate(360deg); } }

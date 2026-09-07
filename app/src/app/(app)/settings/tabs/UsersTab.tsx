@@ -13,6 +13,7 @@ import { useSaveErrorToast } from '@/components/save-toast';
 import { Field } from '@/components/ui/field';
 import { isValidEmail, passwordProblem } from '@/lib/form-rules';
 import { getUserStatus } from '../lib/user-status';
+import s from './UsersTab.module.css';
 
 interface UserRecord {
   id: string; name: string; email: string; image?: string | null;
@@ -242,33 +243,33 @@ export function UsersTab() {
   );
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="tasks-search" style={{ position: 'relative', flex: 1 }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-          <input className="field" placeholder={t('settings.searchUser')} value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 34, height: 36 }} />
+    <div className={s.wrap}>
+      <div className={s.toolbar}>
+        <div className={`tasks-search ${s.searchWrap}`}>
+          <Search size={14} className={s.searchIcon} />
+          <input className={`field ${s.searchInput}`} placeholder={t('settings.searchUser')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <div className="muted" style={{ fontSize: 12.5 }}>{t('settings.countOf', { shown: filtered.length, total: users.length })}</div>
+        <div className={`muted ${s.countText}`}>{t('settings.countOf', { shown: filtered.length, total: users.length })}</div>
         <button className="btn btn-primary" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}><Plus size={14} /> {t('settings.add')}</button>
       </div>
 
       {requests.length > 0 && (
-        <div className="card" style={{ padding: '16px 18px', marginBottom: 16, borderColor: 'color-mix(in oklab, var(--amber) 30%, var(--border))' }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className={`card ${s.requestsCard}`}>
+          <div className={s.requestsTitle}>
             {t('settings.registrationRequests')}
-            <span className="chip" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)' }}>{requests.length}</span>
+            <span className={`chip ${s.requestsChip}`}>{requests.length}</span>
           </div>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div className={s.requestsList}>
             {requests.map((r) => {
               const daysLeft = Math.max(0, Math.ceil((new Date(r.expiresAt).getTime() - Date.now()) / 86400000));
               return (
-                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'var(--surface-2)', borderRadius: 10, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 160 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{r.name || r.email.split('@')[0]}</div>
-                    <div className="mono" style={{ fontSize: 11.5, color: 'var(--muted)' }}>{r.email}</div>
+                <div key={r.id} className={s.requestRow}>
+                  <div className={s.requestName}>
+                    <div className={s.requestNameText}>{r.name || r.email.split('@')[0]}</div>
+                    <div className={`mono ${s.requestEmail}`}>{r.email}</div>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t('settings.daysLeft', { count: daysLeft })}</span>
-                  <button className="btn btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'deny')} style={{ color: 'var(--red)' }}>{t('settings.deny')}</button>
+                  <span className={s.requestDays}>{t('settings.daysLeft', { count: daysLeft })}</span>
+                  <button className={`btn btn-sm ${s.denyBtn}`} disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'deny')}>{t('settings.deny')}</button>
                   <button className="btn btn-primary btn-sm" disabled={reqBusy === r.id} onClick={() => decideRequest(r.id, 'approve')}>
                     {reqBusy === r.id ? <Loader2 size={13} className="spin" /> : t('settings.approve')}
                   </button>
@@ -279,31 +280,26 @@ export function UsersTab() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-        <div className={`admin-table-header${clickupOn ? ' has-clickup' : ''}`} style={{ padding: '11px 16px', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 600 }}>
+      <div className={`card ${s.tableCard}`}>
+        <div className={s.tableScroll}>
+        <div className={`admin-table-header${clickupOn ? ' has-clickup' : ''} ${s.tableHeader}`}>
           <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colLanguage')}</div>{clickupOn && <div>{t('settings.colClickup')}</div>}<div>{t('settings.colStatus')}</div><div />
         </div>
         {filtered.map((u) => {
           const isMe = session?.user?.email === u.email;
           const st = getUserStatus(u.lastLogin);
           return (
-            <div key={u.id} className={`admin-table-row user-row${clickupOn ? ' has-clickup' : ''}`} style={{
-              display: 'grid', padding: '14px 16px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 13,
-              // A blocked account has to read as blocked at a glance, not only through
-              // the icon on one button at the far right of the row.
-              ...(u.status === 'disabled' ? { opacity: 0.62, background: 'var(--surface-2)' } : {}),
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                <span style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+            <div key={u.id} className={`admin-table-row user-row${clickupOn ? ' has-clickup' : ''} ${s.row}${u.status === 'disabled' ? ` ${s.rowDisabled}` : ''}`}>
+              <div className={s.userCell}>
+                <span className={s.avatarWrap}>
                   <Avatar name={u.name} image={u.image} size="md" />
                   <span className={st.kind === 'online' ? 'av-presence av-online' : 'av-presence'} style={{ background: st.color }} />
                 </span>
-                <div style={{ minWidth: 0 }}>
+                <div className={s.minW0}>
                   {editNameId === u.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div className={s.editNameRow}>
                       <input
-                        className="field"
+                        className={`field ${s.editNameInput}`}
                         value={editNameVal}
                         autoFocus
                         onChange={(e) => setEditNameVal(e.target.value)}
@@ -311,27 +307,25 @@ export function UsersTab() {
                           if (e.key === 'Enter') saveName(u);
                           if (e.key === 'Escape') setEditNameId(null);
                         }}
-                        style={{ height: 30, fontSize: 13, padding: '4px 8px', maxWidth: 180 }}
                       />
-                      <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.save')} onClick={() => saveName(u)}>
+                      <button className={`btn btn-ghost btn-icon ${s.iconBtn26}`} title={t('common.save')} onClick={() => saveName(u)}>
                         <Check size={14} />
                       </button>
-                      <button className="btn btn-ghost btn-icon" style={{ width: 26, height: 26 }} title={t('common.cancel')} onClick={() => setEditNameId(null)}>
+                      <button className={`btn btn-ghost btn-icon ${s.iconBtn26}`} title={t('common.cancel')} onClick={() => setEditNameId(null)}>
                         <X size={14} />
                       </button>
                     </div>
                   ) : (
-                    <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
+                    <div className={s.nameRow}>
+                      <span className={s.nameText}>{u.name}</span>
                 {u.status === 'disabled' && (
-                  <span className="chip" style={{ background: 'var(--warn-bg)', color: 'var(--warn-fg)', marginInlineStart: 6, fontSize: 10.5 }}>
+                  <span className={`chip ${s.blockedChip}`}>
                     {t('settings.blocked')}
                   </span>
                 )}
                       {isMe && <span className="chip">{t('settings.itsYou')}</span>}
                       <button
-                        className="btn btn-ghost btn-icon"
-                        style={{ width: 28, height: 28, flexShrink: 0, opacity: 0.85 }}
+                        className={`btn btn-ghost btn-icon ${s.editIconBtn}`}
                         title={t('settings.editName')}
                         onClick={() => { setEditNameId(u.id); setEditNameVal(u.name); }}
                       >
@@ -341,8 +335,8 @@ export function UsersTab() {
                   )}
                 </div>
               </div>
-              <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>{u.email}</div>
-              <div style={{ minWidth: 0 }}>
+              <div className={`mono ${s.emailCell}`}>{u.email}</div>
+              <div className={s.minW0}>
                 <Select
                   value={u.role}
                   options={[
@@ -350,7 +344,7 @@ export function UsersTab() {
                     { value: 'member', label: t('settings.role_member') },
                     { value: 'viewer', label: t('settings.role_viewer') },
                   ]}
-                  style={{ height: 32, fontSize: 12.5, width: '100%' }}
+                  className={s.selectSm}
                   onChange={async (newRole) => {
                     const prev = u.role;
                     setUsers((us) => us.map((x) => x.id === u.id ? { ...x, role: newRole as UserRecord['role'] } : x));
@@ -371,17 +365,17 @@ export function UsersTab() {
                   }}
                 />
               </div>
-              <div style={{ minWidth: 0 }}>
+              <div className={s.minW0}>
                 <Select
                   value={u.spokenLanguageLocked ? (u.spokenLanguage || '') : ''}
-                  icon={<Languages size={13} style={{ color: 'var(--muted)' }} />}
+                  icon={<Languages size={13} className={s.langIcon} />}
                   options={[
                     { value: '', label: t('settings.spokenLanguageAuto') },
                     { value: 'uk', label: 'Українська' },
                     { value: 'en', label: 'English' },
                     { value: 'ru', label: 'Русский' },
                   ]}
-                  style={{ height: 32, fontSize: 12.5, width: '100%' }}
+                  className={s.selectSm}
                   onChange={async (v) => {
                     const prevLang = u.spokenLanguage; const prevLock = u.spokenLanguageLocked;
                     setUsers((us) => us.map((x) => x.id === u.id ? { ...x, spokenLanguage: v || x.spokenLanguage, spokenLanguageLocked: !!v } : x));
@@ -400,14 +394,14 @@ export function UsersTab() {
                 />
               </div>
               {clickupOn && (
-                <div style={{ minWidth: 0 }} title={t('settings.clickupUserListHint')}>
+                <div className={s.minW0} title={t('settings.clickupUserListHint')}>
                   <Select
                     value={u.clickupListId ?? ''}
                     options={[
                       { value: '', label: t('settings.clickupUserNoList') },
                       ...lists.map((l) => ({ value: l.listId, label: l.label })),
                     ]}
-                    style={{ height: 32, fontSize: 12.5, width: '100%' }}
+                    className={s.selectSm}
                     onChange={async (v) => {
                       const prev = u.clickupListId ?? null;
                       const next = v || null;
@@ -435,33 +429,30 @@ export function UsersTab() {
                     : t('settings.statusDaysAgo', { count: st.value });
                   const online = st.kind === 'online';
                   return (
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 500,
-                      padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+                    <span className={s.statusBadge} style={{
                       background: online ? 'color-mix(in oklab, var(--green) 13%, transparent)' : 'var(--surface-2)',
                       border: `1px solid ${online ? 'color-mix(in oklab, var(--green) 32%, transparent)' : 'var(--border)'}`,
                       color: online ? 'var(--green)' : 'var(--text-2)',
                     }}>
-                      {online && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />}
+                      {online && <span className={s.onlineDot} />}
                       {label}
                     </span>
                   );
                 })()}
               </div>
-              <div className="row-actions" style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <div className={`row-actions ${s.rowActions}`}>
                 {!isMe && u.hasPassword && (
                   <button
-                    className="btn btn-ghost btn-icon"
+                    className={`btn btn-ghost btn-icon ${s.iconBtn30}`}
                     title={t('settings.resetPassword')}
                     onClick={() => openReset(u)}
-                    style={{ width: 30, height: 30 }}
                   >
                     <Key size={14} />
                   </button>
                 )}
                 {!isMe && (
                   <button
-                    className="btn btn-ghost btn-icon"
+                    className={`btn btn-ghost btn-icon ${s.iconBtn30}`}
                     title={u.status === 'disabled' ? t('settings.unblockUser') : t('settings.blockUser')}
                     disabled={blockingId === u.id}
                     onClick={() => {
@@ -470,16 +461,16 @@ export function UsersTab() {
                       if (u.status !== 'disabled' && !window.confirm(t('settings.blockUserConfirm', { name: u.name }))) return;
                       setBlocked(u, u.status !== 'disabled');
                     }}
-                    style={{ width: 30, height: 30, color: u.status === 'disabled' ? 'var(--warn)' : 'var(--muted)' }}
+                    style={{ color: u.status === 'disabled' ? 'var(--warn)' : 'var(--muted)' }}
                   >
                     {blockingId === u.id
-                      ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                      ? <Loader2 size={14} className={s.spinIcon} />
                       : u.status === 'disabled' ? <LockOpen size={14} /> : <Lock size={14} />}
                   </button>
                 )}
                 {!isMe && (
                   <button
-                    className="btn btn-ghost btn-icon"
+                    className={`btn btn-ghost btn-icon ${s.iconBtn30} ${s.redText}`}
                     title={t('settings.deleteUser')}
                     disabled={deletingId === u.id}
                     onClick={async () => {
@@ -499,9 +490,8 @@ export function UsersTab() {
                         setDeletingId(null);
                       }
                     }}
-                    style={{ width: 30, height: 30, color: 'var(--red)' }}
                   >
-                    {deletingId === u.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={14} />}
+                    {deletingId === u.id ? <Loader2 size={14} className={s.spinIcon} /> : <Trash2 size={14} />}
                   </button>
                 )}
               </div>
@@ -509,19 +499,19 @@ export function UsersTab() {
           );
         })}
         {filtered.length === 0 && (
-          <div style={{ padding: '44px 24px', textAlign: 'center', color: 'var(--muted)' }}>
-            <Search size={26} style={{ opacity: 0.4, marginBottom: 10 }} />
-            <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>{t('settings.noUsersFound')}</div>
+          <div className={s.emptyState}>
+            <Search size={26} className={s.emptyIcon} />
+            <div className={s.emptyText}>{t('settings.noUsersFound')}</div>
           </div>
         )}
         </div>
       </div>
 
       {inviteOpen && (
-        <div onClick={() => setInviteOpen(false)} style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
-          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{t('settings.addUser')}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>{t('settings.addUserDesc')}</div>
+        <div onClick={() => setInviteOpen(false)} className={s.modalOverlay}>
+          <div onClick={(e) => e.stopPropagation()} className={`card ${s.modalCard}`}>
+            <div className={s.modalTitle}>{t('settings.addUser')}</div>
+            <div className={s.modalDesc}>{t('settings.addUserDesc')}</div>
             <Field label={t('settings.colEmail')} error={inviteEmailErr} required>
               {(f) => (
                 <input {...f} className="field" type="email" value={inviteEmail} placeholder="user@example.com" autoFocus
@@ -529,7 +519,7 @@ export function UsersTab() {
                   onKeyDown={(e) => { if (e.key === 'Enter') sendInvite(); }} />
               )}
             </Field>
-            <div style={{ marginTop: 14 }}>
+            <div className={s.mt14}>
               <FieldWrapper label={t('settings.colRole')}>
                 <Select value={inviteRole} onChange={setInviteRole} options={[
                   { value: 'member', label: t('settings.role_member') },
@@ -538,7 +528,7 @@ export function UsersTab() {
                 ]} />
               </FieldWrapper>
             </div>
-            <div style={{ marginTop: 14 }}>
+            <div className={s.mt14}>
               <Field
                 label={t('settings.tempPasswordOptional')}
                 hint={t('settings.tempPasswordHint')}
@@ -551,11 +541,11 @@ export function UsersTab() {
                 )}
               </Field>
             </div>
-            {inviteMsg && <div style={{ marginTop: 12, fontSize: 12.5, color: inviteMsg.ok ? 'var(--success-fg)' : 'var(--danger-fg)' }}>{inviteMsg.text}</div>}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+            {inviteMsg && <div className={s.msgText} style={{ color: inviteMsg.ok ? 'var(--success-fg)' : 'var(--danger-fg)' }}>{inviteMsg.text}</div>}
+            <div className={s.modalFooter}>
               <button className="btn btn-sm" onClick={() => setInviteOpen(false)}>{t('common.cancel')}</button>
               <button className="btn btn-primary btn-sm" onClick={sendInvite} disabled={inviting}>
-                {inviting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={13} />} {t('settings.send')}
+                {inviting ? <Loader2 size={13} className={s.spinIcon} /> : <Mail size={13} />} {t('settings.send')}
               </button>
             </div>
           </div>
@@ -563,36 +553,36 @@ export function UsersTab() {
       )}
 
       {resetUser && (
-        <div onClick={() => setResetUser(null)} style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn .15s' }}>
-          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 420, maxWidth: '92vw', padding: '22px 24px' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{t('settings.resetPassword')}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 18 }}>{resetUser.name} · {resetUser.email}</div>
+        <div onClick={() => setResetUser(null)} className={s.modalOverlay}>
+          <div onClick={(e) => e.stopPropagation()} className={`card ${s.modalCard}`}>
+            <div className={s.modalTitle}>{t('settings.resetPassword')}</div>
+            <div className={s.modalDesc}>{resetUser.name} · {resetUser.email}</div>
             {!resetResult ? (
               <>
-                <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                <div className={s.resetDesc}>
                   {t('settings.resetPasswordDesc')}
                 </div>
-                {resetErr && <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--danger-fg)' }}>{resetErr}</div>}
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+                {resetErr && <div className={s.errorText}>{resetErr}</div>}
+                <div className={s.modalFooter}>
                   <button className="btn btn-sm" onClick={() => setResetUser(null)}>{t('common.cancel')}</button>
                   <button className="btn btn-primary btn-sm" onClick={doReset} disabled={resetting}>
-                    {resetting ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Key size={13} />} {t('settings.generate')}
+                    {resetting ? <Loader2 size={13} className={s.spinIcon} /> : <Key size={13} />} {t('settings.generate')}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 8 }}>{t('settings.newTempPassword')}</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <code className="mono" style={{ flex: 1, background: 'var(--surface-2)', borderRadius: 10, padding: '12px 14px', fontSize: 15, fontWeight: 600, letterSpacing: '.04em', userSelect: 'all', wordBreak: 'break-all' }}>{resetResult.password}</code>
-                  <button className="btn btn-sm" title={t('settings.copy')} onClick={() => { try { navigator.clipboard?.writeText(resetResult.password); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ flexShrink: 0 }}>
+                <div className={s.label}>{t('settings.newTempPassword')}</div>
+                <div className={s.pwRow}>
+                  <code className={`mono ${s.pwCode}`}>{resetResult.password}</code>
+                  <button className={`btn btn-sm ${s.flexShrink0}`} title={t('settings.copy')} onClick={() => { try { navigator.clipboard?.writeText(resetResult.password); } catch {} setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                   </button>
                 </div>
-                <div style={{ marginTop: 12, fontSize: 12.5, color: resetResult.emailed ? 'var(--green)' : 'var(--muted)' }}>
+                <div className={s.msgText} style={{ color: resetResult.emailed ? 'var(--green)' : 'var(--muted)' }}>
                   {resetResult.emailed ? t('settings.resetPasswordEmailed') : t('settings.resetPasswordManual')}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <div className={s.modalFooterBare}>
                   <button className="btn btn-primary btn-sm" onClick={() => setResetUser(null)}>{t('settings.done')}</button>
                 </div>
               </>

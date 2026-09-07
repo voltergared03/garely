@@ -19,6 +19,7 @@ import { FieldCell } from "../database/components/FieldCell";
 import { FieldEditor, type FieldDraft } from "../database/components/FieldEditor";
 import { EDITABLE_CUSTOM_TYPES, customTaskFields, chipsForRow, filterableCustomFields, matchesCustomFilters } from "./custom-fields";
 import type { FieldT, OrgMember } from "../database/lib/types";
+import css from "./page.module.css";
 
 /* ─── Types ─────────────────────────────────────────────── */
 interface TaskAssignee { id: string; name: string | null; image: string | null; }
@@ -89,7 +90,7 @@ function Hl({ text, q }: { text: string; q: string }) {
     const parts = text.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
     return <>{parts.map((p, i) =>
       p.toLowerCase() === q.toLowerCase()
-        ? <mark key={i} style={{ background: "color-mix(in oklab, var(--accent) 35%, transparent)", color: "var(--text)", padding: "0 2px", borderRadius: 3 }}>{p}</mark>
+        ? <mark key={i} className={css.mark}>{p}</mark>
         : p
     )}</>;
   } catch { return <>{text}</>; }
@@ -99,12 +100,12 @@ function Hl({ text, q }: { text: string; q: string }) {
 /** Small "Managed in ClickUp/Linear" chip + link, shown on read-only (externally owned) tasks. */
 function ManagedChip({ label, url }: { label: string; url?: string | null }) {
   const inner = (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, lineHeight: 1.4, padding: "1px 7px", borderRadius: 6, background: "color-mix(in oklab, var(--accent) 14%, transparent)", color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
+    <span className={css.managedChip}>
       {label}{url ? " ↗" : ""}
     </span>
   );
   return url
-    ? <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title={`Managed in ${label}`} style={{ textDecoration: "none" }}>{inner}</a>
+    ? <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} title={`Managed in ${label}`} className={css.noUnderline}>{inner}</a>
     : inner;
 }
 /** A task is externally owned (read-only mirror) if managed by ClickUp OR Linear. */
@@ -118,13 +119,12 @@ function StatusCheckbox({ status, onClick }: { status: string; onClick: (e: Reac
   const bg = status === "done" ? "var(--green)" : "transparent";
   const border = status === "done" ? "var(--green)" : status === "in_progress" ? "var(--amber)" : "var(--border)";
   return (
-    <button onClick={onClick} title={status} style={{
-      width: 20, height: 20, borderRadius: 6, flexShrink: 0, cursor: "pointer",
-      background: bg, border: `1.5px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center",
-      color: "#fff", transition: "all .15s", padding: 0,
+    <button onClick={onClick} title={status} className={css.statusBox} style={{
+      background: bg, border: `1.5px solid ${border}`,
+      color: "#fff",
     }}>
       {status === "done" && <Check size={13} strokeWidth={3} />}
-      {status === "in_progress" && <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--amber)" }} />}
+      {status === "in_progress" && <span className={css.progDot} />}
     </button>
   );
 }
@@ -132,7 +132,7 @@ function StatusCheckbox({ status, onClick }: { status: string; onClick: (e: Reac
 /* ─── Priority indicators ───────────────────────────────── */
 function PriorityDot({ p, size = 7 }: { p: string; size?: number }) {
   const c = p === "high" ? "var(--red)" : p === "medium" ? "var(--amber)" : "var(--muted)";
-  return <span style={{ width: size, height: size, borderRadius: "50%", background: c, flexShrink: 0, display: "inline-block" }} />;
+  return <span className={css.prioDot} style={{ width: size, height: size, background: c }} />;
 }
 function PriorityTag({ p }: { p: string }) {
   const tr = useTranslations();
@@ -143,9 +143,8 @@ function PriorityTag({ p }: { p: string }) {
   };
   const v = map[p] || map.medium;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, padding: "2px 7px",
-      borderRadius: 5, background: `color-mix(in oklab, ${v.c} 14%, transparent)`, color: v.c, fontWeight: 600 }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: v.c }} />{v.l}
+    <span className={css.prioTag} style={{ background: `color-mix(in oklab, ${v.c} 14%, transparent)`, color: v.c }}>
+      <span className={css.dot5} style={{ background: v.c }} />{v.l}
     </span>
   );
 }
@@ -154,9 +153,8 @@ function PriorityTag({ p }: { p: string }) {
 function DeptChip({ dept }: { dept?: { id: string; name: string; color: string | null } | null }) {
   if (!dept) return null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "2px 8px", borderRadius: 999,
-      background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)", whiteSpace: "nowrap", flexShrink: 0 }}>
-      <span style={{ width: 7, height: 7, borderRadius: 2, background: dept.color || "var(--accent)", flexShrink: 0 }} />
+    <span className={css.deptChip}>
+      <span className={css.deptDot} style={{ background: dept.color || "var(--accent)" }} />
       {dept.name}
     </span>
   );
@@ -170,11 +168,11 @@ function CountBadges({ c }: { c?: { subtasks: number; comments: number; attachme
   ].filter(Boolean) as { icon: React.ComponentType<{ size?: number }>; n: number }[];
   if (items.length === 0) return null;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+    <span className={css.countBadges}>
       {items.map((it, i) => {
         const Icon = it.icon;
         return (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--muted)" }}>
+          <span key={i} className={css.countItem}>
             <Icon size={11} /> {it.n}
           </span>
         );
@@ -188,7 +186,7 @@ function FilterPills({ value, onChange, options }: {
   options: { id: string; label: string; count: number }[];
 }) {
   return (
-    <div style={{ display: "flex", gap: 6 }}>
+    <div className={css.row6}>
       {options.map(o => {
         const active = value === o.id;
         return (
@@ -198,7 +196,7 @@ function FilterPills({ value, onChange, options }: {
             color: active ? "#bfdbfe" : "var(--text-2)", fontWeight: active ? 600 : 500,
           }}>
             {o.label}
-            <span style={{ marginLeft: 6, opacity: 0.7, fontSize: 11, fontFamily: "var(--font-mono, monospace)" }}>{o.count}</span>
+            <span className={css.pillCount}>{o.count}</span>
           </button>
         );
       })}
@@ -243,11 +241,8 @@ function CustomFieldChips({ fields, cells, members, max = 3 }: {
   return (
     <>
       {shown.map(c => (
-        <span key={c.name} title={`${c.name}: ${c.text}`} style={{
-          display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 7px", borderRadius: 5,
-          background: "var(--surface-2)", color: "var(--text-2)", maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0,
-        }}>
-          <span style={{ color: "var(--muted)" }}>{c.name}:</span> {c.text}
+        <span key={c.name} title={`${c.name}: ${c.text}`} className={css.cfChip}>
+          <span className={css.mutedText}>{c.name}:</span> {c.text}
         </span>
       ))}
     </>
@@ -281,8 +276,8 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
   const caret = (
     <button onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
       aria-label={expanded ? tr("tasks.hide") : tr("tasks.show")}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: "var(--muted)", flexShrink: 0 }}>
-      <ChevronDown size={15} style={{ transform: expanded ? "none" : "rotate(-90deg)", transition: "transform .15s", opacity: subTotal > 0 ? 0.95 : 0.4 }} />
+      className={css.iconBtn2s}>
+      <ChevronDown size={15} className={css.caretIcon} style={{ transform: expanded ? "none" : "rotate(-90deg)", opacity: subTotal > 0 ? 0.95 : 0.4 }} />
     </button>
   );
 
@@ -290,8 +285,7 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
   // legible on a phone than the desktop single-line row.
   if (mobile) {
     const dueChip = due && (
-      <span style={{
-        display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "3px 8px", borderRadius: 6,
+      <span className={css.dueChip} style={{
         background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" :
                     due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "var(--surface-2)",
         color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)",
@@ -301,29 +295,26 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
       </span>
     );
     return (
-      <div onClick={onEdit} style={{
-        display: "flex", gap: 12, padding: "13px 16px",
+      <div onClick={onEdit} className={css.rowMobile} style={{
         borderBottom: last ? "none" : "1px solid var(--border)",
         borderLeft: isOverdue ? "3px solid var(--red)" : "3px solid transparent",
-        paddingLeft: isOverdue ? 13 : 16, cursor: "pointer",
+        paddingLeft: isOverdue ? 13 : 16,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 2, paddingTop: 1, flexShrink: 0 }}>
+        <div className={css.rowCheckMobile}>
           {caret}
           <StatusCheckbox status={t.status} onClick={cycleStatus} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
-            {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 3 }} />}
-            <div style={{
-              fontSize: 14, fontWeight: 500, lineHeight: 1.35, flex: 1, minWidth: 0,
+        <div className={css.flex1min0}>
+          <div className={css.titleRowMobile}>
+            {t.source === "ai" && <Sparkles size={12} className={css.aiIconMobile} />}
+            <div className={css.titleMobile} style={{
               color: t.status === "done" ? "var(--muted)" : "var(--text)",
               textDecoration: t.status === "done" ? "line-through" : "none",
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
             }}>
               <Hl text={t.title} q={q} />
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <div className={css.metaRowMobile}>
             <PriorityTag p={t.priority} />
             {dueChip}
             <DeptChip dept={t.department} />
@@ -331,19 +322,16 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
             <CountBadges c={t._count} />
             <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={2} />
             {t.assignee ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>
+              <span className={css.asgMobile}>
                 <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
                 {(t.assignee.name || "").split(" ")[0]}
               </span>
             ) : t.assigneeName ? (
-              <span style={{ fontSize: 11.5, color: "var(--muted)", marginLeft: "auto" }}>{t.assigneeName}</span>
+              <span className={css.asgNameMobile}>{t.assigneeName}</span>
             ) : null}
           </div>
           {t.meeting && t.meetingId && (
-            <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} style={{
-              display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", textDecoration: "none",
-              fontSize: 11.5, marginTop: 8, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>
+            <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} className={css.meetLinkMobile}>
               <Video size={11} /> {t.meeting.title}
             </Link>
           )}
@@ -353,42 +341,36 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
   }
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 14, padding: "12px 16px",
+    <div className={css.rowDesk} style={{
       borderBottom: last ? "none" : "1px solid var(--border)",
       borderLeft: isOverdue ? "3px solid var(--red)" : "3px solid transparent",
-      paddingLeft: isOverdue ? 13 : 16, transition: "background .15s", cursor: "pointer",
+      paddingLeft: isOverdue ? 13 : 16,
     }}
       onClick={onEdit}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-2)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+      <div className={css.rowCheckDesk}>
         {caret}
         <StatusCheckbox status={t.status} onClick={cycleStatus} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
-          <div style={{
-            fontSize: 13.5, fontWeight: 500,
+      <div className={css.flex1min0}>
+        <div className={css.titleRowDesk}>
+          {t.source === "ai" && <Sparkles size={12} className={css.aiIcon} />}
+          <div className={css.titleDesk} style={{
             color: t.status === "done" ? "var(--muted)" : "var(--text)",
             textDecoration: t.status === "done" ? "line-through" : "none",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0,
           }}>
             <Hl text={t.title} q={q} />
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--muted)", overflow: "hidden" }}>
+        <div className={css.metaRowDesk}>
           {t.meeting && t.meetingId ? (
-            <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} style={{
-              display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", textDecoration: "none",
-              fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260,
-            }}>
+            <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} className={css.meetLinkDesk}>
               <Video size={11} /> {t.meeting.title}
             </Link>
           ) : !t.meetingId ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", fontSize: 11.5 }}>
+            <span className={css.standalone}>
               <ListChecks size={11} /> {tr("tasks.standaloneTask")}
             </span>
           ) : null}
@@ -400,16 +382,16 @@ function TaskRow({ t, onEdit, onStatusChange, q, last, mobile, expanded, onToggl
       </div>
       <PriorityTag p={t.priority} />
       {t.assignee ? (
-        <div title={t.assignee.name || ""} style={{ display: "flex", alignItems: "center", gap: 6, maxWidth: 160, flexShrink: 0 }}>
+        <div title={t.assignee.name || ""} className={css.asgDesk}>
           <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
-          <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.assignee.name}</span>
+          <span className={css.asgName}>{t.assignee.name}</span>
         </div>
       ) : t.assigneeName ? (
-        <span title={t.assigneeName} style={{ fontSize: 12, color: "var(--muted)", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flexShrink: 0 }}>{t.assigneeName}</span>
+        <span title={t.assigneeName} className={css.asgNameOnly}>{t.assigneeName}</span>
       ) : null}
-      <div style={{ minWidth: 108, textAlign: "right" }}>
+      <div className={css.dueCol}>
         {due && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "3px 8px", borderRadius: 6,
+          <span className={css.dueChip} style={{
             background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" :
                         due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "var(--surface-2)",
             color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)",
@@ -429,11 +411,11 @@ function SubProgress({ done, total }: { done: number; total: number }) {
   const pct = Math.round((done / total) * 100);
   const complete = done === total;
   return (
-    <span title={`${done}/${total}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-      <span style={{ position: "relative", width: 34, height: 4, borderRadius: 3, background: "var(--surface-2, #2a2a32)", overflow: "hidden" }}>
-        <span style={{ position: "absolute", inset: 0, width: `${pct}%`, background: complete ? "var(--green)" : "var(--accent)", borderRadius: 3, transition: "width .25s ease" }} />
+    <span title={`${done}/${total}`} className={css.subProg}>
+      <span className={css.subTrack} style={{ background: "var(--surface-2, #2a2a32)" }}>
+        <span className={css.subFill} style={{ width: `${pct}%`, background: complete ? "var(--green)" : "var(--accent)" }} />
       </span>
-      <span style={{ fontSize: 11, color: complete ? "var(--green)" : "var(--muted)", fontFamily: "var(--font-mono, monospace)" }}>{done}/{total}</span>
+      <span className={css.subLabel} style={{ color: complete ? "var(--green)" : "var(--muted)" }}>{done}/{total}</span>
     </span>
   );
 }
@@ -485,34 +467,30 @@ function SubtaskList({ parent, mobile, onOpen, onChange }: {
   };
 
   return (
-    <div style={{
-      paddingLeft: mobile ? 34 : 48, paddingRight: mobile ? 14 : 16, paddingTop: 4, paddingBottom: 10,
-      background: "color-mix(in oklab, var(--accent) 4%, var(--surface))",
-      borderBottom: "1px solid var(--border)", animation: "subIn .16s ease",
+    <div className={css.subList} style={{
+      paddingLeft: mobile ? 34 : 48, paddingRight: mobile ? 14 : 16,
+      animation: "subIn .16s ease",
     }}>
       {subs.map(s => {
         const done = s.status === "done";
         return (
-          <div key={s.id} onClick={() => onOpen(s.id)} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "6px 6px 6px 12px", cursor: "pointer",
-            borderLeft: "2px solid var(--border)", borderRadius: "0 7px 7px 0",
-          }}
+          <div key={s.id} onClick={() => onOpen(s.id)} className={css.subRow}
             onMouseEnter={e => (e.currentTarget.style.background = "color-mix(in oklab, var(--accent) 8%, transparent)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
             <StatusCheckbox status={s.status} onClick={(e) => toggle(s, e)} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: done ? "var(--muted)" : "var(--text-2)", textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</span>
+            <span className={css.subTitle} style={{ color: done ? "var(--muted)" : "var(--text-2)", textDecoration: done ? "line-through" : "none" }}>{s.title}</span>
             {s.assignee ? <Avatar name={s.assignee.name || "?"} image={s.assignee.image} size="sm" />
-              : s.assigneeName ? <span style={{ fontSize: 11, color: "var(--muted)" }}>{s.assigneeName.split(" ")[0]}</span> : null}
-            <button onClick={(e) => del(s, e)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex", flexShrink: 0 }}><Trash2 size={13} /></button>
+              : s.assigneeName ? <span className={css.muted11}>{s.assigneeName.split(" ")[0]}</span> : null}
+            <button onClick={(e) => del(s, e)} title={tr("common.delete")} className={css.iconBtn2s}><Trash2 size={13} /></button>
           </div>
         );
       })}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 12, marginTop: subs.length ? 4 : 0 }}>
-        <Plus size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+      <div className={css.subAddRow} style={{ marginTop: subs.length ? 4 : 0 }}>
+        <Plus size={14} className={css.mutedShrink} />
         <input value={newTitle} onChange={e => setNewTitle(e.target.value)} onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter") add(); }}
           placeholder={tr("tasks.subtaskPlaceholder")}
-          style={{ flex: 1, height: 30, padding: "0 10px", fontSize: 12.5, borderRadius: 7, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-        {adding && <Loader2 size={13} className="spin" style={{ color: "var(--muted)" }} />}
+          className={css.subInput} />
+        {adding && <Loader2 size={13} className={`spin ${css.mutedText}`} />}
       </div>
     </div>
   );
@@ -555,14 +533,13 @@ function StateChip({ status }: { status: string }) {
   };
   const v = map[status] || map.open;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, padding: "2px 8px", borderRadius: 999,
-      background: `color-mix(in oklab, ${v.c} 14%, transparent)`, color: v.c, fontWeight: 600, whiteSpace: "nowrap" }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: v.c }} />{v.l}
+    <span className={css.stateChip} style={{ background: `color-mix(in oklab, ${v.c} 14%, transparent)`, color: v.c }}>
+      <span className={css.dot5} style={{ background: v.c }} />{v.l}
     </span>
   );
 }
 
-const Dash = () => <span style={{ color: "var(--border-2, #3f3f46)", fontSize: 12 }}>—</span>;
+const Dash = () => <span className={css.dash} style={{ color: "var(--border-2, #3f3f46)" }}>—</span>;
 
 /* One desktop table row — aligns to the shared `cols` grid template. */
 function TaskTableRow({ t, cols, onEdit, onStatusChange, q, expanded, onToggleExpand, customFields, members, showDept, showState }: {
@@ -581,65 +558,62 @@ function TaskTableRow({ t, cols, onEdit, onStatusChange, q, expanded, onToggleEx
   const showSubtitle = !!(t.meeting && t.meetingId) || (!t.meetingId) || (!!t.cells && customFields.length > 0);
   return (
     <div role="row" onClick={onEdit}
+      className={css.tRow}
       style={{
-        display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12,
-        padding: "0 14px", minHeight: 46, borderBottom: "1px solid var(--border)",
+        gridTemplateColumns: cols,
         borderLeft: isOverdue ? "2px solid var(--red)" : "2px solid transparent",
-        cursor: "pointer", transition: "background .12s",
       }}
       onMouseEnter={e => (e.currentTarget.style.background = "var(--surface-2)")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
       {/* disclosure + status */}
-      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <div className={css.tCheck}>
         <button onClick={(e) => { e.stopPropagation(); onToggleExpand(); }} aria-label={expanded ? tr("tasks.hide") : tr("tasks.show")}
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "var(--muted)" }}>
-          <ChevronDown size={14} style={{ transform: expanded ? "none" : "rotate(-90deg)", transition: "transform .15s", opacity: subTotal > 0 ? 0.9 : 0.3 }} />
+          className={css.iconBtn}>
+          <ChevronDown size={14} className={css.caretIcon} style={{ transform: expanded ? "none" : "rotate(-90deg)", opacity: subTotal > 0 ? 0.9 : 0.3 }} />
         </button>
         <StatusCheckbox status={t.status} onClick={cycle} />
       </div>
       {/* title (+ subtitle: meeting source / custom chips) */}
-      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2, paddingRight: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          {t.source === "ai" && <Sparkles size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />}
-          <span style={{ fontSize: 13.5, fontWeight: 500, color: isDone ? "var(--muted)" : "var(--text)",
-            textDecoration: isDone ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div className={css.tTitleCell}>
+        <div className={css.tTitleRow}>
+          {t.source === "ai" && <Sparkles size={12} className={css.aiIcon} />}
+          <span className={css.tTitle} style={{ color: isDone ? "var(--muted)" : "var(--text)",
+            textDecoration: isDone ? "line-through" : "none" }}>
             <Hl text={t.title} q={q} />
           </span>
           {(t.clickupManaged || t.linearManaged) && <ManagedChip label={t.linearManaged ? "Linear" : "ClickUp"} url={t.linearManaged ? t.linearUrl : t.clickupUrl} />}
         </div>
         {showSubtitle && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted)", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" }}>
+          <div className={css.tSub}>
             {t.meeting && t.meetingId ? (
-              <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} style={{
-                display: "inline-flex", alignItems: "center", gap: 4, color: "var(--muted)", textDecoration: "none",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280, flexShrink: 1 }}>
-                <Video size={10} style={{ flexShrink: 0 }} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.meeting.title}</span>
+              <Link href={`/meetings/${t.meetingId}/report`} onClick={e => e.stopPropagation()} className={css.tMeetLink}>
+                <Video size={10} className={css.shrink0} /> <span className={css.ellip}>{t.meeting.title}</span>
               </Link>
             ) : !t.meetingId ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}><ListChecks size={10} /> {tr("tasks.standaloneTask")}</span>
+              <span className={css.tStandalone}><ListChecks size={10} /> {tr("tasks.standaloneTask")}</span>
             ) : null}
             <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={2} />
           </div>
         )}
       </div>
       {/* priority */}
-      <div style={{ minWidth: 0 }}><PriorityTag p={t.priority} /></div>
+      <div className={css.min0}><PriorityTag p={t.priority} /></div>
       {/* assignee */}
-      <div style={{ minWidth: 0 }}>
+      <div className={css.min0}>
         {t.assignee ? (
-          <span title={t.assignee.name || ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%" }}>
+          <span title={t.assignee.name || ""} className={css.tAsg}>
             <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" />
-            <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.assignee.name}</span>
+            <span className={css.asgName}>{t.assignee.name}</span>
           </span>
         ) : t.assigneeName ? (
-          <span title={t.assigneeName} style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{t.assigneeName}</span>
+          <span title={t.assigneeName} className={css.tAsgName}>{t.assigneeName}</span>
         ) : <Dash />}
       </div>
       {/* due */}
-      <div style={{ minWidth: 0 }}>
+      <div className={css.min0}>
         {due ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "3px 8px", borderRadius: 6, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+          <span className={css.dueChipTable} style={{
             background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" : due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "var(--surface-2)",
             color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--text-2)", fontWeight: isOverdue ? 600 : 500 }}>
             <Clock size={11} /> {dueText(due, tr, locale)}
@@ -647,11 +621,11 @@ function TaskTableRow({ t, cols, onEdit, onStatusChange, q, expanded, onToggleEx
         ) : <Dash />}
       </div>
       {/* progress */}
-      <div style={{ minWidth: 0 }}>{subTotal > 0 ? <SubProgress done={subDone} total={subTotal} /> : <Dash />}</div>
+      <div className={css.min0}>{subTotal > 0 ? <SubProgress done={subDone} total={subTotal} /> : <Dash />}</div>
       {/* dept (status grouping) */}
-      {showDept && <div style={{ minWidth: 0 }}>{t.department ? <DeptChip dept={t.department} /> : <Dash />}</div>}
+      {showDept && <div className={css.min0}>{t.department ? <DeptChip dept={t.department} /> : <Dash />}</div>}
       {/* status (department grouping) */}
-      {showState && <div style={{ minWidth: 0 }}><StateChip status={t.status} /></div>}
+      {showState && <div className={css.min0}><StateChip status={t.status} /></div>}
     </div>
   );
 }
@@ -665,12 +639,12 @@ function QuickAddRow({ cols, placeholder, onCreate }: { cols: string; placeholde
     setBusy(true); try { await onCreate(v); setVal(""); } finally { setBusy(false); }
   };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12, padding: "0 14px", minHeight: 40, borderLeft: "2px solid transparent" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: 2, color: "var(--muted)" }}>
+    <div className={css.qRow} style={{ gridTemplateColumns: cols }}>
+      <div className={css.qIcon}>
         {busy ? <Loader2 size={14} className="spin" /> : <Plus size={15} />}
       </div>
       <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") submit(); }} placeholder={placeholder}
-        style={{ background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13, width: "100%", padding: "10px 0" }} />
+        className={css.qInput} />
     </div>
   );
 }
@@ -731,8 +705,8 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
   /* ── Mobile: stacked cards (unchanged) ─────────────────────────── */
   if (mobile) {
     return (
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px clamp(12px, 4vw, 20px) calc(96px + env(safe-area-inset-bottom, 0px))" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <div className={css.mobScroll}>
+        <div className={css.mobGroups}>
           {order.map(key => {
             const items = itemsFor(key);
             if (!items.length) return null;
@@ -743,20 +717,20 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
             return (
               <section key={key}>
                 <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }} disabled={!collapsible}
-                  style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: "transparent", border: "none", padding: 0, cursor: collapsible ? "pointer" : "default", color: "inherit", width: "100%" }}>
-                  <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
-                  <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "2px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
-                  <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 6 }} />
+                  className={css.mobGroupBtn} style={{ cursor: collapsible ? "pointer" : "default" }}>
+                  <span className={css.shrink0} style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color }} />
+                  <span className={css.mobGroupLabel}>{m.label}</span>
+                  <span className={css.groupCount}>{items.length}</span>
+                  <div className={css.groupRule} />
                   {collapsible && (
-                    <span style={{ color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span className={css.groupToggle}>
                       {collapsed ? tr("tasks.show") : tr("tasks.hide")}
-                      <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
+                      <ChevronDown size={13} className={css.caretIcon} style={{ transform: collapsed ? "rotate(-90deg)" : "none" }} />
                     </span>
                   )}
                 </button>
                 {!collapsed && (
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                  <div className={css.card14}>
                     {items.map((t, i) => (
                       <Fragment key={t.id}>
                         <TaskRow t={t} onEdit={() => onEdit(t)} onStatusChange={(s) => onStatusChange(t.id, s)} q={q} last={i === items.length - 1} mobile
@@ -792,19 +766,17 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
   const cols = colDefs.map(c => c.width).join(" ");
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "18px clamp(14px, 4vw, 28px) 60px" }}>
-      <div style={{ maxWidth: 1320, margin: "0 auto" }}>
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
+    <div className={css.deskScroll}>
+      <div className={css.deskWrap}>
+        <div className={css.card14}>
           {/* column header */}
-          <div role="row" style={{ display: "grid", gridTemplateColumns: cols, alignItems: "center", columnGap: 12, padding: "0 14px", height: 38,
-            borderBottom: "1px solid var(--border)", borderLeft: "2px solid transparent", background: "var(--bg, #0f1117)" }}>
+          <div role="row" className={css.tHead} style={{ gridTemplateColumns: cols, background: "var(--bg, #0f1117)" }}>
             {colDefs.map(c => {
               const active = sort?.key === c.key;
               if (!c.sortable) return <div key={c.key} />;
               return (
-                <div key={c.key} style={{ minWidth: 0 }}>
-                  <button onClick={() => toggleSort(c.key as SortKey)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: 0, cursor: "pointer",
-                    fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: active ? "var(--text)" : "var(--muted)", transition: "color .12s" }}>
+                <div key={c.key} className={css.min0}>
+                  <button onClick={() => toggleSort(c.key as SortKey)} className={css.sortBtn} style={{ color: active ? "var(--text)" : "var(--muted)" }}>
                     {c.label}
                     {active && (sort!.dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
                   </button>
@@ -827,16 +799,14 @@ function TaskListView({ tasks, onEdit, onStatusChange, q, mobile, groupBy = "sta
               <Fragment key={key}>
                 {/* group separator band */}
                 <button onClick={() => { if (collapsible) setCollapsedDone(c => !c); }} disabled={!collapsible}
-                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 14px", background: "var(--bg, #0f1117)",
-                    borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)", borderLeft: "2px solid transparent",
-                    cursor: collapsible ? "pointer" : "default", color: "inherit" }}>
-                  <span style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text)", textTransform: "uppercase", letterSpacing: ".06em" }}>{m.label}</span>
-                  <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "1px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>{items.length}</span>
+                  className={css.groupBand} style={{ background: "var(--bg, #0f1117)", cursor: collapsible ? "pointer" : "default" }}>
+                  <span className={css.shrink0} style={{ width: square ? 9 : 6, height: square ? 9 : 6, borderRadius: square ? 3 : "50%", background: m.color }} />
+                  <span className={css.groupLabel}>{m.label}</span>
+                  <span className={css.groupCountSm}>{items.length}</span>
                   {collapsible && (
-                    <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: 11.5, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span className={css.groupToggleAuto}>
                       {collapsed ? tr("tasks.show") : tr("tasks.hide")}
-                      <ChevronDown size={13} style={{ transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .15s" }} />
+                      <ChevronDown size={13} className={css.caretIcon} style={{ transform: collapsed ? "rotate(-90deg)" : "none" }} />
                     </span>
                   )}
                 </button>
@@ -877,45 +847,41 @@ function KanbanCard({ t, onEdit, onDragStart, dragging, customFields = [], membe
 
   return (
     <div draggable={!(t.clickupManaged || t.linearManaged)} onDragStart={onDragStart} onClick={onEdit}
+      className={css.kCard}
       style={{
-        background: "var(--surface)", border: "1px solid var(--border)",
         borderLeft: isOverdue ? "3px solid var(--red)" : "1px solid var(--border)",
-        borderRadius: 10, padding: "12px 12px 10px", cursor: "pointer",
-        opacity: dragging ? 0.4 : isDone ? 0.7 : 1, transition: "border-color .15s, transform .1s",
-        userSelect: "none",
+        opacity: dragging ? 0.4 : isDone ? 0.7 : 1,
       }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-2, #3f3f46)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "none"; }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+      <div className={css.kTitleRow}>
         <PriorityDot p={t.priority} size={8} />
-        {t.source === "ai" && <Sparkles size={11} style={{ color: "var(--accent)", marginTop: 2 }} />}
-        <div style={{
-          fontSize: 13, lineHeight: 1.4, fontWeight: 500, flex: 1, minWidth: 0,
+        {t.source === "ai" && <Sparkles size={11} className={css.kAiIcon} />}
+        <div className={css.kTitle} style={{
           color: isDone ? "var(--muted)" : "var(--text)",
           textDecoration: isDone ? "line-through" : "none",
         }}>{t.title}</div>
         {(t.clickupManaged || t.linearManaged) && <ManagedChip label={t.linearManaged ? "Linear" : "ClickUp"} url={t.linearManaged ? t.linearUrl : t.clickupUrl} />}
       </div>
       {t.meeting && t.meetingId ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--muted)", fontSize: 11.5, marginBottom: 10,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          <Video size={11} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.meeting.title}</span>
+        <div className={css.kMeta}>
+          <Video size={11} /> <span className={css.ellip}>{t.meeting.title}</span>
         </div>
       ) : !t.meetingId ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--muted)", fontSize: 11.5, marginBottom: 10 }}>
+        <div className={css.kMetaPlain}>
           <ListChecks size={11} /> {tr("tasks.standaloneTask")}
         </div>
       ) : null}
       {customFields.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+        <div className={css.kChips}>
           <CustomFieldChips fields={customFields} cells={t.cells} members={members} max={3} />
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className={css.kFoot}>
         {t.assignee ? <Avatar name={t.assignee.name || "?"} image={t.assignee.image} size="sm" /> : <span />}
         {due && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 7px", borderRadius: 5,
+          <span className={css.dueChipCard} style={{
             background: isOverdue ? "color-mix(in oklab, var(--red) 18%, transparent)" :
                         due.soon ? "color-mix(in oklab, var(--amber) 14%, transparent)" : "transparent",
             color: isOverdue ? "#fca5a5" : due.soon ? "#fcd34d" : "var(--muted)",
@@ -951,28 +917,26 @@ function KanbanView({ tasks, onEdit, onStatusChange, customFields = [], members 
   };
 
   return (
-    <div style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "18px clamp(14px, 4vw, 28px) 28px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(260px, 1fr))", gap: 14, height: "100%", minWidth: 840 }}>
+    <div className={css.kScroll}>
+      <div className={css.kGrid}>
         {cols.map(col => (
-          <div key={col.id} style={{
-            display: "flex", flexDirection: "column", minHeight: 0,
+          <div key={col.id} className={css.kCol} style={{
             background: "var(--bg, #0f1117)", border: "1px solid " + (hoverCol === col.id ? "color-mix(in oklab, var(--accent) 45%, var(--border))" : "var(--border)"),
-            borderRadius: 14, padding: "14px", transition: "border-color .15s",
           }}
             onDragOver={e => { e.preventDefault(); setHoverCol(col.id); }}
             onDragLeave={() => setHoverCol(c => c === col.id ? null : c)}
             onDrop={() => onDrop(col.id)}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "2px 4px" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: col.color }} />
-              <span style={{ fontSize: 12.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em" }}>{col.label}</span>
-              <span style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface)", padding: "2px 7px", borderRadius: 5, fontFamily: "var(--font-mono, monospace)" }}>
+            <div className={css.kColHead}>
+              <span className={css.dot6} style={{ background: col.color }} />
+              <span className={css.kColLabel}>{col.label}</span>
+              <span className={css.groupCount}>
                 {(grouped[col.id] || []).length}
               </span>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4, paddingBottom: 14 }}>
+            <div className={css.kColBody}>
               {(grouped[col.id] || []).length === 0 ? (
-                <div style={{ border: "1px dashed var(--border)", borderRadius: 10, padding: "24px 14px", textAlign: "center", color: "var(--muted)", fontSize: 12.5 }}>
+                <div className={css.kDrop}>
                   {tr("tasks.dropTaskHere")}
                 </div>
               ) : (grouped[col.id] || []).map(t => (
@@ -994,16 +958,15 @@ function KanbanView({ tasks, onEdit, onStatusChange, customFields = [], members 
 function EmptyState({ scope, q, onCreate }: { scope: string; q: string; onCreate: () => void }) {
   const tr = useTranslations();
   return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-      <div style={{ textAlign: "center", maxWidth: 380 }}>
-        <div style={{ width: 88, height: 88, borderRadius: "50%", background: "var(--surface)", border: "1px dashed var(--border)",
-          display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
-          <ListChecks size={36} style={{ color: "var(--muted)" }} />
+    <div className={css.empty}>
+      <div className={css.emptyInner}>
+        <div className={css.emptyIcon}>
+          <ListChecks size={36} className={css.mutedText} />
         </div>
-        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 6, letterSpacing: "-0.01em" }}>
+        <div className={css.emptyTitle}>
           {q ? tr("tasks.emptyNoResultsTitle") : scope === "mine" ? tr("tasks.emptyMineTitle") : tr("tasks.emptyAllTitle")}
         </div>
-        <div style={{ color: "var(--muted)", fontSize: 13.5, lineHeight: 1.55, marginBottom: 18 }}>
+        <div className={css.emptyDesc}>
           {q ? tr("tasks.emptyNoResultsDesc", { query: q })
             : tr("tasks.emptyAllDesc")}
         </div>
@@ -1033,11 +996,6 @@ function fmtSize(n: number | null): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
-
-const collabLabelStyle: React.CSSProperties = {
-  fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em",
-  display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
-};
 
 function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTask }: {
   taskId: string; users: UserItem[]; currentUserId?: string; isAdmin: boolean; onChanged: () => void; onOpenTask?: (id: string) => void;
@@ -1123,8 +1081,8 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
   };
 
   if (!detail) return (
-    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, textAlign: "center" }}>
-      <Loader2 size={16} className="spin" style={{ color: "var(--muted)" }} />
+    <div className={css.collabLoading}>
+      <Loader2 size={16} className={`spin ${css.mutedText}`} />
     </div>
   );
 
@@ -1135,30 +1093,30 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
   const canDel = (ownerId: string | null) => isAdmin || (ownerId != null && ownerId === currentUserId);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className={css.collab}>
       {/* Assignees (виконавці) — multiple, the people responsible for the task */}
       <div>
-        <div style={collabLabelStyle}><Users size={13} /> {tr("tasks.assignees")}</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <div className={css.collabLabel}><Users size={13} /> {tr("tasks.assignees")}</div>
+        <div className={css.chipRow}>
           {detail.assignees.map(a => (
-            <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
+            <span key={a.id} className={css.personChip}>
               <Avatar name={a.user.name || "?"} image={a.user.image} size="sm" />
-              <span style={{ fontSize: 12 }}>{(a.user.name || "").split(" ")[0] || "?"}</span>
-              <button onClick={() => removeAssignee(a.userId)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+              <span className={css.f12}>{(a.user.name || "").split(" ")[0] || "?"}</span>
+              <button onClick={() => removeAssignee(a.userId)} title={tr("common.delete")} className={css.iconBtn}><X size={12} /></button>
             </span>
           ))}
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setAddAsgOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={candidates.length === 0}>
+          <div className={css.rel}>
+            <button onClick={() => setAddAsgOpen(o => !o)} className={`btn btn-sm ${css.addChipBtn}`} disabled={candidates.length === 0}>
               <Plus size={13} /> {tr("tasks.addAssignee")}
             </button>
             {addAsgOpen && candidates.length > 0 && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 200, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px var(--overlay)" }}>
+              <div className={css.pickerPanel} style={{ background: "var(--card, #181a20)" }}>
                 {candidates.map(u => (
-                  <button key={u.id} onClick={() => addAssignee(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+                  <button key={u.id} onClick={() => addAssignee(u.id)} className={css.pickerItem}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                     <Avatar name={u.name} image={u.image} size="sm" />
-                    <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
+                    <span className={css.f13}>{u.name || u.email}</span>
                   </button>
                 ))}
               </div>
@@ -1169,27 +1127,27 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
 
       {/* Collaborators */}
       <div>
-        <div style={collabLabelStyle}><Users size={13} /> {tr("tasks.collaborators")}</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <div className={css.collabLabel}><Users size={13} /> {tr("tasks.collaborators")}</div>
+        <div className={css.chipRow}>
           {detail.collaborators.map(c => (
-            <span key={c.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
+            <span key={c.id} className={css.personChip}>
               <Avatar name={c.user.name || "?"} image={c.user.image} size="sm" />
-              <span style={{ fontSize: 12 }}>{(c.user.name || "").split(" ")[0] || "?"}</span>
-              <button onClick={() => removeCollaborator(c.userId)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+              <span className={css.f12}>{(c.user.name || "").split(" ")[0] || "?"}</span>
+              <button onClick={() => removeCollaborator(c.userId)} title={tr("common.delete")} className={css.iconBtn}><X size={12} /></button>
             </span>
           ))}
-          <div style={{ position: "relative" }}>
-            <button onClick={() => setAddOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={candidates.length === 0}>
+          <div className={css.rel}>
+            <button onClick={() => setAddOpen(o => !o)} className={`btn btn-sm ${css.addChipBtn}`} disabled={candidates.length === 0}>
               <Plus size={13} /> {tr("tasks.addCollaborator")}
             </button>
             {addOpen && candidates.length > 0 && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 200, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px var(--overlay)" }}>
+              <div className={css.pickerPanel} style={{ background: "var(--card, #181a20)" }}>
                 {candidates.map(u => (
-                  <button key={u.id} onClick={() => addCollaborator(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+                  <button key={u.id} onClick={() => addCollaborator(u.id)} className={css.pickerItem}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                     <Avatar name={u.name} image={u.image} size="sm" />
-                    <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
+                    <span className={css.f13}>{u.name || u.email}</span>
                   </button>
                 ))}
               </div>
@@ -1199,7 +1157,7 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
       </div>
 
       {/* Sub-tab strip */}
-      <div style={{ display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
+      <div className={css.subTabs}>
         {([
           { id: "subtasks" as const, icon: GitBranch, label: tr("tasks.subtasks"), n: detail.subtasks.length },
           { id: "comments" as const, icon: MessageSquare, label: tr("tasks.comments"), n: detail.comments.length },
@@ -1208,8 +1166,7 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
           const active = subTab === t.id;
           const Icon = t.icon;
           return (
-            <button key={t.id} onClick={() => setSubTab(t.id)} className="btn btn-sm" style={{
-              flex: 1, justifyContent: "center", gap: 6, border: "none", borderRadius: 7,
+            <button key={t.id} onClick={() => setSubTab(t.id)} className={`btn btn-sm ${css.subTabBtn}`} style={{
               background: active ? "var(--surface-2, #2a2a32)" : "transparent", fontWeight: active ? 600 : 500,
               color: active ? "var(--text)" : "var(--muted)",
             }}>
@@ -1221,51 +1178,51 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
 
       {/* Panels */}
       {subTab === "subtasks" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className={css.colStack8}>
           {detail.subtasks.map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
+            <div key={s.id} className={css.collabItem}>
               <StatusCheckbox status={s.status} onClick={(e) => { e.stopPropagation(); toggleSub(s); }} />
               <span onClick={onOpenTask ? () => onOpenTask(s.id) : undefined}
                 title={onOpenTask ? tr("tasks.openSubtask") : undefined}
-                style={{ flex: 1, fontSize: 13, color: s.status === "done" ? "var(--muted)" : "var(--text)", textDecoration: s.status === "done" ? "line-through" : "none", cursor: onOpenTask ? "pointer" : "default" }}>{s.title}</span>
+                className={css.collabSubTitle} style={{ color: s.status === "done" ? "var(--muted)" : "var(--text)", textDecoration: s.status === "done" ? "line-through" : "none", cursor: onOpenTask ? "pointer" : "default" }}>{s.title}</span>
               {s.assignee && <Avatar name={s.assignee.name || "?"} image={s.assignee.image} size="sm" />}
-              <button onClick={() => delSub(s)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex" }}><Trash2 size={13} /></button>
+              <button onClick={() => delSub(s)} title={tr("common.delete")} className={css.iconBtn2}><Trash2 size={13} /></button>
             </div>
           ))}
-          {detail.subtasks.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "2px 2px 6px" }}>{tr("tasks.noSubtasks")}</div>}
-          <div style={{ display: "flex", gap: 8 }}>
+          {detail.subtasks.length === 0 && <div className={css.emptyNote}>{tr("tasks.noSubtasks")}</div>}
+          <div className={css.row8}>
             <input value={newSub} onChange={e => setNewSub(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addSubtask(); }}
               placeholder={tr("tasks.subtaskPlaceholder")}
-              style={{ flex: 1, height: 36, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              className={css.collabInput} />
             <button className="btn btn-sm" onClick={addSubtask} disabled={!newSub.trim()} style={{ opacity: newSub.trim() ? 1 : 0.5 }}><Plus size={14} /></button>
           </div>
         </div>
       )}
 
       {subTab === "comments" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className={css.colStack12}>
           {detail.comments.map(c => (
-            <div key={c.id} style={{ display: "flex", gap: 10 }}>
+            <div key={c.id} className={css.commentRow}>
               <Avatar name={c.user?.name || c.authorName || "?"} image={c.user?.image || null} size="sm" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{c.user?.name || c.authorName || "?"}</span>
-                  <span style={{ fontSize: 11, color: "var(--muted)" }}>{fmtTime(c.createdAt)}</span>
+              <div className={css.flex1min0}>
+                <div className={css.row8c}>
+                  <span className={css.commentAuthor}>{c.user?.name || c.authorName || "?"}</span>
+                  <span className={css.muted11}>{fmtTime(c.createdAt)}</span>
                   {canDel(c.userId) && (
-                    <button onClick={() => delComment(c.id)} title={tr("common.delete")} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+                    <button onClick={() => delComment(c.id)} title={tr("common.delete")} className={css.iconBtnAuto}><X size={12} /></button>
                   )}
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text-2)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{c.body}</div>
+                <div className={css.commentBody}>{c.body}</div>
               </div>
             </div>
           ))}
-          {detail.comments.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{tr("tasks.noComments")}</div>}
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          {detail.comments.length === 0 && <div className={css.emptyNoteFlat}>{tr("tasks.noComments")}</div>}
+          <div className={css.commentComposer}>
             <textarea value={newComment} onChange={e => setNewComment(e.target.value)} rows={2}
               onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment(); }}
               placeholder={tr("tasks.commentPlaceholder")}
-              style={{ flex: 1, resize: "vertical", fontSize: 13, lineHeight: 1.5, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "9px 12px", outline: "none", color: "var(--text)" }} />
-            <button className="btn btn-primary btn-sm" onClick={addComment} disabled={!newComment.trim()} style={{ opacity: newComment.trim() ? 1 : 0.5, height: 38 }}>
+              className={css.commentInput} />
+            <button className={`btn btn-primary btn-sm ${css.sendBtn}`} onClick={addComment} disabled={!newComment.trim()} style={{ opacity: newComment.trim() ? 1 : 0.5 }}>
               <Send size={14} /> {tr("tasks.sendComment")}
             </button>
           </div>
@@ -1273,25 +1230,25 @@ function TaskCollab({ taskId, users, currentUserId, isAdmin, onChanged, onOpenTa
       )}
 
       {subTab === "files" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className={css.colStack8}>
           {detail.attachments.map(a => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
-              <Paperclip size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fileName}</div>
-                <div style={{ fontSize: 11, color: "var(--muted)" }}>{fmtSize(a.fileSize)}{a.uploadedBy?.name ? ` · ${a.uploadedBy.name}` : ""}</div>
+            <div key={a.id} className={css.collabItem}>
+              <Paperclip size={14} className={css.mutedShrink} />
+              <div className={css.flex1min0}>
+                <div className={css.fileName}>{a.fileName}</div>
+                <div className={css.muted11}>{fmtSize(a.fileSize)}{a.uploadedBy?.name ? ` · ${a.uploadedBy.name}` : ""}</div>
               </div>
               <a href={`/api/tasks/${taskId}/attachments/${a.id}`} title={tr("tasks.download")} download
-                style={{ color: "var(--muted)", display: "flex", padding: 2 }}><Download size={15} /></a>
+                className={css.dlLink}><Download size={15} /></a>
               {canDel(a.uploadedById) && (
-                <button onClick={() => delAttachment(a.id)} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2, display: "flex" }}><Trash2 size={13} /></button>
+                <button onClick={() => delAttachment(a.id)} title={tr("common.delete")} className={css.iconBtn2}><Trash2 size={13} /></button>
               )}
             </div>
           ))}
-          {detail.attachments.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "2px 2px 6px" }}>{tr("tasks.noAttachments")}</div>}
-          {uploadErr && <div style={{ fontSize: 12, color: "var(--red)" }}>{uploadErr}</div>}
-          <input ref={fileRef} type="file" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
-          <button className="btn btn-sm" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ alignSelf: "flex-start" }}>
+          {detail.attachments.length === 0 && <div className={css.emptyNote}>{tr("tasks.noAttachments")}</div>}
+          {uploadErr && <div className={css.errNote}>{uploadErr}</div>}
+          <input ref={fileRef} type="file" className={css.hidden} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
+          <button className={`btn btn-sm ${css.selfStart}`} onClick={() => fileRef.current?.click()} disabled={uploading}>
             {uploading ? <Loader2 size={14} className="spin" /> : <UploadCloud size={14} />} {uploading ? tr("tasks.uploading") : tr("tasks.uploadFile")}
           </button>
         </div>
@@ -1343,38 +1300,38 @@ function TaskCustomFields({ taskId, fields, initialCells, members, isAdmin, onCh
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em" }}>{tr("tasks.customFields")}</label>
+      <div className={css.cfHead}>
+        <label className={css.cfLabel}>{tr("tasks.customFields")}</label>
         {isAdmin && (
-          <button className="btn btn-sm" style={{ marginLeft: "auto", padding: "3px 8px", fontSize: 12 }}
+          <button className={`btn btn-sm ${css.addFieldBtn}`}
             onClick={() => { setEditingField(null); setEditorOpen(true); }}>
             <Plus size={12} /> {tr("database.addField")}
           </button>
         )}
       </div>
       {fields.length === 0 ? (
-        <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{tr("tasks.noCustomFields")}</div>
+        <div className={css.emptyNoteFlat}>{tr("tasks.noCustomFields")}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className={css.colStack}>
           {fields.map(f => {
             const editable = EDITABLE_CUSTOM_TYPES.has(f.type);
             return (
               <div key={f.id}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>{f.name}</span>
+                <div className={css.cfRowHead}>
+                  <span className={css.cfName}>{f.name}</span>
                   {isAdmin && (
-                    <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                      <button className="btn btn-sm" title={tr("database.editField")} style={{ padding: "2px 5px" }} onClick={() => { setEditingField(f); setEditorOpen(true); }}><MoreHorizontal size={12} /></button>
-                      <button className="btn btn-sm" title={tr("common.delete")} style={{ padding: "2px 5px", color: "var(--red)" }} onClick={() => deleteField(f)}><Trash2 size={12} /></button>
+                    <span className={css.cfActions}>
+                      <button className={`btn btn-sm ${css.cfMiniBtn}`} title={tr("database.editField")} onClick={() => { setEditingField(f); setEditorOpen(true); }}><MoreHorizontal size={12} /></button>
+                      <button className={`btn btn-sm ${css.cfMiniBtn} ${css.cfMiniDanger}`} title={tr("common.delete")} onClick={() => deleteField(f)}><Trash2 size={12} /></button>
                     </span>
                   )}
                 </div>
                 {editable ? (
-                  <div style={{ minHeight: 38, border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface)", display: "flex", alignItems: "center", overflow: "hidden" }}>
+                  <div className={css.cellBox}>
                     <FieldCell field={f} value={cells[f.id]} members={members} onCommit={(v) => commitCell(f.id, v)} />
                   </div>
                 ) : (
-                  <div style={{ fontSize: 12.5, color: "var(--muted)", padding: "8px 0" }}>{tr("tasks.fieldReadOnly")}</div>
+                  <div className={css.readOnlyNote}>{tr("tasks.fieldReadOnly")}</div>
                 )}
               </div>
             );
@@ -1498,55 +1455,48 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
   };
 
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(8,10,14,.5)", backdropFilter: "blur(4px)",
-      zIndex: 950, display: "flex", alignItems: "stretch", justifyContent: "flex-end",
+    <div onClick={onClose} className={css.backdrop} style={{
+      background: "rgba(8,10,14,.5)",
       animation: "bgIn .18s ease",
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: "var(--card, #181a20)", borderLeft: "1px solid var(--border)", borderRadius: "16px 0 0 16px",
-        width: "min(600px, 100vw)", maxWidth: "100vw", height: "100%", display: "flex", flexDirection: "column",
-        boxShadow: "-28px 0 70px -12px var(--overlay)", animation: "drawerIn .24s cubic-bezier(.32,.72,0,1)",
+      <div onClick={e => e.stopPropagation()} className={css.drawer} style={{
+        background: "var(--card, #181a20)",
+        animation: "drawerIn .24s cubic-bezier(.32,.72,0,1)",
       }}>
         {/* Header */}
-        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: "color-mix(in oklab, var(--accent) 18%, transparent)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className={css.drawerHead}>
+          <div className={css.drawerIcon}>
             <ListChecks size={15} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{isNew ? tr("tasks.newTask") : tr("tasks.editTask")}</div>
+          <div className={css.drawerTitle}>{isNew ? tr("tasks.newTask") : tr("tasks.editTask")}</div>
           {!isNew && task?.source === "ai" && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 8px", borderRadius: 6,
-              background: "color-mix(in oklab, var(--accent) 14%, transparent)", color: "#bfdbfe" }}>
+            <span className={css.aiChip} style={{ color: "#bfdbfe" }}>
               <Sparkles size={10} /> AI
             </span>
           )}
-          <button className="btn btn-sm" style={{ marginLeft: "auto", padding: "4px 6px" }} onClick={onClose}><X size={15} /></button>
+          <button className={`btn btn-sm ${css.closeBtn}`} onClick={onClose}><X size={15} /></button>
         </div>
 
         {/* Body */}
-        <div style={{ padding: "18px 22px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className={css.drawerBody}>
           <input value={title} onChange={e => setTitle(e.target.value)} autoFocus
             placeholder={tr("tasks.titlePlaceholder")}
-            style={{ fontSize: 17, fontWeight: 600, background: "transparent", border: "none", padding: "4px 0",
-              borderBottom: "1px solid var(--border)", borderRadius: 0, outline: "none", color: "var(--text)", width: "100%" }} />
+            className={css.titleInput} />
 
-          <div style={{ position: "relative" }}>
+          <div className={css.rel}>
             <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3}
               placeholder={tr("tasks.descriptionPlaceholder")}
-              style={{ resize: "vertical", fontSize: 13, lineHeight: 1.55, background: "var(--surface)", border: "1px solid var(--border)",
-                borderRadius: 10, padding: "10px 12px", paddingRight: 42, outline: "none", color: "var(--text)", width: "100%" }} />
+              className={css.descInput} />
             <button
               onClick={generateDesc}
               disabled={aiLoading || title.trim().length < 3}
               title={desc.trim() ? tr("tasks.aiRegenerateDescription") : tr("tasks.aiGenerateDescription")}
+              className={css.aiBtn}
               style={{
-                position: "absolute", top: 8, right: 8,
-                width: 30, height: 30, borderRadius: 8, border: "none", cursor: aiLoading || title.trim().length < 3 ? "not-allowed" : "pointer",
+                cursor: aiLoading || title.trim().length < 3 ? "not-allowed" : "pointer",
                 background: aiLoading ? "color-mix(in oklab, var(--accent) 25%, transparent)" : "color-mix(in oklab, var(--accent) 12%, transparent)",
                 color: title.trim().length < 3 ? "var(--muted)" : "var(--accent)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all .2s", opacity: title.trim().length < 3 ? 0.4 : 1,
-                padding: 0,
+                opacity: title.trim().length < 3 ? 0.4 : 1,
               }}
               onMouseEnter={e => { if (!aiLoading && title.trim().length >= 3) e.currentTarget.style.background = "color-mix(in oklab, var(--accent) 30%, transparent)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = aiLoading ? "color-mix(in oklab, var(--accent) 25%, transparent)" : "color-mix(in oklab, var(--accent) 12%, transparent)"; }}
@@ -1557,54 +1507,47 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
 
           {/* Meeting picker */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.meeting")}</label>
-            <button onClick={() => setMeetingOpen(o => !o)} className="btn" style={{
-              width: "100%", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10,
-              background: "var(--surface)", border: "1px solid var(--border)",
-            }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                {meetingId ? <Video size={13} style={{ color: "var(--muted)" }} /> : <ListChecks size={13} style={{ color: "var(--muted)" }} />}
-                <span style={{ fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <label className={css.fieldLabel}>{tr("tasks.meeting")}</label>
+            <button onClick={() => setMeetingOpen(o => !o)} className={`btn ${css.pickerBtn}`}>
+              <span className={css.pickerBtnInner}>
+                {meetingId ? <Video size={13} className={css.mutedText} /> : <ListChecks size={13} className={css.mutedText} />}
+                <span className={css.pickerBtnLabel}>
                   {meeting?.title || (meetingId ? tr("tasks.selectMeeting") : tr("tasks.noMeeting"))}
                 </span>
               </span>
-              <ChevronDown size={14} style={{ color: "var(--muted)", transform: meetingOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+              <ChevronDown size={14} className={css.chevMuted} style={{ transform: meetingOpen ? "rotate(180deg)" : "none" }} />
             </button>
             {meetingOpen && (
-              <div style={{ marginTop: 6, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card, #181a20)" }}>
-                <div style={{ position: "relative" }}>
-                  <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+              <div className={css.meetingPanel} style={{ background: "var(--card, #181a20)" }}>
+                <div className={css.rel}>
+                  <Search size={13} className={css.searchIcon} />
                   <input autoFocus placeholder={tr("tasks.searchMeeting")} value={meetingQ} onChange={e => setMeetingQ(e.target.value)}
-                    style={{ paddingLeft: 32, border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0, height: 34,
-                      background: "transparent", outline: "none", color: "var(--text)", width: "100%", fontSize: 13 }} />
+                    className={css.meetingSearch} />
                 </div>
-                <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                <div className={css.meetingList}>
                   <button onClick={() => { setMeetingId(""); setMeetingOpen(false); setMeetingQ(""); }}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 12px",
-                      background: !meetingId ? "var(--surface)" : "transparent", border: "none", cursor: "pointer", color: "inherit", textAlign: "left",
-                      borderBottom: "1px solid var(--border)" }}
+                    className={css.meetingOptFirst} style={{ background: !meetingId ? "var(--surface)" : "transparent" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                     onMouseLeave={e => (e.currentTarget.style.background = !meetingId ? "var(--surface)" : "transparent")}
                   >
-                    <span style={{ fontSize: 13, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className={css.meetingNone}>
                       <ListChecks size={12} /> {tr("tasks.noMeeting")}
                     </span>
-                    {!meetingId && <Check size={13} style={{ color: "var(--accent)" }} />}
+                    {!meetingId && <Check size={13} className={css.accentIcon} />}
                   </button>
                   {meetingMatches.map(m => (
                     <button key={m.id} onClick={() => { setMeetingId(m.id); setMeetingOpen(false); setMeetingQ(""); }}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "8px 12px",
-                        background: m.id === meetingId ? "var(--surface)" : "transparent", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
+                      className={css.meetingOpt} style={{ background: m.id === meetingId ? "var(--surface)" : "transparent" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                       onMouseLeave={e => (e.currentTarget.style.background = m.id === meetingId ? "var(--surface)" : "transparent")}
                     >
-                      <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1 }}>{m.title}</span>
-                      {m.scheduledAt && <span style={{ fontSize: 10.5, color: "var(--muted)", marginLeft: 8, fontFamily: "var(--font-mono, monospace)" }}>
+                      <span className={css.meetingTitle}>{m.title}</span>
+                      {m.scheduledAt && <span className={css.meetingDate}>
                         {new Date(m.scheduledAt).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                       </span>}
                     </button>
                   ))}
-                  {meetingMatches.length === 0 && <div style={{ padding: "12px", color: "var(--muted)", fontSize: 13, textAlign: "center" }}>{tr("tasks.nothingFound")}</div>}
+                  {meetingMatches.length === 0 && <div className={css.meetingEmpty}>{tr("tasks.nothingFound")}</div>}
                 </div>
               </div>
             )}
@@ -1612,7 +1555,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
 
           {departments.length > 0 && (
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("departments.label")}</label>
+              <label className={css.fieldLabel}>{tr("departments.label")}</label>
               <Select
                 value={departmentId}
                 onChange={setDepartmentId}
@@ -1625,33 +1568,33 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
 
           {/* Assignees (multiple — the first is the lead) */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.assignees")}</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <label className={css.fieldLabel}>{tr("tasks.assignees")}</label>
+            <div className={css.chipRow}>
               {assigneeIds.map(id => {
                 const u = users.find(x => x.id === id);
                 const label = u ? (u.name || u.email) : id;
                 return (
-                  <span key={id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "3px 8px 3px 3px" }}>
-                    {u ? <Avatar name={u.name} image={u.image} size="sm" /> : <User size={13} style={{ color: "var(--muted)", margin: "0 2px" }} />}
-                    <span style={{ fontSize: 12 }}>{(label || "").split(" ")[0] || label}</span>
-                    <button onClick={() => setAssigneeIds(ids => ids.filter(x => x !== id))} title={tr("common.delete")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "flex" }}><X size={12} /></button>
+                  <span key={id} className={css.personChip}>
+                    {u ? <Avatar name={u.name} image={u.image} size="sm" /> : <User size={13} className={css.userIcon} />}
+                    <span className={css.f12}>{(label || "").split(" ")[0] || label}</span>
+                    <button onClick={() => setAssigneeIds(ids => ids.filter(x => x !== id))} title={tr("common.delete")} className={css.iconBtn}><X size={12} /></button>
                   </span>
                 );
               })}
-              <div style={{ position: "relative" }}>
-                <button onClick={() => setAssigneeOpen(o => !o)} className="btn btn-sm" style={{ borderRadius: 999, padding: "4px 10px", borderStyle: "dashed" }} disabled={assigneeCandidates.length === 0}>
+              <div className={css.rel}>
+                <button onClick={() => setAssigneeOpen(o => !o)} className={`btn btn-sm ${css.addChipBtn}`} disabled={assigneeCandidates.length === 0}>
                   <Plus size={13} /> {assigneeIds.length === 0 ? tr("tasks.assignee") : tr("tasks.addAssignee")}
                 </button>
                 {assigneeOpen && assigneeCandidates.length > 0 && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 20, background: "var(--card, #181a20)", border: "1px solid var(--border)", borderRadius: 10, padding: 6, minWidth: 220, maxHeight: 240, overflowY: "auto", boxShadow: "0 12px 30px -8px var(--overlay)" }}>
+                  <div className={css.pickerPanelWide} style={{ background: "var(--card, #181a20)" }}>
                     {assigneeCandidates.map(u => (
                       <button key={u.id} onClick={() => { setAssigneeIds(ids => [...ids, u.id]); setAssigneeOpen(false); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", width: "100%", background: "transparent", border: "none", cursor: "pointer", color: "inherit", borderRadius: 6, textAlign: "left" }}
+                        className={css.pickerItem}
                         onMouseEnter={e => (e.currentTarget.style.background = "var(--surface)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
                         <Avatar name={u.name} image={u.image} size="sm" />
-                        <span style={{ fontSize: 13 }}>{u.name || u.email}</span>
+                        <span className={css.f13}>{u.name || u.email}</span>
                       </button>
                     ))}
                   </div>
@@ -1662,16 +1605,15 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
 
           {/* Due date */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.dueDate")}</label>
+            <label className={css.fieldLabel}>{tr("tasks.dueDate")}</label>
             <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
-              style={{ height: 38, padding: "0 12px", fontSize: 13, borderRadius: 10, background: "var(--surface)",
-                border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: "100%" }} />
+              className={css.dateInput} />
           </div>
 
           {/* Priority */}
           <div>
-            <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.priority")}</label>
-            <div style={{ display: "flex", gap: 6 }}>
+            <label className={css.fieldLabel}>{tr("tasks.priority")}</label>
+            <div className={css.row6}>
               {[
                 { id: "high", label: tr("tasks.priorityHigh"), c: "var(--red)" },
                 { id: "medium", label: tr("tasks.priorityMedium"), c: "var(--amber)" },
@@ -1679,13 +1621,12 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
               ].map(p => {
                 const active = priority === p.id;
                 return (
-                  <button key={p.id} onClick={() => setPriority(p.id)} className="btn btn-sm" style={{
-                    flex: 1, justifyContent: "center",
+                  <button key={p.id} onClick={() => setPriority(p.id)} className={`btn btn-sm ${css.segBtn}`} style={{
                     background: active ? `color-mix(in oklab, ${p.c} 18%, transparent)` : "var(--surface)",
                     border: "1px solid " + (active ? `color-mix(in oklab, ${p.c} 50%, transparent)` : "var(--border)"),
                     color: active ? p.c : "var(--text-2)", fontWeight: active ? 600 : 500,
                   }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.c }} /> {p.label}
+                    <span className={css.dot6} style={{ background: p.c }} /> {p.label}
                   </button>
                 );
               })}
@@ -1695,12 +1636,12 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
           {/* Custom fields (new task) — edited in local state, sent with create */}
           {isNew && customFields.some(f => EDITABLE_CUSTOM_TYPES.has(f.type)) && (
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 8 }}>{tr("tasks.customFields")}</label>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label className={css.fieldLabel8}>{tr("tasks.customFields")}</label>
+              <div className={css.colStack}>
                 {customFields.filter(f => EDITABLE_CUSTOM_TYPES.has(f.type)).map(f => (
                   <div key={f.id}>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: 4 }}>{f.name}</span>
-                    <div style={{ minHeight: 38, border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface)", display: "flex", alignItems: "center", overflow: "hidden" }}>
+                    <span className={css.cfNameBlock}>{f.name}</span>
+                    <div className={css.cellBox}>
                       <FieldCell field={f} value={newCells[f.id]} members={members} onCommit={(v) => setNewCells(c => ({ ...c, [f.id]: v }))} />
                     </div>
                   </div>
@@ -1712,8 +1653,8 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
           {/* Status (edit only) */}
           {!isNew && (
             <div>
-              <label style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }}>{tr("tasks.status")}</label>
-              <div style={{ display: "flex", gap: 6 }}>
+              <label className={css.fieldLabel}>{tr("tasks.status")}</label>
+              <div className={css.row6}>
                 {[
                   { id: "open", label: tr("tasks.statusOpenSingular"), c: "var(--accent)" },
                   { id: "in_progress", label: tr("tasks.statusInProgress"), c: "var(--amber)" },
@@ -1721,8 +1662,7 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
                 ].map(s => {
                   const active = status === s.id;
                   return (
-                    <button key={s.id} onClick={() => setStatus(s.id)} className="btn btn-sm" style={{
-                      flex: 1, justifyContent: "center",
+                    <button key={s.id} onClick={() => setStatus(s.id)} className={`btn btn-sm ${css.segBtn}`} style={{
                       background: active ? `color-mix(in oklab, ${s.c} 18%, transparent)` : "var(--surface)",
                       border: "1px solid " + (active ? `color-mix(in oklab, ${s.c} 50%, transparent)` : "var(--border)"),
                       color: active ? s.c : "var(--text-2)", fontWeight: active ? 600 : 500,
@@ -1746,40 +1686,39 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
         </div>
 
         {(task?.clickupManaged || task?.linearManaged) && (
-          <div style={{ margin: "0 22px 12px", padding: "10px 12px", borderRadius: 8, background: "color-mix(in oklab, var(--accent) 10%, transparent)", border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)", fontSize: 12.5, color: "var(--accent)", display: "flex", alignItems: "center", gap: 8 }}>
+          <div className={css.managedNotice}>
             <span>{task?.linearManaged ? tr("tasks.linearManagedNotice") : tr("tasks.clickupManagedNotice")}</span>
-            {(task?.linearManaged ? task.linearUrl : task.clickupUrl) && <a href={(task?.linearManaged ? task.linearUrl : task.clickupUrl) || "#"} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>{task?.linearManaged ? "Linear ↗" : "ClickUp ↗"}</a>}
+            {(task?.linearManaged ? task.linearUrl : task.clickupUrl) && <a href={(task?.linearManaged ? task.linearUrl : task.clickupUrl) || "#"} target="_blank" rel="noopener noreferrer" className={css.managedLink}>{task?.linearManaged ? "Linear ↗" : "ClickUp ↗"}</a>}
           </div>
         )}
 
         {saveErr && (
-          <div role="alert" style={{ padding: "10px 22px", color: "var(--red)", fontSize: 13, background: "color-mix(in oklab, var(--red) 10%, transparent)", borderTop: "1px solid color-mix(in oklab, var(--red) 25%, transparent)" }}>
+          <div role="alert" className={css.saveErr}>
             {saveErr}
           </div>
         )}
         {/* Footer */}
-        <div style={{ padding: "14px 22px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div className={css.drawerFoot}>
           {/* Deletable unless Linear owns it — Linear has no delete path, so removing
               the Garely row there would orphan the issue. A ClickUp-mirrored task IS
               deletable now, but it also destroys the ClickUp copies (one per assignee),
               so it asks first; a plain local task keeps the old one-click behaviour. */}
           {!isNew && !task?.linearManaged && (
             <button
-              className="btn btn-sm"
+              className={`btn btn-sm ${css.delBtn}`}
               disabled={saving}
               onClick={() => {
                 if (task?.clickupManaged && !window.confirm(tr("tasks.confirmDeleteMirrored"))) return;
                 void handleDelete();
-              }}
-              style={{ color: "var(--red)", borderColor: "color-mix(in oklab, var(--red) 30%, transparent)" }}>
+              }}>
               <Trash2 size={13} /> {tr("common.delete")}
             </button>
           )}
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <div className={css.rowAuto8}>
             <button className="btn" onClick={onClose}>{(task?.clickupManaged || task?.linearManaged) ? tr("common.close") : tr("common.cancel")}</button>
             {!(task?.clickupManaged || task?.linearManaged) && (
-              <button className="btn btn-primary" disabled={!valid || saving} onClick={save}
-                style={{ opacity: valid && !saving ? 1 : 0.5, fontWeight: 600 }}>
+              <button className={`btn btn-primary ${css.bold}`} disabled={!valid || saving} onClick={save}
+                style={{ opacity: valid && !saving ? 1 : 0.5 }}>
                 {saving ? <Loader2 size={14} className="spin" /> : null}
                 {isNew ? tr("tasks.createTask") : tr("common.save")}
               </button>
@@ -1796,16 +1735,13 @@ function TaskModal({ open, task, meetings, users, currentUserId, isAdmin, custom
    ═══════════════════════════════════════════════════════════ */
 function TabBtn({ active, onClick, label, badge }: { active: boolean; onClick: () => void; label: string; badge?: number }) {
   return (
-    <button onClick={onClick} style={{
-      position: "relative", padding: "8px 2px", marginRight: 12, background: "none", border: "none", cursor: "pointer",
-      fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1,
+    <button onClick={onClick} className={css.tabBtn} style={{
       color: active ? "var(--text)" : "var(--muted)",
       borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
-      transition: "color .15s",
     }}>
       {label}
       {badge && badge > 0 ? (
-        <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 8, background: "var(--accent)", color: "#fff", verticalAlign: "middle" }}>{badge > 9 ? "9+" : badge}</span>
+        <span className={css.tabBadge} style={{ color: "#fff" }}>{badge > 9 ? "9+" : badge}</span>
       ) : null}
     </button>
   );
@@ -1994,15 +1930,15 @@ export default function TasksPage() {
   };
 
   if (loading) return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Loader2 size={24} className="spin" style={{ color: "var(--muted)" }} />
+    <div className={css.pageLoading}>
+      <Loader2 size={24} className={`spin ${css.mutedText}`} />
     </div>
   );
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className={css.page}>
       {/* Page tabs: Tasks | Quizzes */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "12px clamp(14px, 4vw, 28px) 0", flexShrink: 0 }}>
+      <div className={css.pageTabs}>
         <TabBtn active={tab === "tasks"} onClick={() => switchTab("tasks")} label={tr("tasks.pageTitle")} />
         <TabBtn active={tab === "quizzes"} onClick={() => switchTab("quizzes")} label={tr("quiz.navTitle")} badge={pendingQuiz} />
       </div>
@@ -2012,38 +1948,38 @@ export default function TasksPage() {
       ) : (
       <>
       {/* Header */}
-      <div style={{ padding: "12px clamp(14px, 4vw, 28px) 16px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 0 }} />
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 3 }}>
-              <button onClick={() => setView("list")} className="btn btn-sm" style={{
+      <div className={css.header}>
+        <div className={css.headerRow}>
+          <div className={css.flex1min0} />
+          <div className={css.headerActions}>
+            <div className={css.viewToggle}>
+              <button onClick={() => setView("list")} className={`btn btn-sm ${css.viewBtn}`} style={{
                 background: view === "list" ? "var(--surface-2, #2a2a32)" : "transparent",
-                border: "none", borderRadius: 7, fontWeight: view === "list" ? 600 : 500,
+                fontWeight: view === "list" ? 600 : 500,
               }}><LayoutList size={14} /> {tr("tasks.viewList")}</button>
-              <button onClick={() => setView("kanban")} className="btn btn-sm" style={{
+              <button onClick={() => setView("kanban")} className={`btn btn-sm ${css.viewBtn}`} style={{
                 background: view === "kanban" ? "var(--surface-2, #2a2a32)" : "transparent",
-                border: "none", borderRadius: 7, fontWeight: view === "kanban" ? 600 : 500,
+                fontWeight: view === "kanban" ? 600 : 500,
               }}><LayoutGrid size={14} /> {tr("tasks.viewKanban")}</button>
               {departments.length > 0 && (
-                <button onClick={() => setView("dept")} className="btn btn-sm" style={{
+                <button onClick={() => setView("dept")} className={`btn btn-sm ${css.viewBtn}`} style={{
                   background: view === "dept" ? "var(--surface-2, #2a2a32)" : "transparent",
-                  border: "none", borderRadius: 7, fontWeight: view === "dept" ? 600 : 500,
+                  fontWeight: view === "dept" ? 600 : 500,
                 }}><Building2 size={14} /> {tr("departments.byDept")}</button>
               )}
             </div>
-            <button className="btn btn-primary" onClick={() => setEditing("new")} style={{ fontWeight: 600 }}>
+            <button className={`btn btn-primary ${css.bold}`} onClick={() => setEditing("new")}>
               <Plus size={15} /> {tr("tasks.newTask")}
             </button>
           </div>
         </div>
         {/* Filter row */}
-        <div className="tasks-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className={`tasks-filter-bar ${css.filterBar}`}>
           <FilterPills value={scope} onChange={setScope} options={[
             { id: "mine", label: tr("tasks.scopeMine"), count: counts.mine },
             { id: "all", label: tr("tasks.scopeAll"), count: counts.all },
           ]} />
-          <div className="tasks-filter-sep" style={{ width: 1, height: 24, background: "var(--border)" }} />
+          <div className={`tasks-filter-sep ${css.filterSep}`} />
           <SelectChip icon={CalendarIcon} value={filterMeeting} onChange={setFilterMeeting}
             options={[{ value: "all", label: tr("tasks.filterAllMeetings") }, ...meetingOptions.map(m => ({ value: m.id, label: m.title }))]} />
           <SelectChip icon={AlertCircle} value={filterPriority} onChange={setFilterPriority}
@@ -2066,22 +2002,21 @@ export default function TasksPage() {
               onChange={(v) => setCustomFilters(p => ({ ...p, [f.id]: v }))}
               options={[{ value: "all", label: f.name }, ...(f.options?.choices ?? []).map(c => ({ value: c.id, label: c.name }))]} />
           ))}
-          <div className="tasks-search" style={{ position: "relative" }}>
-            <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <div className={`tasks-search ${css.rel}`}>
+            <Search size={14} className={css.searchIcon2} />
             <input placeholder={tr("tasks.searchPlaceholder")} value={q} onChange={e => setQ(e.target.value)}
-              style={{ paddingLeft: 34, height: 34, fontSize: 13, width: "100%", background: "var(--surface)",
-                border: "1px solid var(--border)", borderRadius: 8, outline: "none", color: "var(--text)" }} />
-            {q && <button onClick={() => setQ("")} className="btn btn-sm" style={{ position: "absolute", right: 4, top: 4, width: 26, height: 26, padding: 0 }}><X size={12} /></button>}
+              className={css.searchInput} />
+            {q && <button onClick={() => setQ("")} className={`btn btn-sm ${css.searchClear}`}><X size={12} /></button>}
           </div>
         </div>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div className={css.body}>
         {error ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
+          <div className={css.errBox}>
             <AlertCircle size={28} style={{ color: "var(--danger, #e5484d)" }} />
-            <div style={{ color: "var(--muted)", fontSize: 14 }}>{tr("tasks.loadError")}</div>
+            <div className={css.errText}>{tr("tasks.loadError")}</div>
             <button className="btn btn-sm" onClick={() => { setLoading(true); fetchTasks(); }}>{tr("tasks.retry")}</button>
           </div>
         ) : filtered.length === 0 ? (

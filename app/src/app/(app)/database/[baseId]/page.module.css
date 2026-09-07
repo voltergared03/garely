@@ -1,0 +1,188 @@
+/* Loading / empty states */
+.loadingWrap {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.emptyPage {
+  padding: 40px;
+}
+
+/* Page shell */
+.page {
+  padding: 18px clamp(12px, 3vw, 28px);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Header toolbar */
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.backBtn {
+  width: 32px;
+  height: 32px;
+}
+.colorDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.pageTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spacer {
+  flex: 1;
+}
+.shareBtn {
+  font-weight: 600;
+  gap: 7px;
+}
+
+/* Base menu */
+.colorRow {
+  display: flex;
+  gap: 5px;
+  padding: 8px 10px 6px;
+  flex-wrap: wrap;
+}
+.colorSwatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.menuDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* Table tabs */
+.tabsRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.tabWrap {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: -1px;
+}
+.tabBtn {
+  border: none;
+  background: transparent;
+  padding: 8px 6px 8px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tabOwnerRow {
+  padding: 8px 12px 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabOwnerName {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.tabSpacer {
+  width: 8px;
+}
+.newTableBtn {
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+}
+
+/* Empty tables / spinner */
+.emptyTablesCard {
+  text-align: center;
+  padding: 48px 24px;
+}
+.emptyTablesTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+.emptyTablesBtn {
+  margin-top: 14px;
+}
+.spinnerWrap {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+/* Modal shared bits */
+.modalInput {
+  width: 100%;
+  margin-bottom: 18px;
+}
+.modalInputTight {
+  width: 100%;
+}
+.errorText {
+  color: var(--danger);
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirmText {
+  margin: 0 0 18px;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* Tripled (0,3,0) so it out-ranks globals.css:204 `.btn:hover` (0,2,0), which
+ * would otherwise repaint the confirm button with var(--surface-2) on hover
+ * while the text stayed var(--on-accent). border-color is deliberately left to
+ * `.btn:hover`, exactly as it was when the inline style supplied the fill. */
+.dangerBtn.dangerBtn.dangerBtn {
+  background: var(--danger);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Copy-link toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}

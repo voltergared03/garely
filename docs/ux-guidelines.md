@@ -239,3 +239,47 @@ white veil is invisible on a white ground), the `rgba(0,0,0,.5)` scrims, and pal
 like `#fca5a5` in a `color:` position. What is left is genuinely ambiguous — the same hex in
 SVG fills, gradients and chart series — and needs eyes on each, page by page, during the
 component work.
+
+## Styling convention — decided, and built (2026-09-07)
+
+Inline `style={{…}}` in `.tsx` went from **2732 → 1263**. The 22 files that each carried more
+than 30 blocks (77 % of the total) now keep their static styles in a sibling **CSS Module**
+(`page.tsx` → `page.module.css`, imported as `s`, or `css` where `s` was already an identifier).
+Tailwind was rejected: it is configured but used by zero components, and its theme hard-codes
+oklch/hex values instead of `var(--*)`, so it cannot follow the light/dark switch.
+
+Rules that came out of the migration and its adversarial review (every file was diffed
+property-by-property by an independent reviewer; 17 of 22 failed the first pass and were fixed):
+
+- **Only tokens.** A module may not contain a hex, `rgb()`, `oklch()` or named colour, not even
+  as a `var(--x, fallback)`. Every token a page needs already exists in `globals.css`.
+- **What stays inline:** anything derived from state or props (`width: pct + '%'`, ternaries,
+  data-driven `animationDelay`), CSS-variable assignments from JS, and the existing
+  `onMouseEnter`/`onMouseLeave` hover mutations. Split mixed blocks; never move a dynamic value
+  into CSS.
+- **Keyframes are scoped.** CSS Modules hash `animation-name`, so `animation: spin …` inside a
+  module points at `page_spin__hash`, which does not exist — the spinner silently freezes.
+  Re-declare the `@keyframes` **inside the module**, copying the body verbatim from
+  `globals.css`. Do not use `:global()`. The build check: every hashed name referenced in
+  `.next/static/css/*.css` must have a matching `@keyframes`.
+- **Specificity replaces the inline win.** An inline style beat every selector; a single module
+  class `(0,1,0)` does not. Where a global pseudo-class rule exists — `.btn:hover` `(0,2,0)`,
+  `input:focus-visible` `(0,1,1)` — or where a page injects `<style>{STYLES}</style>` into the
+  body (loads after the module sheet, wins ties), raise the module selector by doubling or
+  tripling it (`.dangerBtn.dangerBtn.dangerBtn`) and leave a one-line comment naming the rule it
+  out-ranks. Never `!important`.
+- **Focus rings are on.** The migration exposed dozens of `outline: none` that had been
+  suppressing the global `:focus-visible` ring — an accessibility defect, not a design choice.
+  They were removed, so text inputs in Tasks, Archive, Decisions, the room chat and shared notes
+  now show the `--focus` ring on keyboard focus. The one intentional behaviour change besides
+  this: server cards on `/servers` now tint their border on hover, which the injected stylesheet
+  had always intended and a static inline border had accidentally hidden.
+- **Shared primitives still missing** (flagged by three reviewers, deliberately not created
+  mid-migration): an icon button (28×28, radius 8, muted icon, hover tint) that is duplicated
+  with per-element hover handlers; an `inline-flex; gap: 6px` button-with-icon hook that fights
+  `.btn`'s `gap: 8px` in 16 places; a mono "meta" text style (11 px / `--muted` / `--mono`); a
+  labelled stat card; and a settings-modal shell. These are the next step of the component work.
+
+Remaining inline blocks live mostly in the two largest pages (`room/[id]` 74, `tasks` 69, both
+dominated by state-driven values) and in files under the 30-block threshold, which were not part
+of this pass.

@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Link2, Video, Globe, ChevronLeft, AlertCircle } from 'lucide-react';
 import { AvatarStack } from '@/components/ui/avatar';
 import { Logo } from '@/components/ui/logo';
+import s from './page.module.css';
 
 interface MeetingInfo {
   id: string;
@@ -90,30 +91,18 @@ export default function GuestJoinPage() {
   // ---------- error / loading ----------
   if (loading) {
     return (
-      <div style={{
-        position: 'fixed', inset: 0, background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          width: 28, height: 28, border: '2.5px solid var(--border)',
-          borderTopColor: 'var(--accent)', borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className={s.fixedCenter}>
+        <div className={s.spinner} />
       </div>
     );
   }
 
   if (error && !meeting) {
     return (
-      <div style={{
-        position: 'fixed', inset: 0, background: 'var(--bg)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 16, padding: 20,
-      }}>
-        <AlertCircle size={36} style={{ color: 'var(--red)' }} />
-        <p style={{ color: 'var(--text-2)', fontSize: 15, textAlign: 'center', maxWidth: 360 }}>{error}</p>
-        <button className="btn" onClick={() => router.push('/')} style={{ marginTop: 8 }}>
+      <div className={s.errorWrap}>
+        <AlertCircle size={36} className={s.errorIcon} />
+        <p className={s.errorText}>{error}</p>
+        <button className={`btn ${s.homeBtn}`} onClick={() => router.push('/')}>
           {t('join.goHome')}
         </button>
       </div>
@@ -125,97 +114,72 @@ export default function GuestJoinPage() {
   // ---------- landing step ----------
   if (step === 'landing') {
     return (
-      <div style={{
-        position: 'fixed', inset: 0,
-        background: 'radial-gradient(ellipse at 20% 0%, color-mix(in oklab, var(--accent) 14%, var(--bg)) 0%, var(--bg) 60%)',
-        display: 'flex', flexDirection: 'column', overflow: 'auto',
-      }}>
-        <div style={{ padding: '20px 24px', flexShrink: 0 }}>
+      <div className={s.landingBg}>
+        <div className={s.logoWrap}>
           <Logo size={18} />
         </div>
 
-        <div style={{
-          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '0 20px 40px',
-        }}>
-          <div className="card fade-in" style={{ maxWidth: 500, width: '100%', padding: '36px 32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <div className={s.centerWrap}>
+          <div className={`card fade-in ${s.cardLanding}`}>
+            <div className={s.topRow}>
               <span className="chip">
                 <Link2 size={12} />
                 {t('join.guestInvitation')}
               </span>
-              <span className="mono" style={{ fontSize: 11.5, color: 'var(--muted)', letterSpacing: '0.02em' }}>
+              <span className={`mono ${s.tokenText}`}>
                 {token.length > 16 ? token.slice(0, 16) + '...' : token}
               </span>
             </div>
 
-            <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+            <h1 className={s.titleLanding}>
               {meeting.title}
             </h1>
 
-            <p style={{ color: 'var(--text-2)', fontSize: 14, margin: '0 0 4px' }}>
+            <p className={s.invitedByText}>
               {t.rich('join.invitedBy', {
                 name: meeting.invitedBy,
-                b: (chunks) => <span style={{ fontWeight: 600, color: 'var(--text)' }}>{chunks}</span>,
+                b: (chunks) => <span className={s.invitedByName}>{chunks}</span>,
               })}
             </p>
             {meeting.scheduledAt && (
-              <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 24px' }}>
+              <p className={s.scheduledText}>
                 {formatDate(meeting.scheduledAt)}, {formatTime(meeting.scheduledAt)}
               </p>
             )}
 
             {meeting.participants && meeting.participants.length > 0 && (
-              <div style={{
-                background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)',
-                padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: 28,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className={s.participantsBox}>
+                <div className={s.participantsLeft}>
                   <AvatarStack users={meeting.participants} max={4} size="sm" />
-                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                  <span className={s.participantsCount}>
                     {t('join.participantsCount', { count: meeting.participantCount })}
                   </span>
                 </div>
-                <Video size={16} style={{ color: 'var(--muted)' }} />
+                <Video size={16} className={s.mutedIcon} />
               </div>
             )}
 
             {session?.user ? (
               /* Signed-in colleague: skip the guest flow and go straight to the
                  lobby for THIS meeting (same id → same room as everyone else). */
-              <button className="btn btn-primary" style={{
-                width: '100%', justifyContent: 'center', padding: '13px 16px',
-                fontSize: 14, fontWeight: 600,
-              }} onClick={() => router.push(`/lobby/${meeting.id}`)}>
+              <button className={`btn btn-primary ${s.btnPrimaryFull}`} onClick={() => router.push(`/lobby/${meeting.id}`)}>
                 <Video size={15} />
                 {t('join.joinMeeting')}
               </button>
             ) : (
               <>
-                <button className="btn btn-primary" style={{
-                  width: '100%', justifyContent: 'center', padding: '13px 16px',
-                  fontSize: 14, fontWeight: 600, marginBottom: 10,
-                }} onClick={() => setStep('name')}>
+                <button className={`btn btn-primary ${s.btnPrimaryFullMb10}`} onClick={() => setStep('name')}>
                   {t('join.joinAsGuest')}
                 </button>
 
-                <button className="btn" style={{
-                  width: '100%', justifyContent: 'center', padding: '13px 16px',
-                  fontSize: 14, fontWeight: 600, marginBottom: 24,
-                }} onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/lobby/${meeting.id}`)}`)}>
+                <button className={`btn ${s.btnFullMb24}`} onClick={() => router.push(`/login?callbackUrl=${encodeURIComponent(`/lobby/${meeting.id}`)}`)}>
                   <Globe size={15} />
                   {t('join.loginWithGoogle')}
                 </button>
 
-                <div style={{
-                  background: 'color-mix(in oklab, var(--amber) 10%, transparent)',
-                  border: '1px solid color-mix(in oklab, var(--amber) 25%, transparent)',
-                  borderRadius: 'var(--radius-sm)', padding: '12px 14px',
-                  display: 'flex', gap: 10, alignItems: 'flex-start',
-                }}>
-                  <AlertCircle size={15} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
-                  <span style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>
+                <div className={s.warningBox}>
+                  <AlertCircle size={15} className={s.warningIcon} />
+                  <span className={s.warningText}>
                     {t('join.tokenWarning')}
                   </span>
                 </div>
@@ -229,49 +193,43 @@ export default function GuestJoinPage() {
 
   // ---------- name step ----------
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'radial-gradient(ellipse at 20% 0%, color-mix(in oklab, var(--accent) 14%, var(--bg)) 0%, var(--bg) 60%)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-    }}>
-      <div className="card fade-in" style={{ maxWidth: 460, width: '100%', padding: '36px 32px' }}>
-        <button className="btn btn-ghost btn-sm" style={{ marginBottom: 20, marginLeft: -6 }}
+    <div className={s.nameBg}>
+      <div className={`card fade-in ${s.cardName}`}>
+        <button className={`btn btn-ghost btn-sm ${s.backBtn}`}
           onClick={() => setStep('landing')}>
           <ChevronLeft size={15} />
           {t('common.back')}
         </button>
 
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+        <h1 className={s.titleName}>
           {t('join.howToIntroduce')}
         </h1>
-        <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '0 0 28px' }}>
+        <p className={s.subtitle}>
           {t('join.introduceSubtitle')}
         </p>
 
-        <div style={{ marginBottom: 18 }}>
+        <div className={s.fieldWrap18}>
           <label className="field-label">
-            {t('join.nameLabel')} <span style={{ color: 'var(--red)' }}>*</span>
+            {t('join.nameLabel')} <span className={s.requiredStar}>*</span>
           </label>
           <input className="field" type="text" placeholder={t('join.namePlaceholder')}
             value={guestName} onChange={(e) => setGuestName(e.target.value)} autoFocus
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()} />
         </div>
 
-        <div style={{ marginBottom: 6 }}>
+        <div className={s.fieldWrap6}>
           <label className="field-label">
-            {t('join.emailLabel')} <span style={{ color: 'var(--muted-2)', fontWeight: 400 }}>{t('join.optional')}</span>
+            {t('join.emailLabel')} <span className={s.optionalLabel}>{t('join.optional')}</span>
           </label>
           <input className="field" type="email" placeholder="email@example.com"
             value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
         </div>
-        <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 28px', lineHeight: 1.5 }}>
+        <p className={s.emailHint}>
           {t('join.emailHint')}
         </p>
 
-        <button className="btn btn-primary" disabled={!guestName.trim() || submitting}
+        <button className={`btn btn-primary ${s.submitBtn}`} disabled={!guestName.trim() || submitting}
           style={{
-            width: '100%', justifyContent: 'center', padding: '13px 16px',
-            fontSize: 14, fontWeight: 600,
             opacity: !guestName.trim() || submitting ? 0.5 : 1,
             cursor: !guestName.trim() || submitting ? 'not-allowed' : 'pointer',
           }}
@@ -280,7 +238,7 @@ export default function GuestJoinPage() {
         </button>
 
         {error && (
-          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--red)', fontSize: 13 }}>
+          <div className={s.errorRow}>
             <AlertCircle size={14} />
             {error}
           </div>

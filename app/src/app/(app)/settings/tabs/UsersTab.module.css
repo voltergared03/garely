@@ -1,0 +1,74 @@
+/* Page wrapper / toolbar */
+.wrap { max-width: 1000px; margin: 0 auto; }
+.toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+.searchWrap { position: relative; flex: 1; }
+.searchIcon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.searchInput { padding-left: 34px; height: 36px; }
+.countText { font-size: 12.5px; }
+
+/* Registration requests */
+.requestsCard { padding: 16px 18px; margin-bottom: 16px; border-color: color-mix(in oklab, var(--amber) 30%, var(--border)); }
+.requestsTitle { font-weight: 600; font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.requestsChip { background: var(--warn-bg); color: var(--warn-fg); }
+.requestsList { display: grid; gap: 8px; }
+.requestRow { display: flex; align-items: center; gap: 12px; padding: 9px 12px; background: var(--surface-2); border-radius: 10px; flex-wrap: wrap; }
+.requestName { flex: 1; min-width: 160px; }
+.requestNameText { font-size: 13px; font-weight: 500; }
+.requestEmail { font-size: 11.5px; color: var(--muted); }
+.requestDays { font-size: 11px; color: var(--muted); }
+.denyBtn { color: var(--red); }
+
+/* Users table */
+.tableCard { padding: 0; overflow: hidden; }
+.tableScroll { overflow-x: auto; }
+.tableHeader { padding: 11px 16px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.row { display: grid; padding: 14px 16px; border-bottom: 1px solid var(--border); align-items: center; font-size: 13px; }
+.rowDisabled { opacity: .62; background: var(--surface-2); }
+.userCell { display: flex; align-items: center; gap: 11px; }
+.avatarWrap { position: relative; flex-shrink: 0; display: inline-flex; }
+.minW0 { min-width: 0; }
+.editNameRow { display: flex; align-items: center; gap: 4px; }
+.editNameInput { height: 30px; font-size: 13px; padding: 4px 8px; max-width: 180px; }
+.iconBtn26 { width: 26px; height: 26px; }
+.nameRow { font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.nameText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blockedChip { background: var(--warn-bg); color: var(--warn-fg); margin-inline-start: 6px; font-size: 10.5px; }
+.editIconBtn { width: 28px; height: 28px; flex-shrink: 0; opacity: .85; }
+.emailCell { font-size: 12px; color: var(--text-2); }
+.selectSm { height: 32px; font-size: 12.5px; width: 100%; }
+.langIcon { color: var(--muted); }
+.statusBadge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.onlineDot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.rowActions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+.iconBtn30 { width: 30px; height: 30px; }
+.redText { color: var(--red); }
+.spinIcon { animation: spin 1s linear infinite; }
+.emptyState { padding: 44px 24px; text-align: center; color: var(--muted); }
+.emptyIcon { opacity: .4; margin-bottom: 10px; }
+.emptyText { font-size: 13.5px; font-weight: 500; color: var(--text-2); }
+
+/* Modals (invite / reset password) */
+.modalOverlay { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn .15s; }
+.modalCard { width: 420px; max-width: 92vw; padding: 22px 24px; }
+.modalTitle { font-weight: 700; font-size: 17px; margin-bottom: 4px; }
+.modalDesc { font-size: 12.5px; color: var(--muted); margin-bottom: 18px; }
+.mt14 { margin-top: 14px; }
+.modalFooter { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+/* The reset-password "Done" footer holds a single button and never declared a gap. */
+.modalFooterBare { display: flex; justify-content: flex-end; margin-top: 20px; }
+.resetDesc { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.errorText { margin-top: 12px; font-size: 12.5px; color: var(--danger-fg); }
+.msgText { margin-top: 12px; font-size: 12.5px; }
+.label { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+.pwRow { display: flex; gap: 8px; align-items: center; }
+.pwCode { flex: 1; background: var(--surface-2); border-radius: 10px; padding: 12px 14px; font-size: 15px; font-weight: 600; letter-spacing: .04em; user-select: all; word-break: break-all; }
+.flexShrink0 { flex-shrink: 0; }
+
+/* Local copies of the global keyframes: CSS Modules localise animation names,
+   so `animation: fadeIn/spin` above must resolve against declarations in THIS file.
+   Bodies copied verbatim from src/app/globals.css (fadeIn:379, spin:383). */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
