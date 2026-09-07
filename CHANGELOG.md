@@ -4,6 +4,52 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.10] — 2026-09-07
+
+Recording without a browser, and a meeting that could be moved out from under the
+person already in it.
+
+### Changed
+- **New meetings no longer create tasks automatically.** The switch is off for every
+  new meeting unless the workspace setting turns it on — and that setting now actually
+  applies. Meetings imported from a calendar had been ignoring it and creating tasks
+  regardless.
+- **Recording no longer needs a browser.** The audio recording of a meeting used to
+  run inside a headless Chrome that drew close to three CPU cores for sound alone, and
+  twice the server killed it mid-meeting for exceeding its budget. It now records
+  through the LiveKit SDK at about one core, so the box has room for the call, the
+  transcription and the recording at once. The LiveKit versions are pinned so an
+  accidental upgrade cannot break the pairing.
+- **Keyboard focus is visible on text fields.** Search boxes, the chat and the shared
+  notes in a meeting, and the task editor all suppressed the focus ring; tabbing through
+  them showed nothing. The ring now shows on keyboard focus, as it already did elsewhere.
+- **Under the hood, the twenty-two heaviest screens keep their styling in stylesheets
+  instead of inline in the markup** — no visible change, but a colour or spacing
+  decision can now be changed in one place instead of hundreds.
+
+### Fixed
+- **Moving a meeting that someone had already joined broke it.** If an invitee opened
+  the room early and the host then changed the time, the meeting stayed "in progress"
+  at the old time, the visitor was never told, and the moment they left it was marked
+  finished — so at the new time it sat in the archive and nobody could join. A false
+  start like that is now reset: the room closes, the early visitor lands in the lobby
+  with the new time, and the meeting goes back to "scheduled" as if it never happened.
+  A meeting that is genuinely in progress — people talking, a recording running —
+  refuses to be moved and says so; end it or create a new one.
+- **Someone already waiting in the lobby saw the old time** after the host moved the
+  meeting. The lobby now re-checks and says "the host moved this meeting — it now
+  starts at 15:00".
+- **The "now" line in the calendar did not move.** It was drawn once on load, so after
+  an hour with the tab open it pointed an hour into the past. It now advances every
+  minute and re-syncs when you return to the tab.
+- **Three people in a call left an empty quarter of the screen.** The grid opened a
+  fourth slot with nobody in it; the third tile is now centred on its own row.
+- **A failed save in the meeting editor on the dashboard said nothing.** The dialog
+  just stayed open. It now shows what the server said, as the calendar's editor
+  already did.
+- **The transcription agent had a memory cap below what it uses at idle.** Raised, so a
+  long meeting no longer risks having its transcriber restarted mid-sentence.
+
 ## [1.25.0-beta.9] — 2026-08-27
 
 Things the app knew were wrong and did not say.
@@ -1106,6 +1152,16 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.10]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.10
+[1.25.0-beta.9]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.9
+[1.25.0-beta.8]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.8
+[1.25.0-beta.7]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.7
+[1.25.0-beta.6]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.6
+[1.25.0-beta.5]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.5
+[1.25.0-beta.4]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.4
+[1.25.0-beta.3]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.3
+[1.25.0-beta.2]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.2
+[1.25.0-beta.1]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.1
 [1.24.0-beta.5]: https://github.com/voltergared03/garely/releases/tag/v1.24.0-beta.5
 [1.24.0-beta.4]: https://github.com/voltergared03/garely/releases/tag/v1.24.0-beta.4
 [1.24.0-beta.3]: https://github.com/voltergared03/garely/releases/tag/v1.24.0-beta.3
