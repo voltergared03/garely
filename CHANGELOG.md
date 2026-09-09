@@ -4,6 +4,22 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.12] — 2026-09-09
+
+A meeting's switches are no longer set in stone the moment it is scheduled.
+
+### Added
+- **Editing a scheduled meeting now includes the "AI and communication" switches.** Live
+  transcription, the AI report, task creation and guest access could only be chosen on
+  the create page; the edit dialog — from the calendar or the dashboard — showed title,
+  time, agenda and participants and nothing else, so changing a switch meant deleting
+  the meeting and creating it again. Both dialogs now carry the same card as the create
+  page, pre-filled from the meeting. A switch that was off stays off in the editor. On a
+  meeting already in progress the card says what applies when: transcription and guest
+  access change on the next join, the report and task settings when it ends. Changing a
+  switch does not send a "meeting updated" mail — only a change of time, duration, title
+  or participants does.
+
 ## [1.25.0-beta.11] — 2026-09-07
 
 ClickUp stopped answering twice in a day, and each time it was us asking too much at once.
@@ -1173,6 +1189,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.12]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.12
 [1.25.0-beta.11]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.11
 [1.25.0-beta.10]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.10
 [1.25.0-beta.9]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.9
