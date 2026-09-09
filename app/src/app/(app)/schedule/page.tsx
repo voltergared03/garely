@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Field } from '@/components/ui/field';
+import { MeetingFlags } from '@/components/meeting-flags';
 import { Select } from '@/components/ui/select';
 import { useSession } from 'next-auth/react';
 import {
   ChevronLeft, Calendar, Clock, Globe, RefreshCw, Building2,
-  Users, Plus, Search, X, Sparkles, Send, AlertCircle,
+  Users, Plus, Search, X, Send, AlertCircle,
   CheckCircle, Link2, Copy, Wand2, ListChecks, Loader2, Trash2, GripVertical,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
@@ -462,14 +463,10 @@ export default function SchedulePage() {
 
           {/* AI options */}
           <div className={`card ${s.cardPad}`}>
-            <div className={s.rowGap8Mb12}>
-              <Sparkles size={15} className={s.accentIcon} />
-              <div className={s.sectionTitle}>{t('schedule.aiSectionTitle')}</div>
-            </div>
-            <Toggle label={t('schedule.toggleTranscription')} value={form.transcription} onChange={(v) => set('transcription', v)} />
-            <Toggle label={t('schedule.toggleAiReport')} value={form.aiReport} onChange={(v) => set('aiReport', v)} />
-            <Toggle label={t('schedule.toggleTaskCreation')} value={form.taskCreation} onChange={(v) => set('taskCreation', v)} />
-            <Toggle label={t('schedule.toggleAllowGuests')} value={form.allowGuests} onChange={(v) => set('allowGuests', v)} />
+            <MeetingFlags
+              value={{ transcription: form.transcription, aiReport: form.aiReport, taskCreation: form.taskCreation, allowGuests: form.allowGuests }}
+              onChange={(f) => setForm((p) => ({ ...p, ...f }))}
+            />
           </div>
 
           {submitErr && (
@@ -517,24 +514,5 @@ function Err({ msg }: { msg: string }) {
     <div className={s.errMsg}>
       <AlertCircle size={12} /> {msg}
     </div>
-  );
-}
-
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className={s.toggleLabel}>
-      <span className={s.toggleLabelText}>{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        className={s.toggleTrack}
-        style={{ background: value ? 'var(--accent)' : 'var(--surface-3)' }}
-      >
-        <span
-          className={s.toggleThumb}
-          style={{ left: value ? 19 : 3, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.3)' }}
-        />
-      </button>
-    </label>
   );
 }

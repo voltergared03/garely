@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { Select } from '@/components/ui/select';
 import { Avatar } from '@/components/ui/avatar';
+import { MeetingFlags } from '@/components/meeting-flags';
+import { flagsFromMeeting, flagsToBody } from '@/lib/meeting-flags';
 import type { Meeting, WsUser } from '../lib/types';
 import s from './CalendarEditModal.module.css';
 
@@ -40,6 +42,7 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
   const [agenda, setAgenda] = useState<string[]>(Array.isArray(meeting.agenda) ? meeting.agenda : []);
   const [newAgendaItem, setNewAgendaItem] = useState('');
   const [aiAgendaLoading, setAiAgendaLoading] = useState(false);
+  const [flags, setFlags] = useState(() => flagsFromMeeting(meeting));
 
   // Participants
   const [allUsers, setAllUsers] = useState<WsUser[]>([]);
@@ -121,6 +124,7 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
           durationMin: duration,
           agenda: agenda.length > 0 ? agenda : null,
           participants: selectedUsers.map(u => ({ userId: u.id })),
+          ...flagsToBody(flags),
         }),
       });
       if (res.ok) {
@@ -214,6 +218,9 @@ export function CalendarEditModal({ meeting, onClose, onSave }: {
                 options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </div>
           </div>
+
+          {/* AI and communication switches — editable after scheduling, not only at creation */}
+          <MeetingFlags value={flags} onChange={setFlags} hint={meeting.status === 'live' ? t('meetingForm.flagsLiveHint') : null} />
 
           {/* Participants */}
           <div>

@@ -332,7 +332,8 @@
     "participants": "Participants",
     "addParticipant": "Add participant...",
     "titleRequired": "Give the meeting a title",
-    "saveFailed": "Could not save. Try again."
+    "saveFailed": "Could not save. Try again.",
+    "flagsLiveHint": "The meeting is in progress: transcription and guest access change on the next join; the report and task settings apply when it ends."
   },
   "tasks": {
     "pageTitle": "Tasks",

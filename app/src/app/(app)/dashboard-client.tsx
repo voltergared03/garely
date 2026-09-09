@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { AvatarStack, Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
+import { MeetingFlags } from '@/components/meeting-flags';
+import { flagsFromMeeting, flagsToBody } from '@/lib/meeting-flags';
 import { fmtTime, fmtRelative, isToday, dayDiff, zonedHour, zonedFormFields, zonedWallTimeToUtcISO } from '@/lib/utils';
 import s from './dashboard-client.module.css';
 
@@ -37,6 +39,10 @@ interface Meeting {
   }[];
   reports?: { id: string }[];
   agenda?: string[] | null;
+  transcriptionEnabled?: boolean | null;
+  aiReportEnabled?: boolean | null;
+  taskCreationEnabled?: boolean | null;
+  allowGuests?: boolean | null;
 }
 
 interface WsUser {
@@ -474,6 +480,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
   const [agenda, setAgenda] = useState<string[]>(Array.isArray(meeting.agenda) ? meeting.agenda : []);
   const [newAgendaItem, setNewAgendaItem] = useState('');
   const [aiAgendaLoading, setAiAgendaLoading] = useState(false);
+  const [flags, setFlags] = useState(() => flagsFromMeeting(meeting));
 
   const generateAgenda = async () => {
     if (aiAgendaLoading || title.trim().length < 3) return;
@@ -553,6 +560,7 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
           durationMin: duration,
           participants: selectedUsers.map(u => ({ userId: u.id })),
           agenda: agenda.length > 0 ? agenda : null,
+          ...flagsToBody(flags),
         }),
       });
       if (res.ok) {
@@ -642,6 +650,9 @@ function EditMeetingModal({ meeting, tz, onClose, onSave }: {
                 options={[15, 30, 45, 60, 90, 120].map(d => ({ value: String(d), label: t('common.minutes', { count: d }) }))} />
             </div>
           </div>
+
+          {/* AI and communication switches — editable after scheduling, not only at creation */}
+          <MeetingFlags value={flags} onChange={setFlags} hint={meeting.status === 'live' ? t('meetingForm.flagsLiveHint') : null} />
 
           {/* Participants */}
           <div>

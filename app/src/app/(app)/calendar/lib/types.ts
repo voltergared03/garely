@@ -19,6 +19,10 @@ export interface Meeting {
   participants: Participant[];
   reports?: { id: string }[];
   agenda?: string[] | null;
+  transcriptionEnabled?: boolean | null;
+  aiReportEnabled?: boolean | null;
+  taskCreationEnabled?: boolean | null;
+  allowGuests?: boolean | null;
   joinToken?: string | null;
   _count?: { transcripts: number; tasks: number };
 }

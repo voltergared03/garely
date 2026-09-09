@@ -4,28 +4,7 @@ import { Field } from '@/components/ui/field';
 
 /* ── Shared UI ────────────────────────────────── */
 
-export function Toggle({ label, value, onChange, disabled }: { label: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <label style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 0', borderBottom: '1px solid var(--border)',
-      cursor: disabled ? 'not-allowed' : 'pointer', gap: 14, opacity: disabled ? 0.55 : 1,
-    }}>
-      <span style={{ fontSize: 13.5, color: 'var(--text-2)' }}>{label}</span>
-      <button type="button" disabled={disabled} onClick={() => { if (!disabled) onChange(!value); }} style={{
-        width: 38, height: 22, borderRadius: 999, border: 'none',
-        background: value ? 'var(--accent)' : 'var(--surface-3)',
-        position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background 0.15s', flexShrink: 0,
-      }}>
-        <span style={{
-          position: 'absolute', top: 3, left: value ? 19 : 3,
-          width: 16, height: 16, borderRadius: '50%', background: 'var(--on-accent)',
-          transition: 'left 0.15s', boxShadow: 'var(--shadow)',
-        }} />
-      </button>
-    </label>
-  );
-}
+export { Toggle } from '@/components/ui/toggle';
 
 /**
  * Kept as a name so the ~12 files importing it here do not all have to change at
