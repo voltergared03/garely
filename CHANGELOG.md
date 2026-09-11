@@ -4,6 +4,13 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.14] — 2026-09-11
+
+### Fixed
+- **The language column on the Users list cut its own value short.** After the columns were
+  tightened for the Departments column, "Русский" read as "Русс…". The column has the room it
+  needs again, and the row still fits the card with the ClickUp column showing.
+
 ## [1.25.0-beta.13] — 2026-09-11
 
 Meetings that arrive from Google are announced, and a person can be in more than one department.
@@ -1215,6 +1222,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.14]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.14
 [1.25.0-beta.13]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.13
 [1.25.0-beta.12]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.12
 [1.25.0-beta.11]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.11
