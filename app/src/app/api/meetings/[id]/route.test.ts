@@ -8,6 +8,7 @@ vi.mock('@/lib/meeting-invite', () => ({ sendMeetingInvite: vi.fn(async () => {}
 vi.mock('@/lib/calendar-sync', () => ({ syncMeetingToGoogle: vi.fn(async () => {}) }));
 vi.mock('next-intl/server', () => ({ getTranslations: vi.fn(async () => (k: string) => k) }));
 vi.mock('@/lib/livekit', () => ({ roomService: { deleteRoom: vi.fn(async () => {}) } }));
+vi.mock('@/lib/meeting-reschedule', () => ({ notifyMeetingRescheduled: vi.fn(async () => 1) }));
 vi.mock('@/lib/meeting-attempt-facts', () => ({
   classifyMeetingAttempt: vi.fn(async () => ({ verdict: 'held', reason: 'speech' })),
   discardAttemptRecordings: vi.fn(async () => 0),
@@ -97,5 +98,37 @@ describe('PATCH /api/meetings/[id] — rescheduling a meeting that is live', () 
     expect(classifyMeetingAttempt).not.toHaveBeenCalled();
     expect(roomService.deleteRoom).not.toHaveBeenCalled();
     expect(prismaMock.meeting.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.not.objectContaining({ status: expect.anything() }) }));
+  });
+});
+
+describe('PATCH /api/meetings/[id] — moving a scheduled meeting rings the bell', () => {
+  const patch = async (body: any) => {
+    const { PATCH } = await import('./route');
+    return PATCH(new Request('http://x', { method: 'PATCH', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }) as any,
+      { params: Promise.resolve({ id: 'm1' }) } as any);
+  };
+  const scheduled = { id: 'm1', createdById: 'u1', status: 'scheduled', livekitRoom: null, scheduledAt: new Date('2026-09-11T10:00:00Z'), startedAt: null, durationMin: 60, title: 'T', participants: [] };
+
+  it('notifies participants (except the editor) when the time changes', async () => {
+    const { notifyMeetingRescheduled } = await import('@/lib/meeting-reschedule');
+    (notifyMeetingRescheduled as any).mockClear();
+    prismaMock.meeting.findUnique
+      .mockResolvedValueOnce(scheduled as any)
+      .mockResolvedValueOnce({ ...scheduled, scheduledAt: new Date('2026-09-15T09:00:00Z') } as any);
+    prismaMock.meeting.update.mockResolvedValue({} as any);
+    const res = await patch({ scheduledAt: '2026-09-15T09:00:00Z' });
+    expect(res.status).toBe(200);
+    expect(notifyMeetingRescheduled).toHaveBeenCalledWith('m1', { exceptUserId: 'u1' });
+  });
+
+  it('stays quiet when only the title changes', async () => {
+    const { notifyMeetingRescheduled } = await import('@/lib/meeting-reschedule');
+    (notifyMeetingRescheduled as any).mockClear();
+    prismaMock.meeting.findUnique
+      .mockResolvedValueOnce(scheduled as any)
+      .mockResolvedValueOnce({ ...scheduled, title: 'New' } as any);
+    prismaMock.meeting.update.mockResolvedValue({} as any);
+    await patch({ title: 'New' });
+    expect(notifyMeetingRescheduled).not.toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ import { listTasks } from '@/lib/tasks';
 import { shouldReopenOnReschedule, liveRescheduleAction } from '@/lib/meeting-lifecycle';
 import { classifyMeetingAttempt, discardAttemptRecordings } from '@/lib/meeting-attempt-facts';
 import { roomService } from '@/lib/livekit';
+import { notifyMeetingRescheduled } from '@/lib/meeting-reschedule';
 import { withRoute } from '@/lib/with-route';
 
 // GET /api/meetings/:id — get single meeting with full details
@@ -284,6 +285,8 @@ async function patchHandler(
       || existing.title !== updated.title
       || updated.participants.length > existing.participants.length;
     if (changed) void sendMeetingInvite(id, 'update');
+    // The mail carries the new time; the bell did not — ring it for everyone but the editor.
+    if (timeChanged) void notifyMeetingRescheduled(id, { exceptUserId: userId });
   }
 
   // Reflect the change into the creator's Google "Garely" calendar (no-op when

@@ -627,6 +627,8 @@
     "taskUpdatedTitle": "Task updated",
     "reportReadyTitle": "Report ready",
     "reportReadyBody": "The report for meeting \"{title}\" has been generated",
+    "meetingRescheduledTitle": "Meeting moved",
+    "meetingRescheduledBody": "\"{title}\" now starts {time}",
     "mentionTitle": "You were mentioned in the notes",
     "mentionBody": "{name} mentioned you in \"{title}\"",
     "taskCommentTitle": "New comment",

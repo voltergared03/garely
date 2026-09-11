@@ -19,6 +19,8 @@
 import crypto from 'crypto';
 import { prisma } from './prisma';
 import { filterSuppressed } from './suppression';
+import { sendMeetingInvite } from './meeting-invite';
+import { notifyMeetingRescheduled } from './meeting-reschedule';
 import { generateMeetingSlug } from './utils';
 import { readConfig, num, publicBaseUrl } from './config';
 import { getSingletonOrgId } from './org';
@@ -133,8 +135,13 @@ async function applyGoogleEvent(
 
   if (existing) {
     if (['ended', 'live'].includes(existing.status)) return 'skipped'; // too late to edit
-    await prisma.meeting.update({
-      where: { id: existing.id },
+    const timeChanged = !existing.scheduledAt || existing.scheduledAt.getTime() !== start.getTime();
+    const changed = timeChanged || existing.durationMin !== durationMin || existing.title !== title;
+    // Guarded on the etag we read: the webhook, the cron and the OAuth callback can all
+    // apply this same revision at once, and only the one that actually writes it may
+    // send the "meeting updated" mail — the others see count 0 and stand down.
+    const { count } = await prisma.meeting.updateMany({
+      where: { id: existing.id, externalEtag: existing.externalEtag },
       data: {
         title,
         scheduledAt: start,
@@ -144,7 +151,16 @@ async function applyGoogleEvent(
         externalSyncedAt: new Date(),
       },
     });
+    if (count === 0) return 'skipped';
     await upsertParticipants(existing.id, conn, ev);
+    if (changed) {
+      // Moved in Google Calendar → the same mail + .ics the edit dialog sends, and a
+      // bell for participants; until now a dragged event moved the meeting in silence.
+      await sendMeetingInvite(existing.id, 'update').catch((e) => console.error('gcal inbound: update mail failed:', e));
+      if (timeChanged) {
+        await notifyMeetingRescheduled(existing.id, { exceptUserId: conn.userId }).catch((e) => console.error('gcal inbound: reschedule notice failed:', e));
+      }
+    }
     return 'updated';
   }
 
@@ -183,7 +199,15 @@ async function applyGoogleEvent(
     if ((e as { code?: string }).code === 'P2002') return 'skipped';
     throw e;
   }
-  await upsertParticipants(meeting.id, conn, ev);
+  const attached = await upsertParticipants(meeting.id, conn, ev);
+  // An event with guests gets Garely's own invitation (join link + .ics), exactly as a
+  // meeting created in Garely does. Google only mails the guests the organizer chose
+  // to notify, and a shared team calendar usually has none — which is how a monthly
+  // call sat on everyone's calendar for two weeks without a single email from us.
+  // An event with no guests is the owner's own entry: nobody to invite.
+  if (attached > 0) {
+    await sendMeetingInvite(meeting.id, 'invite').catch((e) => console.error('gcal inbound: invite mail failed:', e));
+  }
 
   // Write the join link back INTO the Google event (location + description +
   // ownership marker) so the calendar entry is self-sufficient. The patch
@@ -193,23 +217,28 @@ async function applyGoogleEvent(
   return 'created';
 }
 
-/** Add-only attendee → participant mapping (members by email, others guests). */
-async function upsertParticipants(meetingId: string, conn: GoogleCalendarConnection, ev: GEvent): Promise<void> {
+/**
+ * Add-only attendee → participant mapping (members by email, others guests).
+ * Returns how many attendees (besides the host) the meeting now carries.
+ */
+async function upsertParticipants(meetingId: string, conn: GoogleCalendarConnection, ev: GEvent): Promise<number> {
   const raw = (ev.attendees || [])
     .filter((a) => a.email && !a.resource)
     .map((a) => a.email!.toLowerCase());
-  if (!raw.length) return;
+  if (!raw.length) return 0;
   // Anyone deleted from Garely must not walk back in through the calendar. A shared
   // event keeps its attendee list long after somebody leaves the company, and the
   // guest branch below stores the raw address — so without this, every sync re-created
   // the person we had just deleted, and they carried on getting invites and reports.
   const emails = await filterSuppressed(raw);
-  if (!emails.length) return;
+  if (!emails.length) return 0;
   const users = await prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true, email: true } });
   const byEmail = new Map(users.map((u) => [u.email!.toLowerCase(), u.id]));
+  let attached = 0;
   for (const email of emails) {
     const userId = byEmail.get(email) || null;
     if (userId === conn.userId) continue; // host already present
+    attached++;
     if (userId) {
       await prisma.meetingParticipant.upsert({
         where: { meetingId_userId: { meetingId, userId } },
@@ -225,6 +254,7 @@ async function upsertParticipants(meetingId: string, conn: GoogleCalendarConnect
       }
     }
   }
+  return attached;
 }
 
 async function joinUrlFor(meetingId: string): Promise<string> {

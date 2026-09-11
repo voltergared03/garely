@@ -14,6 +14,8 @@ vi.mock('@/lib/google-calendar', () => ({
   GCAL_SCOPE: 'https://www.googleapis.com/auth/calendar',
 }));
 vi.mock('@/lib/org', () => ({ getSingletonOrgId: vi.fn(async () => 'org1') }));
+vi.mock('@/lib/meeting-invite', () => ({ sendMeetingInvite: vi.fn(async () => {}) }));
+vi.mock('@/lib/meeting-reschedule', () => ({ notifyMeetingRescheduled: vi.fn(async () => 1) }));
 vi.mock('@/lib/config', () => ({
   readConfig: vi.fn(async () => ({})),
   num: vi.fn(() => 240),
@@ -275,10 +277,12 @@ describe('syncConnection (Google → Garely)', () => {
       nextSyncToken: 'st',
     }));
     prismaMock.meeting.findFirst.mockResolvedValue({ id: 'm1', externalEtag: '"old"', status: 'scheduled' } as any);
+    prismaMock.meeting.updateMany.mockResolvedValue({ count: 1 } as any);
     prismaMock.user.findMany.mockResolvedValue([] as any);
     const res = await syncConnection(conn());
     expect(res.updated).toBe(1);
-    const upd = prismaMock.meeting.update.mock.calls[0][0] as any;
+    const upd = prismaMock.meeting.updateMany.mock.calls[0][0] as any;
+    expect(upd.where).toEqual({ id: 'm1', externalEtag: '"old"' }); // guarded on the revision we read
     expect(upd.data.title).toBe('Renamed');
     expect(upd.data.durationMin).toBe(30);
   });
@@ -361,5 +365,89 @@ describe('linkGoogleCalendarFromSSO', () => {
     await expect(
       linkGoogleCalendarFromSSO('u1', { access_token: 'at', scope: 'https://www.googleapis.com/auth/calendar' }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('syncConnection: imported meetings are announced like Garely-created ones', () => {
+  const ev = (over: Record<string, unknown> = {}) => ok({
+    items: [{ id: 'ev1', etag: '"e1"', status: 'confirmed', summary: 'Monthly',
+      start: { dateTime: '2026-09-15T09:00:00Z' }, end: { dateTime: '2026-09-15T10:00:00Z' }, ...over }],
+    nextSyncToken: 'st',
+  });
+  const mocks = async () => {
+    const { sendMeetingInvite } = await import('@/lib/meeting-invite');
+    const { notifyMeetingRescheduled } = await import('@/lib/meeting-reschedule');
+    (sendMeetingInvite as any).mockClear(); (notifyMeetingRescheduled as any).mockClear();
+    return { sendMeetingInvite, notifyMeetingRescheduled };
+  };
+  beforeEach(() => {
+    vi.mocked(readConfig).mockResolvedValue({});
+    prismaMock.suppressedEmail.findMany.mockResolvedValue([] as any); // nobody deleted → every attendee passes
+    prismaMock.meeting.findUnique.mockResolvedValue({ id: 'm1', joinToken: 'tok' } as any);
+    prismaMock.meetingParticipant.upsert.mockResolvedValue({} as any);
+    prismaMock.meetingParticipant.findFirst.mockResolvedValue(null as any);
+    prismaMock.meetingParticipant.create.mockResolvedValue({} as any);
+  });
+
+  it('a new event WITH guests sends the invitation — the shared-calendar case that went silent for two weeks', async () => {
+    const m = await mocks();
+    prismaMock.meeting.findFirst.mockResolvedValue(null as any);
+    prismaMock.meeting.create.mockResolvedValue({ id: 'm1' } as any);
+    prismaMock.user.findMany.mockResolvedValue([{ id: 'u2', email: 'a@x.com' }] as any);
+    mockFetch.mockResolvedValueOnce(ev({ attendees: [{ email: 'a@x.com' }, { email: 'guest@else.com' }] })).mockResolvedValueOnce(ok({ etag: '"e2"' }));
+    await syncConnection(conn());
+    expect(m.sendMeetingInvite).toHaveBeenCalledWith('m1', 'invite');
+    expect(m.notifyMeetingRescheduled).not.toHaveBeenCalled();
+  });
+
+  it('a new event with NO guests is the owner\'s own entry: nobody to invite', async () => {
+    const m = await mocks();
+    prismaMock.meeting.findFirst.mockResolvedValue(null as any);
+    prismaMock.meeting.create.mockResolvedValue({ id: 'm1' } as any);
+    prismaMock.user.findMany.mockResolvedValue([] as any);
+    mockFetch.mockResolvedValueOnce(ev()).mockResolvedValueOnce(ok({ etag: '"e2"' }));
+    await syncConnection(conn());
+    expect(m.sendMeetingInvite).not.toHaveBeenCalled();
+  });
+
+  const existing = (over: Record<string, unknown> = {}) => ({
+    id: 'm1', status: 'scheduled', externalEtag: '"e0"', title: 'Monthly', durationMin: 60,
+    scheduledAt: new Date('2026-09-11T10:00:00Z'), ...over,
+  });
+
+  it('a moved event sends "meeting updated" and rings the bell for everyone but the calendar owner', async () => {
+    const m = await mocks();
+    prismaMock.meeting.findFirst.mockResolvedValue(existing() as any);
+    prismaMock.meeting.updateMany.mockResolvedValue({ count: 1 } as any);
+    prismaMock.user.findMany.mockResolvedValue([] as any);
+    mockFetch.mockResolvedValueOnce(ev());
+    const res = await syncConnection(conn());
+    expect(res.updated).toBe(1);
+    expect(prismaMock.meeting.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'm1', externalEtag: '"e0"' } }));
+    expect(m.sendMeetingInvite).toHaveBeenCalledWith('m1', 'update');
+    expect(m.notifyMeetingRescheduled).toHaveBeenCalledWith('m1', { exceptUserId: 'u1' });
+  });
+
+  it('a revision that changes nothing we show (same time, title, duration) writes the etag and stays quiet', async () => {
+    const m = await mocks();
+    prismaMock.meeting.findFirst.mockResolvedValue(existing({ scheduledAt: new Date('2026-09-15T09:00:00Z') }) as any);
+    prismaMock.meeting.updateMany.mockResolvedValue({ count: 1 } as any);
+    prismaMock.user.findMany.mockResolvedValue([] as any);
+    mockFetch.mockResolvedValueOnce(ev());
+    const res = await syncConnection(conn());
+    expect(res.updated).toBe(1);
+    expect(m.sendMeetingInvite).not.toHaveBeenCalled();
+    expect(m.notifyMeetingRescheduled).not.toHaveBeenCalled();
+  });
+
+  it('a runner that loses the etag race sends nothing — one revision, one mail', async () => {
+    const m = await mocks();
+    prismaMock.meeting.findFirst.mockResolvedValue(existing() as any);
+    prismaMock.meeting.updateMany.mockResolvedValue({ count: 0 } as any); // someone else wrote "e1" first
+    mockFetch.mockResolvedValueOnce(ev());
+    const res = await syncConnection(conn());
+    expect(res.skipped).toBe(1);
+    expect(m.sendMeetingInvite).not.toHaveBeenCalled();
+    expect(m.notifyMeetingRescheduled).not.toHaveBeenCalled();
   });
 });

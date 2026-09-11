@@ -627,6 +627,8 @@
     "taskUpdatedTitle": "Завдання оновлено",
     "reportReadyTitle": "Звіт готовий",
     "reportReadyBody": "Звіт по мітингу \"{title}\" згенерований",
+    "meetingRescheduledTitle": "Міт перенесено",
+    "meetingRescheduledBody": "«{title}» тепер {time}",
     "mentionTitle": "Вас згадали в нотатках",
     "mentionBody": "{name} згадав(ла) вас у \"{title}\"",
     "taskCommentTitle": "Новий коментар",
