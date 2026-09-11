@@ -368,7 +368,7 @@ export function UsersTab() {
                   )}
                 </div>
               </div>
-              <div className={`mono ${s.emailCell}`}>{u.email}</div>
+              <div className={`mono ${s.emailCell}`} title={u.email}>{u.email}</div>
               <div className={s.minW0}>
                 <Select
                   value={u.role}

@@ -1,5 +1,5 @@
 /* Page wrapper / toolbar */
-.wrap { max-width: 1000px; margin: 0 auto; }
+.wrap { max-width: 1200px; margin: 0 auto; } /* eight columns need the room; the other tabs stay narrow */
 .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
 .searchWrap { position: relative; flex: 1; }
 .searchIcon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
@@ -34,7 +34,7 @@
 .nameText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .blockedChip { background: var(--warn-bg); color: var(--warn-fg); margin-inline-start: 6px; font-size: 10.5px; }
 .editIconBtn { width: 28px; height: 28px; flex-shrink: 0; opacity: .85; }
-.emailCell { font-size: 12px; color: var(--text-2); }
+.emailCell { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .selectSm { height: 32px; font-size: 12.5px; width: 100%; }
 .langIcon { color: var(--muted); }
 .statusBadge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
