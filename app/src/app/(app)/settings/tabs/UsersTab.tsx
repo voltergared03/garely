@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Select } from '@/components/ui/select';
 import { useSession } from 'next-auth/react';
 import { FieldWrapper } from '../components/shared';
+import { CheckboxGroup } from '@/components/ui/choice';
 import { useSaveErrorToast } from '@/components/save-toast';
 import { Field } from '@/components/ui/field';
 import { isValidEmail, passwordProblem } from '@/lib/form-rules';
@@ -22,8 +23,11 @@ interface UserRecord {
   spokenLanguage?: string | null;
   spokenLanguageLocked?: boolean;
   clickupListId?: string | null;
+  departments?: UserDept[];
 }
 
+interface UserDept { id: string; name: string; color: string | null; isLead: boolean }
+interface DeptOpt { id: string; name: string; color: string | null }
 interface ListOpt { listId: string; label: string }
 
 export function UsersTab() {
@@ -39,6 +43,29 @@ export function UsersTab() {
   const [lists, setLists] = useState<ListOpt[]>([]);
   const [clickupOn, setClickupOn] = useState(false);
   const [listsStale, setListsStale] = useState(false);
+  // Every department of the workspace, for the per-user picker (a person can be in several).
+  const [depts, setDepts] = useState<DeptOpt[]>([]);
+  const [deptEditId, setDeptEditId] = useState<string | null>(null);
+  const [inviteDeptIds, setInviteDeptIds] = useState<string[]>([]);
+  useEffect(() => {
+    fetch('/api/departments').then((r) => (r.ok ? r.json() : [])).then((d) => setDepts(Array.isArray(d) ? d.map((x: any) => ({ id: x.id, name: x.name, color: x.color ?? null })) : [])).catch(() => {});
+  }, []);
+  const setUserDepartments = async (u: UserRecord, ids: string[]) => {
+    const prev = u.departments ?? [];
+    const next = depts.filter((d) => ids.includes(d.id)).map((d) => ({ ...d, isLead: prev.find((x) => x.id === d.id)?.isLead ?? false }));
+    setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, departments: next } : x)));
+    try {
+      const res = await fetch(`/api/users/${u.id}/departments`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ departmentIds: ids }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const d = await res.json();
+      if (Array.isArray(d?.departments)) setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, departments: d.departments } : x)));
+    } catch {
+      setUsers((us) => us.map((x) => (x.id === u.id ? { ...x, departments: prev } : x)));
+      showSaveError(t('settings.error'));
+    }
+  };
   const [editNameId, setEditNameId] = useState<string | null>(null);
   const [editNameVal, setEditNameVal] = useState('');
   const saveName = async (u: UserRecord) => {
@@ -146,11 +173,11 @@ export function UsersTab() {
       const res = withPassword
         ? await fetch('/api/users', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, password: invitePassword }),
+            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, password: invitePassword, departmentIds: inviteDeptIds }),
           })
         : await fetch('/api/users/invite', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+            body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole, departmentIds: inviteDeptIds }),
           });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.user) {
@@ -165,7 +192,7 @@ export function UsersTab() {
             ? (d.emailed ? t('settings.inviteCreatedEmailed') : t('settings.inviteCreatedManual'))
             : (d.emailSent ? t('settings.inviteSent') : t('settings.inviteAddedNoEmail')),
         });
-        setInviteEmail(''); setInvitePassword('');
+        setInviteEmail(''); setInvitePassword(''); setInviteDeptIds([]);
         setTimeout(() => { setInviteOpen(false); setInviteMsg(null); }, 1800);
       } else {
         setInviteMsg({ ok: false, text: d.error || t('settings.error') });
@@ -289,7 +316,7 @@ export function UsersTab() {
           <div className={s.listsWarn} role="status">{t('departments.clickupListsLimited')}</div>
         )}
         <div className={`admin-table-header${clickupOn ? ' has-clickup' : ''} ${s.tableHeader}`}>
-          <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colLanguage')}</div>{clickupOn && <div>{t('settings.colClickup')}</div>}<div>{t('settings.colStatus')}</div><div />
+          <div>{t('settings.colUser')}</div><div>{t('settings.colEmail')}</div><div>{t('settings.colRole')}</div><div>{t('settings.colLanguage')}</div><div>{t('settings.colDepartments')}</div>{clickupOn && <div>{t('settings.colClickup')}</div>}<div>{t('settings.colStatus')}</div><div />
         </div>
         {filtered.map((u) => {
           const isMe = session?.user?.email === u.email;
@@ -398,6 +425,20 @@ export function UsersTab() {
                     }
                   }}
                 />
+              </div>
+              <div className={s.minW0}>
+                <button type="button" className={s.deptCell} title={t('settings.editDepartments', { name: u.name || u.email })} onClick={() => setDeptEditId(u.id)}>
+                  {(u.departments ?? []).length === 0 ? (
+                    <span className={s.deptEmpty}>—</span>
+                  ) : (
+                    (u.departments ?? []).map((d) => (
+                      <span key={d.id} className={`chip ${s.deptChip}`}>
+                        <span className={s.deptDot} style={{ background: d.color || 'var(--accent)' }} />
+                        {d.name}
+                      </span>
+                    ))
+                  )}
+                </button>
               </div>
               {clickupOn && (
                 <div className={s.minW0} title={t('settings.clickupUserListHint')}>
@@ -513,6 +554,32 @@ export function UsersTab() {
         </div>
       </div>
 
+      {deptEditId && (() => {
+        const u = users.find((x) => x.id === deptEditId);
+        if (!u) return null;
+        return (
+          <div onClick={() => setDeptEditId(null)} className={s.modalOverlay}>
+            <div onClick={(e) => e.stopPropagation()} className={`card ${s.modalCard}`} role="dialog" aria-label={t('settings.editDepartments', { name: u.name || u.email })}>
+              <div className={s.modalTitle}>{t('settings.editDepartments', { name: u.name || u.email })}</div>
+              <div className={s.modalDesc}>{t('settings.editDepartmentsHint')}</div>
+              {depts.length === 0 ? (
+                <div className={s.deptEmpty}>{t('settings.noDepartments')}</div>
+              ) : (
+                <CheckboxGroup
+                  values={(u.departments ?? []).map((d) => d.id)}
+                  onChange={(ids) => setUserDepartments(u, ids)}
+                  options={depts.map((d) => ({ value: d.id, label: d.name }))}
+                  label={t('settings.colDepartments')}
+                />
+              )}
+              <div className={s.modalFooterBare}>
+                <button className="btn btn-sm" onClick={() => setDeptEditId(null)}>{t('common.close')}</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {inviteOpen && (
         <div onClick={() => setInviteOpen(false)} className={s.modalOverlay}>
           <div onClick={(e) => e.stopPropagation()} className={`card ${s.modalCard}`}>
@@ -534,6 +601,13 @@ export function UsersTab() {
                 ]} />
               </FieldWrapper>
             </div>
+            {depts.length > 0 && (
+              <div className={s.mt14}>
+                <FieldWrapper label={t('settings.inviteDepartments')}>
+                  <CheckboxGroup values={inviteDeptIds} onChange={setInviteDeptIds} options={depts.map((d) => ({ value: d.id, label: d.name }))} label={t('settings.inviteDepartments')} />
+                </FieldWrapper>
+              </div>
+            )}
             <div className={s.mt14}>
               <Field
                 label={t('settings.tempPasswordOptional')}

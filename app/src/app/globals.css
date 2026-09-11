@@ -1172,11 +1172,11 @@ h2 {
 
   .admin-table-header,
   .admin-table-row {
-    grid-template-columns: minmax(170px, 1.8fr) minmax(160px, 1.6fr) 122px 134px 112px 78px;
+    grid-template-columns: minmax(170px, 1.8fr) minmax(160px, 1.6fr) 122px 134px minmax(150px, 1.4fr) 112px 78px;
   }
   .admin-table-header.has-clickup,
   .admin-table-row.has-clickup {
-    grid-template-columns: minmax(170px, 1.8fr) minmax(160px, 1.6fr) 122px 134px minmax(160px, 1.5fr) 112px 78px;
+    grid-template-columns: minmax(170px, 1.8fr) minmax(160px, 1.6fr) 122px 134px minmax(150px, 1.4fr) minmax(160px, 1.5fr) 112px 78px;
   }
 
   .lobby-header {

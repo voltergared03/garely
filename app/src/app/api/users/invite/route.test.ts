@@ -28,6 +28,7 @@ const mockAuthCfg = vi.mocked(getAuthConfig);
 
 beforeEach(() => {
   mockReset(prismaMock);
+  prismaMock.departmentMember.findMany.mockResolvedValue([] as any); // the invite response lists the user's departments
   mockAuth.mockReset();
   mockAuthCfg.mockReset();
   mockAuthCfg.mockResolvedValue({ passwordEnabled: false } as any);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { attachDepartments, departmentsOfUser } from '@/lib/departments';
 import { auth } from '@/lib/auth';
 import { isValidEmail } from '@/lib/form-rules';
 import { prisma } from '@/lib/prisma';
@@ -53,6 +54,9 @@ async function postHandler(req: NextRequest) {
     await unsuppressEmail(email);
   }
 
+  // Departments ticked on the invite form — a person can belong to several.
+  await attachDepartments(user.id, body.departmentIds);
+
   // Multi-tenancy: ensure the (new or existing) invited user is in the current org.
   const orgId = await getCurrentOrgId(session);
   if (orgId) await ensureMembership(orgId, user.id, role === 'admin' ? 'ADMIN' : 'MEMBER');
@@ -96,7 +100,7 @@ async function postHandler(req: NextRequest) {
     success: true,
     created,
     emailSent: sent.ok,
-    user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role, lastLogin: user.lastLogin },
+    user: { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role, lastLogin: user.lastLogin, departments: await departmentsOfUser(user.id) },
   });
 }
 

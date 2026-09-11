@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { unsuppressEmail } from '@/lib/suppression';
 import { isValidEmail } from '@/lib/form-rules';
 import { hashPassword, passwordPolicyError } from "@/lib/password";
+import { attachDepartments, departmentsOfUser } from "@/lib/departments";
 import { sendEmail } from "@/lib/email";
 import { readConfig, CONFIG_DEFAULTS, publicBaseUrl } from "@/lib/config";
 import { getTranslator, workspaceLocale } from "@/lib/i18n-server";
@@ -39,8 +40,21 @@ export async function GET(req: NextRequest) {
   // Expose only whether a password is set (never the hash). Also surface the
   // forced spoken language so admins can see/change it in the Users list.
   const isAdmin = session.user.role === "admin";
+  // Every membership in one query, grouped per user: a person can be in several
+  // departments, and the list has to show all of them, not the first.
+  const memberships = await prisma.departmentMember.findMany({
+    where: { userId: { in: (users as any[]).map((u) => u.id) } },
+    select: { userId: true, isLead: true, department: { select: { id: true, name: true, color: true } } },
+  });
+  const deptsByUser = new Map<string, { id: string; name: string; color: string | null; isLead: boolean }[]>();
+  for (const m of memberships) {
+    const arr = deptsByUser.get(m.userId) ?? [];
+    arr.push({ id: m.department.id, name: m.department.name, color: m.department.color, isLead: m.isLead });
+    deptsByUser.set(m.userId, arr);
+  }
   const safe = (users as any[]).map(({ passwordHash, preferences, clickupListId, ...u }) => ({
     ...u,
+    departments: (deptsByUser.get(u.id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
     hasPassword: !!passwordHash,
     spokenLanguage: (preferences as any)?.spokenLanguage ?? null,
     spokenLanguageLocked: !!(preferences as any)?.spokenLanguageLocked,
@@ -95,6 +109,8 @@ export async function POST(req: NextRequest) {
   });
   // Someone re-added after being deleted must be reachable again.
   await unsuppressEmail(email);
+  // Departments ticked on the form — a person can belong to several.
+  await attachDepartments(user.id, body.departmentIds);
 
   // Multi-tenancy: enroll the new user into the current org.
   const orgId = await getCurrentOrgId(session);
@@ -128,5 +144,5 @@ export async function POST(req: NextRequest) {
     emailed = false;
   }
 
-  return NextResponse.json({ ok: true, user, emailed }, { status: 201 });
+  return NextResponse.json({ ok: true, user: { ...user, departments: await departmentsOfUser(user.id) }, emailed }, { status: 201 });
 }
