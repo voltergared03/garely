@@ -4,6 +4,32 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.13] — 2026-09-11
+
+Meetings that arrive from Google are announced, and a person can be in more than one department.
+
+### Added
+- **A person's departments on the Users list.** Membership was always many-to-many, but the
+  only way to put someone in two departments was the Departments tab, one department at a
+  time — and the Users list showed no departments at all, so it read as "one per person".
+  The list now has a Departments column: a chip per department, click to tick any number
+  of them. The invite dialog takes departments too, so a new colleague lands in the right
+  places before their first sign-in.
+
+### Fixed
+- **Meetings imported from a Google calendar were never announced.** A meeting that reached
+  Garely through a connected calendar got no invitation, no "meeting updated" when the event
+  was dragged to another day, and no bell — Google only mails the guests the organizer chose
+  to notify, and on a shared team calendar that is usually nobody. A monthly call sat on
+  nine people's calendars for two weeks without a single email. Imported events with guests
+  now get Garely's invitation with the join link and .ics; a change of time, duration or
+  title sends "meeting updated", and a time change also rings the in-app bell for every
+  participant — from the calendar and from the edit dialog alike. When several sync runners
+  see the same revision at once, exactly one of them sends the mail.
+- **The Users table overflowed its card** once the Departments column arrived: status and
+  actions were cut off and every email wrapped. The card is wider, the columns tighter,
+  emails stay on one line, and the tablet layout carries the new column too.
+
 ## [1.25.0-beta.12] — 2026-09-09
 
 A meeting's switches are no longer set in stone the moment it is scheduled.
@@ -1189,6 +1215,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.13]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.13
 [1.25.0-beta.12]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.12
 [1.25.0-beta.11]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.11
 [1.25.0-beta.10]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.10
