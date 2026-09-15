@@ -13,6 +13,9 @@ const req = (method: string, params?: Record<string, unknown>, id: string | numb
 
 describe('MCP protocol', () => {
   it('initialize speaks the client\'s version when we support it, ours when we do not', async () => {
+    // Anthropic's connector asks for 2025-11-25; offered an older revision it disconnects.
+    const anthropic = await handleRpc(req('initialize', { protocolVersion: '2025-11-25' }), ctx());
+    expect((anthropic as any).result.protocolVersion).toBe('2025-11-25');
     const older = await handleRpc(req('initialize', { protocolVersion: '2024-11-05' }), ctx());
     expect((older as any).result.protocolVersion).toBe('2024-11-05');
     const future = await handleRpc(req('initialize', { protocolVersion: '2099-01-01' }), ctx());

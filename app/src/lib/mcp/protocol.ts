@@ -10,7 +10,11 @@
  * the error codes and the dispatch are unit-testable without a server.
  */
 
-export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+// Newest first. Anthropic's hosted connector asks for 2025-11-25 and, offered anything
+// older, disconnects after initialize exactly as the spec tells it to — which looked
+// like "connects, never lists tools". The surface this server uses (initialize, ping,
+// tools/list, tools/call, notifications) is unchanged across these revisions.
+export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 export const LATEST_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 export const SERVER_NAME = 'garely';
 
