@@ -13,6 +13,7 @@ import { signOut } from 'next-auth/react';
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locales';
 import { Toggle, FieldWrapper } from '../components/shared';
 import { PasswordSection } from './PasswordSection';
+import { McpSection } from './McpSection';
 import s from './ProfileTab.module.css';
 
 // Two-way Google Calendar sync — per-user OAuth into a dedicated "Garely"
@@ -278,6 +279,10 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
         <div className={s.sectionTitle}>{t('settings.security')}</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
         <PasswordSection hasPassword={hasPassword} />
+      </div>
+
+      <div className={`card ${s.cardPad}`}>
+        <McpSection />
         <div className={s.securityRow}>
           <div>
             <div className={s.signOutTitle}>{t('settings.signOutTitle')}</div>

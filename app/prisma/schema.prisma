@@ -94,6 +94,26 @@ model User {
   taskAssignments       TaskAssignment[]
   baseMemberships       BaseMember[]
   googleCalendar        GoogleCalendarConnection?
+  mcpTokens             McpToken[]
+}
+
+// Personal access token for the MCP endpoint (Claude and other agents connect with it).
+// Shown once at creation and stored only as a SHA-256 hash. Every MCP call resolves to
+// this user, so an agent sees exactly what the person sees in the web UI — never more.
+model McpToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique // sha256 hex of the token; a fast hash so lookup is a single indexed read
+  tokenPrefix String // first characters, to tell tokens apart in the UI
+  scopes      String    @default("read") // comma-separated; only `read` exists today
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // Web Push (PWA) subscription endpoints — one user can have many devices.
