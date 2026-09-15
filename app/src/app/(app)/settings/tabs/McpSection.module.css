@@ -4,6 +4,7 @@
 .title { font-size: 14px; font-weight: 600; color: var(--text); }
 .desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
 .row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.row:last-of-type { border-bottom: none; }
 .rowMain { min-width: 0; flex: 1; }
 .rowName { font-size: 13px; color: var(--text); }
 .rowMeta { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }

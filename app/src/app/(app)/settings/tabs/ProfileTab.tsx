@@ -279,10 +279,6 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
         <div className={s.sectionTitle}>{t('settings.security')}</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
         <PasswordSection hasPassword={hasPassword} />
-      </div>
-
-      <div className={`card ${s.cardPad}`}>
-        <McpSection />
         <div className={s.securityRow}>
           <div>
             <div className={s.signOutTitle}>{t('settings.signOutTitle')}</div>
@@ -292,6 +288,10 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
             <LogOut size={13} /> {t('sidebar.signOut')}
           </button>
         </div>
+      </div>
+
+      <div className={`card ${s.cardPad}`}>
+        <McpSection />
       </div>
     </div>
   );
