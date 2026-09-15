@@ -1257,7 +1257,7 @@
     "mcpHeader": "Header",
     "mcpCopy": "Copy",
     "mcpCopied": "Copied",
-    "mcpConnectHint": "Copy one of the blocks above. The token is part of it — treat it like a password, and revoke it here if it leaks.",
+    "mcpConnectHint": "Copy one of the blocks above. In a connector dialog that asks about sign-in, choose \"No sign-in\" and add the Authorization header — this server uses a token, not OAuth. The token is part of it: treat it like a password, and revoke it here if it leaks.",
     "mcpRevoke": "Revoke",
     "mcpRevokeConfirm": "Revoke \"{name}\"? Any agent using it loses access immediately.",
     "mcpLastUsed": "last used {date}",

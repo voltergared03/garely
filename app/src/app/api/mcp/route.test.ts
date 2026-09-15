@@ -33,12 +33,15 @@ const post = async (body: unknown, auth = 'Bearer gmcp_test') => {
 const call = (name: string) => ({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: {} } });
 
 describe('POST /api/mcp', () => {
-  it('refuses a request with no usable token, and says how to authenticate', async () => {
+  it('refuses a request with no usable token, and says in words how to authenticate', async () => {
     vi.mocked(resolveToken).mockResolvedValue(null);
     const res = await post(call('list_decisions'), 'Bearer nonsense');
     expect(res.status).toBe(401);
-    expect(res.headers.get('WWW-Authenticate')).toMatch(/Bearer/);
     expect(callTool).not.toHaveBeenCalled();
+    // No WWW-Authenticate: to an MCP client that header means OAuth, and Claude Desktop
+    // then offers a sign-in flow this server does not have.
+    expect(res.headers.get('WWW-Authenticate')).toBeNull();
+    expect((await res.json()).error.data.how).toMatch(/No sign-in/);
   });
 
   it('charges the limiter once per message, against the token AND its owner', async () => {

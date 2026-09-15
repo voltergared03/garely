@@ -20,7 +20,15 @@ claude mcp add --transport http garely https://meet.example.com/api/mcp \
   --header "Authorization: Bearer gmcp_…"
 ```
 
-Claude Desktop: add the same URL and header under MCP servers in settings.
+Claude Desktop, as a custom connector (Settings → Connectors → Add custom connector):
+
+1. URL: `https://<your-garely>/api/mcp`
+2. Authentication: **No sign-in**. This server authenticates with a personal token, not
+   OAuth — the other options start a sign-in flow it does not have.
+3. Request headers: add `Authorization` with the value `Bearer gmcp_…`
+4. Add.
+
+The token panel in Settings → Profile prints all of this with your token already in it.
 
 Then just ask:
 

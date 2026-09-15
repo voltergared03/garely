@@ -46,10 +46,26 @@ function limited(retryAfter: number) {
   );
 }
 
+/**
+ * Deliberately WITHOUT a `WWW-Authenticate` header. To an MCP client that header is the
+ * OAuth signal: Claude Desktop saw it and offered "Sign in now — Detected", which would
+ * then fail, because this server has no OAuth flow and every discovery path 404s. It
+ * authenticates with a personal token instead, so the 401 says that in words.
+ */
 function unauthorized(message: string) {
   return NextResponse.json(
-    { jsonrpc: '2.0', id: null, error: { code: -32001, message } },
-    { status: 401, headers: { 'WWW-Authenticate': 'Bearer realm="garely-mcp"' } },
+    {
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32001,
+        message,
+        data: {
+          how: 'Create a personal token in Garely under Settings → Profile → Connect an AI agent, then send it as the header: Authorization: Bearer <token>. This server uses a token, not OAuth — in a connector dialog choose "No sign-in" and add that header.',
+        },
+      },
+    },
+    { status: 401 },
   );
 }
 
