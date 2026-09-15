@@ -150,6 +150,15 @@ function logRpc(msg: RpcRequest, answer: Awaited<ReturnType<typeof handleRpc>>, 
     // server/discover is a client probe, not a user action, and its shape is undocumented:
     // keep its params so the handler can be matched to what the client actually sends.
     ...(msg?.method === 'server/discover' ? { params: JSON.stringify(msg.params ?? null).slice(0, 500) } : {}),
+    // On initialize the client says who it is and which protocol revision it wants, and
+    // its headers say whether it expects a session id. None of that is user data, and it
+    // is exactly what decides whether a client accepts our reply or starts over.
+    ...(msg?.method === 'initialize' ? {
+      params: JSON.stringify(msg.params ?? null).slice(0, 400),
+      accept: req.headers.get('accept'),
+      protocolVersionHeader: req.headers.get('mcp-protocol-version'),
+      sessionIdSent: !!req.headers.get('mcp-session-id'),
+    } : {}),
   });
 }
 
