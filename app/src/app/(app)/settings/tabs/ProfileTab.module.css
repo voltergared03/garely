@@ -3,8 +3,11 @@
   padding: 18px 22px;
   margin-bottom: 18px;
 }
-.cardPadOnly {
-  padding: 18px 22px;
+/* Whichever card ends up last loses its trailing margin on its own. There used to be
+   a second class for that, which meant the card below a "last" card sat flush against
+   it the moment one was added. */
+.cardPad:last-child {
+  margin-bottom: 0;
 }
 
 /* Google Calendar card */

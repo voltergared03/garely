@@ -275,7 +275,7 @@ export function ProfileTab({ session: sess, updateSession }: { session: any; upd
 
       <GoogleCalendarCard />
 
-      <div className={`card ${s.cardPadOnly}`}>
+      <div className={`card ${s.cardPad}`}>
         <div className={s.sectionTitle}>{t('settings.security')}</div>
         <TwoFactorSecurity enabled={twoFactorEnabled} />
         <PasswordSection hasPassword={hasPassword} />
