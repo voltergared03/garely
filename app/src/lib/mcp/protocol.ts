@@ -91,6 +91,18 @@ export async function handleRpc(msg: RpcRequest, ctx: RpcContext): Promise<RpcRe
     case 'ping':
       return ok(id, {});
 
+    // Not in the MCP spec. Claude's remote-connector service sends it right after
+    // initialize and, on a -32601, stops without ever calling tools/list — the connector
+    // shows connected for a moment and then drops. Answer with everything a discovery
+    // could want: the same envelope initialize returns, plus the tool list.
+    case 'server/discover':
+      return ok(id, {
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: SERVER_NAME, version: ctx.version },
+        tools: ctx.tools,
+      });
+
     case 'tools/list':
       return ok(id, { tools: ctx.tools });
 

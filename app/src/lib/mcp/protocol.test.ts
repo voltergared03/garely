@@ -57,6 +57,13 @@ describe('MCP protocol', () => {
     expect(((await handleRpc(req('logging/setLevel', { level: 'info' }), ctx())) as any).result).toEqual({});
   });
 
+  it('answers Claude\'s non-standard server/discover with a result, since an error there ends the connection', async () => {
+    const r = (await handleRpc(req('server/discover', {}), ctx())) as any;
+    expect(r.error).toBeUndefined();
+    expect(r.result.serverInfo.name).toBe('garely');
+    expect(r.result.tools).toHaveLength(1);
+  });
+
   it('refuses an unknown tool and an unknown method', async () => {
     const unknownTool = (await handleRpc(req('tools/call', { name: 'delete_everything' }), ctx())) as any;
     expect(unknownTool.error.code).toBe(RPC_ERRORS.invalidParams);

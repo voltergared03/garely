@@ -147,6 +147,9 @@ function logRpc(msg: RpcRequest, answer: Awaited<ReturnType<typeof handleRpc>>, 
     tool: typeof tool === 'string' ? tool : undefined,
     kind,
     userAgent: req.headers.get('user-agent')?.slice(0, 60) ?? null,
+    // server/discover is a client probe, not a user action, and its shape is undocumented:
+    // keep its params so the handler can be matched to what the client actually sends.
+    ...(msg?.method === 'server/discover' ? { params: JSON.stringify(msg.params ?? null).slice(0, 500) } : {}),
   });
 }
 
