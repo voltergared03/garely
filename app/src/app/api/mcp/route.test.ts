@@ -44,6 +44,17 @@ describe('POST /api/mcp', () => {
     expect((await res.json()).error.data.how).toMatch(/No sign-in/);
   });
 
+  it('tells apart "sent nothing" from "sent something we rejected"', async () => {
+    // A connector left on OAuth attaches no custom header at all; a revoked or mistyped
+    // token does arrive. The log line distinguishes them so a failure is diagnosable.
+    vi.mocked(resolveToken).mockResolvedValue(null);
+    const none = await post(call('list_decisions'), 'Basic irrelevant');
+    expect((await none.json()).error.message).toMatch(/no MCP token was sent/);
+
+    const rejected = await post(call('list_decisions'), 'Bearer gmcp_revoked');
+    expect((await rejected.json()).error.message).toMatch(/not valid, expired or revoked/);
+  });
+
   it('charges the limiter once per message, against the token AND its owner', async () => {
     await post(call('list_decisions'));
     const keys = vi.mocked(rateLimit).mock.calls.map((c) => c[0]);

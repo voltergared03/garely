@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withRoute } from '@/lib/with-route';
+import { logger } from '@/lib/logger';
 import { rateLimit } from '@/lib/rate-limit';
 import { bearerFrom, resolveToken, type McpIdentity } from '@/lib/mcp/auth';
 import { handleRpc, type RpcRequest } from '@/lib/mcp/protocol';
@@ -70,8 +71,20 @@ function unauthorized(message: string) {
 }
 
 export const POST = withRoute('mcp.rpc', async (req: NextRequest) => {
-  const identity = await resolveToken(bearerFrom(req.headers.get('authorization')));
-  if (!identity) return unauthorized('missing or invalid MCP token');
+  const presented = bearerFrom(req.headers.get('authorization'));
+  const identity = await resolveToken(presented);
+  if (!identity) {
+    // Which of the two it is decides where to look: a client that sends no credential
+    // at all is configured wrong (a connector left on OAuth never attaches the custom
+    // header), while a rejected one means a revoked, expired or mistyped token. The
+    // credential itself is never logged — only whether one arrived.
+    logger.warn('mcp_unauthorized', {
+      presentedCredential: !!presented,
+      reason: presented ? 'token_not_accepted' : 'no_bearer_header',
+      userAgent: req.headers.get('user-agent')?.slice(0, 120) ?? null,
+    });
+    return unauthorized(presented ? 'this MCP token is not valid, expired or revoked' : 'no MCP token was sent');
+  }
 
   let payload: unknown;
   try {
