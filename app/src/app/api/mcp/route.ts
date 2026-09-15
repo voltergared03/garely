@@ -129,8 +129,26 @@ export const POST = withRoute('mcp.rpc', async (req: NextRequest) => {
   }
 
   const answer = await handleRpc(payload as RpcRequest, ctx);
+  logRpc(payload as RpcRequest, answer, req);
   return answer ? NextResponse.json(answer) : new NextResponse(null, { status: 202 });
 });
+
+/**
+ * One line per call: method, tool name, and whether the reply was a result, an error or
+ * nothing (a notification). Never the arguments and never the token — enough to see what
+ * a client does after initialize, which is exactly what was missing when Claude's
+ * connector kept resetting and the access log showed only byte counts.
+ */
+function logRpc(msg: RpcRequest, answer: Awaited<ReturnType<typeof handleRpc>>, req: NextRequest) {
+  const kind = !answer ? 'notification' : 'error' in answer ? `error:${answer.error.code}` : 'result';
+  const tool = msg?.method === 'tools/call' ? (msg.params as { name?: unknown } | undefined)?.name : undefined;
+  logger.info('mcp_rpc', {
+    method: msg?.method ?? null,
+    tool: typeof tool === 'string' ? tool : undefined,
+    kind,
+    userAgent: req.headers.get('user-agent')?.slice(0, 60) ?? null,
+  });
+}
 
 /** No server-initiated stream: clients that probe for SSE should fall back to POST. */
 export const GET = withRoute('mcp.sse', async () =>

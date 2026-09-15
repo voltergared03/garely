@@ -94,6 +94,19 @@ export async function handleRpc(msg: RpcRequest, ctx: RpcContext): Promise<RpcRe
     case 'tools/list':
       return ok(id, { tools: ctx.tools });
 
+    // This server has tools only. Clients still ask for the other primitives right after
+    // initialize — Claude's remote connector sends resources/list and, on a -32601, drops
+    // the session and starts over, never reaching tools/list. An empty list is the honest
+    // answer and keeps the handshake alive.
+    case 'resources/list':
+      return ok(id, { resources: [] });
+    case 'resources/templates/list':
+      return ok(id, { resourceTemplates: [] });
+    case 'prompts/list':
+      return ok(id, { prompts: [] });
+    case 'logging/setLevel':
+      return ok(id, {});
+
     case 'tools/call': {
       const params = (msg.params || {}) as { name?: unknown; arguments?: unknown };
       if (typeof params.name !== 'string') {

@@ -50,6 +50,13 @@ describe('MCP protocol', () => {
     expect(r.result.content[0].text).toMatch(/meeting_id is required/);
   });
 
+  it('answers the other primitives with empty lists instead of an error — a -32601 there resets Claude\'s connector', async () => {
+    expect(((await handleRpc(req('resources/list'), ctx())) as any).result).toEqual({ resources: [] });
+    expect(((await handleRpc(req('resources/templates/list'), ctx())) as any).result).toEqual({ resourceTemplates: [] });
+    expect(((await handleRpc(req('prompts/list'), ctx())) as any).result).toEqual({ prompts: [] });
+    expect(((await handleRpc(req('logging/setLevel', { level: 'info' }), ctx())) as any).result).toEqual({});
+  });
+
   it('refuses an unknown tool and an unknown method', async () => {
     const unknownTool = (await handleRpc(req('tools/call', { name: 'delete_everything' }), ctx())) as any;
     expect(unknownTool.error.code).toBe(RPC_ERRORS.invalidParams);
