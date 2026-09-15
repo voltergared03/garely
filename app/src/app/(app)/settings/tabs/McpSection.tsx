@@ -13,28 +13,54 @@ interface TokenRow {
   lastUsedAt: string | null;
 }
 
+/** One paste-ready block with its own copy button, so copying one does not reset another. */
+function Snippet({ label, value }: { label: string; value: string }) {
+  const t = useTranslations();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* the text is selectable, so copying by hand still works */ }
+  };
+  return (
+    <div className={s.snippet}>
+      <div className={s.snippetHead}>
+        <span className={s.snippetLabel}>{label}</span>
+        <button className={`btn btn-sm ${s.copyBtn}`} onClick={copy}>
+          {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? t('settings.mcpCopied') : t('settings.mcpCopy')}
+        </button>
+      </div>
+      <code className={s.snippetBody}>{value}</code>
+    </div>
+  );
+}
+
 /**
- * Personal tokens for the MCP endpoint — how a person points Claude at this
- * workspace. The token is theirs, not the workspace's: an agent holding it reads
- * exactly the meetings its owner can open, so it is created and revoked here on
- * the profile, never by an admin on someone else's behalf.
+ * Personal tokens for the MCP endpoint — how a person points Claude at this workspace.
+ * The token is theirs, not the workspace's: an agent holding it reads exactly the
+ * meetings its owner can open, so it is created and revoked here on the profile.
  *
- * The plaintext exists for one render. There is no "show again": the server keeps
- * only a hash, and a lost token is replaced, not recovered.
+ * On creation the whole connection is rendered, not just the secret: the command, the
+ * JSON block and the raw URL/header pair. A bare token leaves the person to work out
+ * the address and the header shape themselves, which is where a setup usually stalls.
+ * It is shown once — the server keeps only a hash.
  */
 export function McpSection() {
   const t = useTranslations();
   const [tokens, setTokens] = useState<TokenRow[]>([]);
+  const [mcpUrl, setMcpUrl] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [fresh, setFresh] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const d = await fetch('/api/account/mcp-tokens').then((r) => (r.ok ? r.json() : null));
       if (Array.isArray(d?.tokens)) setTokens(d.tokens);
+      if (typeof d?.mcpUrl === 'string') setMcpUrl(d.mcpUrl);
     } catch { /* the list just stays as it was */ }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -42,7 +68,7 @@ export function McpSection() {
   const create = async () => {
     const trimmed = name.trim();
     if (!trimmed) { setErr(t('settings.mcpNameRequired')); return; }
-    setBusy(true); setErr(null); setFresh(null); setCopied(false);
+    setBusy(true); setErr(null); setFresh(null);
     try {
       const res = await fetch('/api/account/mcp-tokens', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -50,6 +76,7 @@ export function McpSection() {
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d.token) {
+        if (typeof d.mcpUrl === 'string') setMcpUrl(d.mcpUrl);
         setFresh(d.token);
         setName('');
         await load();
@@ -70,10 +97,13 @@ export function McpSection() {
     } catch { setTokens(prev); setErr(t('settings.error')); }
   };
 
-  const copy = async () => {
-    if (!fresh) return;
-    try { await navigator.clipboard.writeText(fresh); setCopied(true); } catch { /* selection still works */ }
-  };
+  const url = mcpUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/mcp` : '');
+  const authHeader = `Authorization: Bearer ${fresh ?? ''}`;
+  const cliCommand = `claude mcp add --transport http garely ${url} --header "${authHeader}"`;
+  const jsonConfig = JSON.stringify(
+    { mcpServers: { garely: { type: 'http', url, headers: { Authorization: `Bearer ${fresh ?? ''}` } } } },
+    null, 2,
+  );
 
   return (
     <div>
@@ -82,6 +112,7 @@ export function McpSection() {
         <div className={s.title}>{t('settings.mcpTitle')}</div>
       </div>
       <div className={s.desc}>{t('settings.mcpDesc')}</div>
+      {url && <div className={s.endpoint}>{t('settings.mcpEndpoint')}: {url}</div>}
 
       {tokens.length === 0 ? (
         <div className={s.empty}>{t('settings.mcpEmpty')}</div>
@@ -120,10 +151,12 @@ export function McpSection() {
       {fresh && (
         <div className={s.fresh}>
           <div className={s.freshLabel}>{t('settings.mcpCreated')}</div>
-          <code className={s.freshToken}>{fresh}</code>
-          <button className="btn btn-sm" onClick={copy} style={{ marginTop: 8 }}>
-            {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? t('settings.mcpCopied') : t('settings.mcpCopy')}
-          </button>
+          <div className={s.snippets}>
+            <Snippet label={t('settings.mcpForClaudeCode')} value={cliCommand} />
+            <Snippet label={t('settings.mcpForConfig')} value={jsonConfig} />
+            <Snippet label={t('settings.mcpEndpoint')} value={url} />
+            <Snippet label={t('settings.mcpHeader')} value={authHeader} />
+          </div>
           <div className={s.freshHint}>{t('settings.mcpConnectHint')}</div>
         </div>
       )}

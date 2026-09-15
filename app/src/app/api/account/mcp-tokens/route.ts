@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/api-auth';
 import { withRoute } from '@/lib/with-route';
 import { jsonError } from '@/lib/http';
 import { generateToken } from '@/lib/mcp/auth';
+import { publicBaseUrl } from '@/lib/config';
 
 /**
  * A user's own MCP tokens. Personal by design: the token carries its owner's
@@ -13,6 +14,16 @@ import { generateToken } from '@/lib/mcp/auth';
 
 const MAX_ACTIVE_TOKENS = 10;
 
+/**
+ * The address a client must be pointed at. Taken from the workspace's configured public
+ * URL rather than from the browser's location: behind a proxy, an admin panel opened on
+ * an internal hostname would otherwise hand out a URL no agent can reach.
+ */
+async function mcpEndpoint(): Promise<string> {
+  const base = (await publicBaseUrl()).replace(/\/+$/, '');
+  return `${base}/api/mcp`;
+}
+
 export const GET = withRoute('mcp.tokens.list', async () => {
   const session = await requireAuth();
   if (session instanceof Response) return session;
@@ -21,7 +32,7 @@ export const GET = withRoute('mcp.tokens.list', async () => {
     select: { id: true, name: true, tokenPrefix: true, createdAt: true, lastUsedAt: true },
     orderBy: { createdAt: 'desc' },
   });
-  return NextResponse.json({ tokens });
+  return NextResponse.json({ tokens, mcpUrl: await mcpEndpoint() });
 });
 
 export const POST = withRoute('mcp.tokens.create', async (req: NextRequest) => {
@@ -39,8 +50,9 @@ export const POST = withRoute('mcp.tokens.create', async (req: NextRequest) => {
     data: { userId: session.user.id, name, tokenHash, tokenPrefix },
     select: { id: true, name: true, tokenPrefix: true, createdAt: true, lastUsedAt: true },
   });
-  // The only time the plaintext exists outside the client's config file.
-  return NextResponse.json({ token, ...row }, { status: 201 });
+  // The only time the plaintext exists outside the client's config file — so the
+  // response carries everything needed to paste a working connection somewhere.
+  return NextResponse.json({ token, mcpUrl: await mcpEndpoint(), ...row }, { status: 201 });
 });
 
 export const DELETE = withRoute('mcp.tokens.revoke', async (req: NextRequest) => {
