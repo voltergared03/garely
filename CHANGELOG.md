@@ -4,6 +4,36 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.15] — 2026-09-17
+
+Claude can read your meetings, and deleting a colleague no longer leaves them on their tasks.
+
+### Added
+- **Connect Claude (or any MCP client) to the workspace.** Settings → Profile issues a personal
+  token; point Claude at the workspace and ask it to go through the meetings — it can search
+  transcripts, open reports, pull decisions and tasks. It sees exactly what you see: an admin
+  reaches every meeting, everyone else only the ones they ran or attended, and never outside
+  their organization. Tokens are listed with their last use and can be revoked one by one.
+  Creating one now shows the whole connection — address, header, ready-made command and config
+  block — not just the naked secret.
+
+### Fixed
+- **A deleted colleague stayed on every task they were assigned.** Task assignments hold a bare
+  user id with no database link back to the person, so deleting an account left the assignments
+  behind: a nameless avatar among the assignees, and — on each task they led — no responsible
+  person at all, which also left the ClickUp routing with nobody to send the task to. Deleting
+  a user now clears their assignments, their collaborations and the assignee column in one
+  transaction, and the leftovers from earlier deletions have been cleared out.
+- **Claude's connector dropped the connection right after it was added.** It asked for a newer
+  revision of the protocol than Garely offered and hung up on the spot, and three of the probes
+  it makes on connect were answered with errors — including a sign-in prompt for an
+  authentication method Garely does not run.
+
+### Known issues
+- **MCP is still rough.** The connector does not always survive a refresh, and hosted clients
+  can go quiet after a few failed attempts — re-adding the connector is the way out for now.
+  Treat it as a preview rather than something to lean on.
+
 ## [1.25.0-beta.14] — 2026-09-11
 
 ### Fixed
@@ -1222,6 +1252,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.15]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.15
 [1.25.0-beta.14]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.14
 [1.25.0-beta.13]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.13
 [1.25.0-beta.12]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.12
