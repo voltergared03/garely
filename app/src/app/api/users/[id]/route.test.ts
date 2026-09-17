@@ -5,18 +5,28 @@ vi.mock('@/lib/auth', () => ({ auth: vi.fn() }));
 vi.mock('@/lib/with-route', () => ({ withRoute: (_n: string, h: any) => h }));
 vi.mock('next-intl/server', () => ({ getTranslations: vi.fn(async () => (k: string) => k) }));
 vi.mock('@/lib/suppression', () => ({ suppressEmail: vi.fn(async () => {}) }));
+vi.mock('@/lib/tasks', () => ({ purgeUserFromTasks: vi.fn(async () => 0) }));
+
+// The delete runs as an INTERACTIVE transaction, so the mock has to hand the handler
+// a client to work on; `tx` doubles as the assertion surface for what ran inside it.
+const tx = vi.hoisted(() => ({
+  meeting: { updateMany: vi.fn() },
+  meetingParticipant: { deleteMany: vi.fn() },
+  user: { delete: vi.fn() },
+}));
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
     meeting: { updateMany: vi.fn() },
     meetingParticipant: { deleteMany: vi.fn() },
-    $transaction: vi.fn(async () => []),
+    $transaction: vi.fn(async (arg: any) => (typeof arg === 'function' ? arg(tx) : [])),
   },
 }));
 
-import { PATCH } from '@/app/api/users/[id]/route';
+import { DELETE, PATCH } from '@/app/api/users/[id]/route';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { purgeUserFromTasks } from '@/lib/tasks';
 
 const mAuth = vi.mocked(auth);
 const findUnique = vi.mocked(prisma.user.findUnique);
@@ -86,5 +96,38 @@ describe('PATCH /api/users/[id] — blocking an account', () => {
     findUnique.mockResolvedValue({ id: 'u9', role: 'member' } as any);
     const r = await PATCH(jsonReq('PATCH', { status: 'disabled' }), ctx({ id: 'u2' }));
     expect(r.status).toBe(403);
+  });
+});
+
+describe('DELETE /api/users/[id] — leaving nothing behind', () => {
+  beforeEach(() => {
+    findUnique.mockImplementation(async ({ where }: any) =>
+      (where.email ? { id: 'admin1', role: 'admin' } : { id: 'u2', role: 'member', email: 'b@x.com' }) as any,
+    );
+  });
+
+  it('strips the task assignments inside the same transaction, BEFORE the user row goes', async () => {
+    // RowAssignment/RowCollaborator hold a bare userId with no FK, so a delete that
+    // skips this leaves the person on every task they were ever assigned.
+    const r = await DELETE(jsonReq('DELETE', {}), ctx({ id: 'u2' }));
+
+    expect(r.status).toBe(200);
+    expect(purgeUserFromTasks).toHaveBeenCalledWith('u2', tx);
+    expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: 'u2' } });
+    expect(vi.mocked(purgeUserFromTasks).mock.invocationCallOrder[0])
+      .toBeLessThan(tx.user.delete.mock.invocationCallOrder[0]);
+  });
+
+  it('keeps the purge on the transaction client, so a failed delete rolls it back', async () => {
+    tx.user.delete.mockRejectedValueOnce(new Error('boom'));
+    await expect(DELETE(jsonReq('DELETE', {}), ctx({ id: 'u2' }))).rejects.toThrow('boom');
+    // The purge ran on `tx`, never on the bare client — so the rollback takes it with it.
+    expect(purgeUserFromTasks).toHaveBeenCalledWith('u2', tx);
+  });
+
+  it('refuses to delete your own account before touching anything', async () => {
+    const r = await DELETE(jsonReq('DELETE', {}), ctx({ id: 'admin1' }));
+    expect(r.status).toBe(400);
+    expect(purgeUserFromTasks).not.toHaveBeenCalled();
   });
 });

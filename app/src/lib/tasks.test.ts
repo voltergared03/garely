@@ -12,6 +12,7 @@ import {
   deleteTaskField,
   listTaskFields,
   myOpenTasks,
+  purgeUserFromTasks,
 } from '@/lib/tasks';
 import { getCurrentOrgId } from '@/lib/org';
 
@@ -26,6 +27,7 @@ vi.mock('@/lib/prisma');
 vi.mock('@/lib/system-tasks-table', () => ({
   getSystemTasksTable: vi.fn(async () => PROV),
   provisionSystemTasksTable: vi.fn(async () => PROV),
+  TASK_FIELD_NAMES: { title: 'Title', description: 'Description', status: 'Status', priority: 'Priority', dueDate: 'Due date', assignee: 'Assignee' },
 }));
 vi.mock('@/lib/access', () => ({ userDepartmentIds: vi.fn(async () => []), userCanAccessMeeting: vi.fn(), userCanViewTask: vi.fn() }));
 vi.mock('@/lib/org', () => ({ getCurrentOrgId: vi.fn(async () => 'org-A'), requireCurrentOrgId: vi.fn() }));
@@ -290,5 +292,68 @@ describe('myOpenTasks — dashboard ordering', () => {
     ].map((r, i) => (i === 0 ? { ...r, data: { ...r.data, fS: 'done' } } : r)) as any);
     const out = await myOpenTasks({ user: { id: 'u1' } } as any);
     expect(out.map((t) => t.title)).toEqual(['hi', 'none']); // done filtered; blank priority last
+  });
+});
+
+describe('purgeUserFromTasks — a deleted user must not linger on tasks', () => {
+  it('clears both people tables AND the denormalized person cell', async () => {
+    // RowAssignment.userId has no FK to User, so nothing cascades: whatever this
+    // function misses stays on the task forever as a nameless ghost.
+    prismaMock.rowAssignment.findMany.mockResolvedValue([{ rowId: 'r1' }, { rowId: 'r2' }, { rowId: 'r1' }] as any);
+    prismaMock.rowAssignment.deleteMany.mockResolvedValue({ count: 3 } as any);
+    prismaMock.rowCollaborator.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prismaMock.field.findMany.mockResolvedValue([{ id: 'fA', tableId: 'tbl' }] as any);
+    prismaMock.row.findMany.mockResolvedValue([
+      { id: 'r1', tableId: 'tbl', data: { fT: 'shared', fA: ['ghost', 'alive'] } },
+      { id: 'r2', tableId: 'tbl', data: { fT: 'theirs', fA: ['ghost'] } },
+    ] as any);
+
+    const removed = await purgeUserFromTasks('ghost');
+
+    expect(removed).toBe(4);
+    expect(prismaMock.rowAssignment.deleteMany).toHaveBeenCalledWith({ where: { userId: 'ghost' } });
+    expect(prismaMock.rowCollaborator.deleteMany).toHaveBeenCalledWith({ where: { userId: 'ghost' } });
+    // Each row is visited once even though the user held two assignments on r1.
+    expect(prismaMock.row.findMany).toHaveBeenCalledWith({ where: { id: { in: ['r1', 'r2'] } }, select: { id: true, tableId: true, data: true } });
+    // Survivors keep the cell...
+    expect(prismaMock.row.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { data: { fT: 'shared', fA: ['alive'] } } });
+    // ...and a cell with nobody left loses the key outright, as setRowAssignees writes it.
+    expect(prismaMock.row.update).toHaveBeenCalledWith({ where: { id: 'r2' }, data: { data: { fT: 'theirs' } } });
+  });
+
+  it('resolves the assignee column per table by name, not via a provisioning lookup', async () => {
+    prismaMock.rowAssignment.findMany.mockResolvedValue([{ rowId: 'r1' }] as any);
+    prismaMock.rowAssignment.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prismaMock.rowCollaborator.deleteMany.mockResolvedValue({ count: 0 } as any);
+    prismaMock.field.findMany.mockResolvedValue([{ id: 'fA', tableId: 'tbl' }] as any);
+    prismaMock.row.findMany.mockResolvedValue([{ id: 'r1', tableId: 'tbl', data: { fA: ['ghost'] } }] as any);
+
+    await purgeUserFromTasks('ghost');
+
+    expect(prismaMock.field.findMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tbl'] }, name: 'Assignee' },
+      select: { id: true, tableId: true },
+    });
+  });
+
+  it('leaves a cell alone when it does not mention the user', async () => {
+    prismaMock.rowAssignment.findMany.mockResolvedValue([{ rowId: 'r1' }] as any);
+    prismaMock.rowAssignment.deleteMany.mockResolvedValue({ count: 1 } as any);
+    prismaMock.rowCollaborator.deleteMany.mockResolvedValue({ count: 0 } as any);
+    prismaMock.field.findMany.mockResolvedValue([{ id: 'fA', tableId: 'tbl' }] as any);
+    prismaMock.row.findMany.mockResolvedValue([{ id: 'r1', tableId: 'tbl', data: { fA: ['someone-else'] } }] as any);
+
+    await purgeUserFromTasks('ghost');
+
+    expect(prismaMock.row.update).not.toHaveBeenCalled();
+  });
+
+  it('reads nothing back when the user held no assignments', async () => {
+    prismaMock.rowAssignment.findMany.mockResolvedValue([] as any);
+    prismaMock.rowAssignment.deleteMany.mockResolvedValue({ count: 0 } as any);
+    prismaMock.rowCollaborator.deleteMany.mockResolvedValue({ count: 0 } as any);
+
+    expect(await purgeUserFromTasks('ghost')).toBe(0);
+    expect(prismaMock.row.findMany).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { withRoute } from '@/lib/with-route';
 import { suppressEmail } from '@/lib/suppression';
+import { purgeUserFromTasks } from '@/lib/tasks';
 
 // PATCH /api/users/[id] — update user (role, etc.)
 async function patchHandler(
@@ -135,9 +136,15 @@ async function patchHandler(
 }
 
 // DELETE /api/users/[id] — delete a user (admin only). Created meetings are
-// reassigned to the requesting admin so reports survive; optional relations
-// (task assignees, transcript speakers) auto-null; accounts/sessions/notifications
-// cascade.
+// reassigned to the requesting admin so reports survive; transcript speakers
+// auto-null; accounts/sessions/notifications cascade.
+//
+// Task assignments do NOT cascade and never did once tasks moved onto the base
+// engine: `RowAssignment`/`RowCollaborator` hold a bare `userId` with no relation
+// to `User`, so a deleted person stayed on every task they were assigned — a
+// nameless avatar in the list, and a null lead (hence no assignee name and nobody
+// for the ClickUp router to target) on each task they headed. `purgeUserFromTasks`
+// clears both tables and the denormalized person cell inside the same transaction.
 //
 // Their invitations are removed OUTRIGHT rather than left to `onDelete: SetNull`,
 // which used to leave an identity-less participant row on every meeting they were
@@ -184,12 +191,20 @@ async function deleteHandler(
     }
   }
 
-  await prisma.$transaction([
-    prisma.meeting.updateMany({ where: { createdById: id }, data: { createdById: currentUser.id } }),
-    // Before the delete, while the rows are still findable by userId.
-    prisma.meetingParticipant.deleteMany({ where: { userId: id } }),
-    prisma.user.delete({ where: { id } }),
-  ]);
+  // Interactive rather than batched: the task purge has to READ the rows it is
+  // about to rewrite, and it must not land unless the delete itself succeeds.
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.meeting.updateMany({ where: { createdById: id }, data: { createdById: currentUser.id } });
+      // Before the delete, while the rows are still findable by userId.
+      await tx.meetingParticipant.deleteMany({ where: { userId: id } });
+      await purgeUserFromTasks(id, tx);
+      await tx.user.delete({ where: { id } });
+    },
+    // A long-tenured user can carry hundreds of assignments; the 5 s default would
+    // abort the delete halfway for them.
+    { timeout: 30_000 },
+  );
   await suppressEmail(target.email, 'user_deleted');
 
   return NextResponse.json({ success: true });

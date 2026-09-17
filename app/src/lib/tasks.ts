@@ -6,6 +6,7 @@ import { normalizeFieldOptions, type FieldType } from './base-engine';
 import {
   getSystemTasksTable,
   provisionSystemTasksTable,
+  TASK_FIELD_NAMES,
   type SystemTasksProvision,
   type TaskFieldIds,
 } from './system-tasks-table';
@@ -314,6 +315,53 @@ export async function setRowAssignees(rowId: string, userIds: string[]): Promise
       await prisma.row.update({ where: { id: rowId }, data: { data: next as Prisma.InputJsonValue } });
     }
   }
+}
+
+/**
+ * Erase a user from every task's people columns. Called from the user-delete
+ * transaction, BEFORE the User row goes.
+ *
+ * `RowAssignment`/`RowCollaborator` carry a bare `userId` with no relation to
+ * `User` (the schema says so on purpose: "referential cleanup runs in app code"),
+ * so nothing cascades. Left behind, an assignment of a deleted user is a ghost:
+ * it still counts as an assignee, renders as a nameless avatar, and — because the
+ * lead is simply the earliest RowAssignment — blanks out `assigneeId`/`assigneeName`
+ * on every task they headed, which also leaves the ClickUp router with nobody to
+ * route to. The denormalized person cell in `Row.data` keeps its OWN copy of the
+ * id, so it has to be scrubbed in the same breath or the grid keeps showing them.
+ *
+ * Returns how many assignment + collaborator rows were removed.
+ */
+export async function purgeUserFromTasks(userId: string, db: Prisma.TransactionClient = prisma): Promise<number> {
+  const rowIds = [...new Set((await db.rowAssignment.findMany({ where: { userId }, select: { rowId: true } })).map((r) => r.rowId))];
+  const assignments = (await db.rowAssignment.deleteMany({ where: { userId } })).count;
+  const collaborators = (await db.rowCollaborator.deleteMany({ where: { userId } })).count;
+  if (!rowIds.length) return assignments + collaborators;
+
+  const rows = await db.row.findMany({ where: { id: { in: rowIds } }, select: { id: true, tableId: true, data: true } });
+  // Resolve the assignee column per table by its stable canonical name rather than
+  // through getSystemTasksTable(): a half-provisioned org would resolve to null there
+  // and silently keep the stale cell.
+  const fields = await db.field.findMany({
+    where: { tableId: { in: [...new Set(rows.map((r) => r.tableId))] }, name: TASK_FIELD_NAMES.assignee },
+    select: { id: true, tableId: true },
+  });
+  const assigneeFieldByTable = new Map(fields.map((f) => [f.tableId, f.id]));
+
+  for (const row of rows) {
+    const fieldId = assigneeFieldByTable.get(row.tableId);
+    if (!fieldId) continue;
+    const data = (row.data ?? {}) as Cells;
+    const current = data[fieldId];
+    if (!Array.isArray(current) || !current.includes(userId)) continue;
+    const next = current.filter((id) => id !== userId);
+    const patched = { ...data };
+    // Drop the key outright when nobody is left — same shape setRowAssignees writes.
+    if (next.length) patched[fieldId] = next;
+    else delete patched[fieldId];
+    await db.row.update({ where: { id: row.id }, data: { data: patched as Prisma.InputJsonValue } });
+  }
+  return assignments + collaborators;
 }
 
 // ---- reads -----------------------------------------------------------------
