@@ -4,6 +4,19 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.16] — 2026-09-18
+
+### Fixed
+- **Meetings from Google Calendar showed up twice.** Every invitation Garely mailed
+  carried an identity of its own, so for a meeting that already sat on the recipient's
+  calendar — anything that came from Google, or that Garely mirrored into it — the
+  calendar had no way to recognize the two as one and drew both: same title, same time,
+  same join link, side by side. It began when imported meetings started being announced
+  at all in beta.13; before that they got no mail to collide with. The invitation now
+  addresses the calendar entry the person already has, so it reads as an update to it
+  instead of a second meeting. The copies already sitting in people's calendars have
+  been cleared out.
+
 ## [1.25.0-beta.15] — 2026-09-17
 
 Claude can read your meetings, and deleting a colleague no longer leaves them on their tasks.
@@ -1252,6 +1265,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.16]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.16
 [1.25.0-beta.15]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.15
 [1.25.0-beta.14]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.14
 [1.25.0-beta.13]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.13
