@@ -451,3 +451,58 @@ describe('syncConnection: imported meetings are announced like Garely-created on
     expect(m.notifyMeetingRescheduled).not.toHaveBeenCalled();
   });
 });
+
+describe('the iCalUID carried alongside the Google event', () => {
+  // Our invitation mail is filed by the recipient's calendar under the UID it
+  // carries. Miss the Google event's own UID and the mail lands as a SECOND event
+  // beside the one already there — the duplicate users were seeing.
+  it('is stored when a Google event becomes a meeting', async () => {
+    prismaMock.meeting.findFirst.mockResolvedValue(null as any);
+    prismaMock.meeting.create.mockResolvedValue({ id: 'm-new' } as any);
+    mockFetch.mockResolvedValueOnce(
+      ok({ items: [{ id: 'ev1', etag: '"e1"', iCalUID: 'ev1@google.com', summary: 'Sync', start: { dateTime: '2026-06-20T09:00:00Z' }, end: { dateTime: '2026-06-20T09:30:00Z' } }], nextSyncToken: 's1' }),
+    );
+
+    await syncConnection(conn());
+
+    const created = prismaMock.meeting.create.mock.calls[0][0] as any;
+    expect(created.data.externalIcalUid).toBe('ev1@google.com');
+  });
+
+  it('is stored when Garely creates the event itself', async () => {
+    prismaMock.meeting.findUnique
+      .mockResolvedValueOnce({ id: 'm1', title: 'Standup', description: null, createdById: 'u1', scheduledAt: new Date('2026-06-20T09:00:00Z'), durationMin: 30, status: 'scheduled', joinToken: 'tok1', externalId: null } as any)
+      .mockResolvedValueOnce({ id: 'm1', joinToken: 'tok1' } as any);
+    prismaMock.googleCalendarConnection.findUnique.mockResolvedValue(conn() as any);
+    mockFetch.mockResolvedValueOnce(ok({ id: 'ev-new', etag: '"e9"', iCalUID: 'ev-new@google.com' }));
+
+    await syncMeetingToGoogle('m1', 'upsert');
+
+    const upd = prismaMock.meeting.update.mock.calls[0][0] as any;
+    expect(upd.data.externalIcalUid).toBe('ev-new@google.com');
+  });
+
+  it('is cleared with the link when the event is deleted', async () => {
+    prismaMock.meeting.findUnique.mockResolvedValueOnce({ id: 'm1', createdById: 'u1', status: 'scheduled', externalId: 'ev1' } as any);
+    prismaMock.googleCalendarConnection.findUnique.mockResolvedValue(conn() as any);
+    mockFetch.mockResolvedValueOnce(ok({}, 404));
+
+    await syncMeetingToGoogle('m1', 'delete');
+
+    const upd = prismaMock.meeting.update.mock.calls[0][0] as any;
+    expect(upd.data.externalIcalUid).toBeNull();
+  });
+
+  it('survives a revision that omits it rather than being wiped', async () => {
+    prismaMock.meeting.findFirst.mockResolvedValue({ id: 'm1', status: 'scheduled', externalEtag: '"old"', externalIcalUid: 'ev1@google.com', scheduledAt: new Date('2026-06-20T09:00:00Z'), durationMin: 30, title: 'Sync' } as any);
+    prismaMock.meeting.updateMany.mockResolvedValue({ count: 1 } as any);
+    mockFetch.mockResolvedValueOnce(
+      ok({ items: [{ id: 'ev1', etag: '"e2"', summary: 'Sync moved', start: { dateTime: '2026-06-20T10:00:00Z' }, end: { dateTime: '2026-06-20T10:30:00Z' } }], nextSyncToken: 's1' }),
+    );
+
+    await syncConnection(conn());
+
+    const upd = prismaMock.meeting.updateMany.mock.calls[0][0] as any;
+    expect(upd.data.externalIcalUid).toBe('ev1@google.com');
+  });
+});

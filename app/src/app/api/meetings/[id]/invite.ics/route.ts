@@ -19,6 +19,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     where: { id },
     select: {
       id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true, recurrence: true,
+      externalIcalUid: true,
       createdBy: { select: { name: true, email: true } },
     },
   });
@@ -42,7 +43,10 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     daily: "FREQ=DAILY", weekly: "FREQ=WEEKLY", biweekly: "FREQ=WEEKLY;INTERVAL=2", monthly: "FREQ=MONTHLY",
   };
   const event: IcsEvent = {
-    uid: `meeting-${meeting.id}@ezmeet`,
+    // Same rule as the invitation mail: address the Google event's own UID when the
+    // meeting has one, or this download adds a rival copy of an entry the person's
+    // calendar already holds. See lib/meeting-invite.ts.
+    uid: meeting.externalIcalUid || `meeting-${meeting.id}@ezmeet`,
     start, end,
     summary: meeting.title,
     description: meeting.description ? `${meeting.description}\n\n${joinUrl}` : joinUrl,

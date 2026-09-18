@@ -32,6 +32,7 @@ import type { GoogleCalendarConnection, Meeting } from '@prisma/client';
 interface GEvent {
   id: string;
   etag?: string;
+  iCalUID?: string;
   status?: string; // confirmed | tentative | cancelled
   summary?: string;
   description?: string;
@@ -148,6 +149,7 @@ async function applyGoogleEvent(
         durationMin,
         status: 'scheduled',
         externalEtag: ev.etag || null,
+        externalIcalUid: ev.iCalUID || existing.externalIcalUid,
         externalSyncedAt: new Date(),
       },
     });
@@ -187,6 +189,7 @@ async function applyGoogleEvent(
         externalId: ev.id,
         externalCalendarId: conn.calendarId,
         externalEtag: ev.etag || null,
+        externalIcalUid: ev.iCalUID || null,
         externalSyncedAt: new Date(),
         participants: { create: [{ userId: conn.userId, role: 'host', rsvpStatus: 'accepted' }] },
       },
@@ -311,7 +314,7 @@ export async function syncMeetingToGoogle(
       if (r.ok || r.status === 404 || r.status === 410) {
         await prisma.meeting.update({
           where: { id: meeting.id },
-          data: { externalId: null, externalEtag: null, externalSyncedAt: new Date() },
+          data: { externalId: null, externalEtag: null, externalIcalUid: null, externalSyncedAt: new Date() },
         }).catch(() => {});
       }
       return;
@@ -350,6 +353,9 @@ export async function syncMeetingToGoogle(
         externalId: saved.id,
         externalCalendarId: conn.calendarId,
         externalEtag: saved.etag || null,
+        // Kept in step with the event so the invitation mail addresses the entry that
+        // is already on everyone's calendar instead of creating a rival copy.
+        externalIcalUid: saved.iCalUID || null,
         externalSyncedAt: new Date(),
       },
     });

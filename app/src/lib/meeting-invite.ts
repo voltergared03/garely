@@ -20,6 +20,7 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
       where: { id: meetingId },
       select: {
         id: true, title: true, description: true, scheduledAt: true, durationMin: true, joinToken: true, recurrence: true,
+        externalIcalUid: true,
         createdBy: { select: { name: true, email: true } },
         participants: { select: { guestName: true, guestEmail: true, user: { select: { name: true, email: true, status: true } } } },
       },
@@ -79,8 +80,14 @@ export async function sendMeetingInvite(meetingId: string, kind: InviteKind = "i
     const rrule = recType ? RRULE[recType] : undefined;
 
     const method = kind === "cancel" ? "CANCEL" : "REQUEST";
+    // A meeting that came from (or was mirrored into) Google is ALREADY on the
+    // recipients' calendars under the event's own iCalUID. Send our own UID and the
+    // calendar has no way to tell the two apart: it files this .ics as a second,
+    // independent event and the person sees the same meeting twice, side by side.
+    // Addressing the real UID makes the mail an update to the entry they already
+    // have. Garely-only meetings keep the synthetic UID — nothing else owns them.
     const event: IcsEvent = {
-      uid: `meeting-${meeting.id}@ezmeet`,
+      uid: meeting.externalIcalUid || `meeting-${meeting.id}@ezmeet`,
       start, end,
       summary: meeting.title,
       description: meeting.description ? `${meeting.description}\n\n${joinUrl}` : joinUrl,
