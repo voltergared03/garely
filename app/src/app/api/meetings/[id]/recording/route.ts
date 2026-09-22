@@ -19,6 +19,11 @@ function serialize(rec: any) {
     permanent: rec.permanent,
     expiresAt: rec.expiresAt ? rec.expiresAt.toISOString() : null,
     createdAt: rec.createdAt.toISOString(),
+    // Why it ended the way it did — the page says "nothing was recorded because no
+    // microphone was on" instead of blaming the recorder, and flags a recording that
+    // kept only its audio. Both are meta flags written by the orchestrator.
+    failureKind: (rec.meta as { failureKind?: string } | null)?.failureKind ?? null,
+    salvaged: (rec.meta as { salvaged?: string } | null)?.salvaged ?? null,
     url: `/api/recordings/${rec.id}/file`,
   };
 }

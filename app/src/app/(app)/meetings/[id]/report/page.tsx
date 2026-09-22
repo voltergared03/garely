@@ -1328,7 +1328,11 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                       ? <AlertCircle size={16} className={css.recIconDanger} />
                       : <Clock size={16} className={css.recIconMuted} />}
                     <div className={css.recText} style={{ color: recording.status === 'failed' ? 'var(--danger-fg)' : 'var(--text-2)' }}>
-                      {recording.status === 'failed' ? tr('report.recordingFailed') : tr('report.recordingProcessing')}
+                      {recording.status !== 'failed'
+                        ? tr('report.recordingProcessing')
+                        : recording.failureKind === 'no-audio'
+                          ? tr('report.recordingNoAudio')
+                          : tr('report.recordingFailed')}
                     </div>
                   </div>
                 </ReportCard>
@@ -1347,6 +1351,9 @@ ${followUps ? `<div class="sec"><div class="sec-title">${tr('report.followUpsTit
                     </a>
                     <div className={css.recInfo}>
                       <div className={css.recName}>{recording.fileName}</div>
+                      {recording.salvaged === 'audio-only' && (
+                        <div className={css.recMeta} style={{ color: 'var(--warn-fg)' }}>{tr('report.recordingSalvaged')}</div>
+                      )}
                       <div className={css.recMeta}>
                         {recording.durationSec ? tr('common.minutes', { count: Math.floor(recording.durationSec / 60) }) : ''}
                         {recording.fileSize ? `${recording.durationSec ? ' • ' : ''}${(recording.fileSize / 1048576).toFixed(0)} MB` : ''}

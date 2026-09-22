@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFile, readdir, stat } from 'fs/promises';
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { readConfig } from './config';
@@ -45,8 +45,29 @@ async function egressInfo(
       endedNs: Number.isFinite(ended) && ended > 0 ? ended : null,
     };
   } catch {
-    /* manifest missing/unreadable → use the requested name, no timestamp */
-    return { file: fallbackFile, endedNs: null };
+    /* Manifest missing (an aborted handler never writes one) → the requested name is
+       the WRONG name for anything whose container depends on the codec, so look the
+       basename up on disk before falling back to it. Trusting the requested `.mp4` for
+       a screen share LiveKit had written as `.webm` is what fed ffmpeg a nonexistent
+       input and turned six partly-recorded meetings into total losses. */
+    return { file: await resolveOnDisk(fallbackFile), endedNs: null };
+  }
+}
+
+/**
+ * The real file for a requested name, matched by basename with any extension.
+ * Returns the requested name unchanged when nothing matches (caller still errors,
+ * but on the name it actually asked for).
+ */
+async function resolveOnDisk(requested: string): Promise<string> {
+  if (!requested) return requested;
+  const stem = requested.replace(/\.[^.]+$/, '');
+  try {
+    if (await probeDurationSec(`${RECORDINGS_DIR}/${requested}`) > 0) return requested;
+    const hit = (await readdir(RECORDINGS_DIR)).find((f) => f.replace(/\.[^.]+$/, '') === stem);
+    return hit || requested;
+  } catch {
+    return requested;
   }
 }
 
@@ -179,15 +200,24 @@ export async function stopScreenSegment(meetingId: string, trackId: string): Pro
  * tracks directly, no browser involved), so only the media file is lost — but whoever
  * called the meeting is the person who needs to know that.
  */
-async function failRecording(recordingId: string, reason: string): Promise<void> {
-  console.error(`[recording] ${recordingId} failed: ${reason}`);
+type FailureKind = 'no-audio' | 'compose' | 'unknown';
+
+async function failRecording(recordingId: string, reason: string, kind: FailureKind = 'unknown'): Promise<void> {
+  console.error(`[recording] ${recordingId} failed (${kind}): ${reason}`);
   let meetingId: string | null = null;
   let title = '';
   let createdById: string | null = null;
   try {
+    // The reason rides along in meta: without it every post-mortem starts by guessing
+    // which of the pipeline's several failure paths ran, and the 2026-09-22 meeting was
+    // reported as "compose failed" when nothing had ever been composed.
+    const prev = await prisma.recording.findUnique({ where: { id: recordingId }, select: { meta: true } });
     const rec = await prisma.recording.update({
       where: { id: recordingId },
-      data: { status: 'failed' },
+      data: {
+        status: 'failed',
+        meta: { ...((prev?.meta as Record<string, unknown>) || {}), failureKind: kind, failureReason: reason } as Prisma.InputJsonValue,
+      },
       select: { meetingId: true, meeting: { select: { title: true, createdById: true } } },
     });
     meetingId = rec.meetingId;
@@ -205,8 +235,8 @@ async function failRecording(recordingId: string, reason: string): Promise<void>
       await notify({
         userIds,
         type: 'recording_failed',
-        titleKey: 'recordingFailedTitle',
-        bodyKey: 'recordingFailedBody',
+        titleKey: kind === 'no-audio' ? 'recordingNoAudioTitle' : 'recordingFailedTitle',
+        bodyKey: kind === 'no-audio' ? 'recordingNoAudioBody' : 'recordingFailedBody',
         values: { title },
         link: `/meetings/${meetingId}/report`,
         meetingId,
@@ -229,8 +259,12 @@ export function finalizeScreenAudio(recordingId: string): void {
       if (!rec || rec.sourceType !== 'screen-audio') return;
       const meta = (rec.meta as { audioEgressId?: string; audioFile?: string; screenSegments?: { egressId?: string; fileName: string; startSec: number }[] }) || {};
       const audio = await egressInfo(meta.audioEgressId, meta.audioFile || '');
-      if (!audio.file) {
-        await failRecording(rec.id, 'audio egress produced no file (killed, or never started)');
+      // Is there audio at all? An egress that joined a room where nobody ever unmuted
+      // aborts with "Start signal not received" and writes NO file — that is not a
+      // recorder fault and must not be reported as one.
+      const audioSec = audio.file ? await probeDurationSec(`${RECORDINGS_DIR}/${audio.file}`) : 0;
+      if (!(audioSec > 0)) {
+        await failRecording(rec.id, 'no audio was ever published in the room', 'no-audio');
         return;
       }
       // Place each screen segment by the real MEDIA-start delta vs the audio (ended_at −
@@ -263,10 +297,58 @@ export function finalizeScreenAudio(recordingId: string): void {
           },
         });
       } else {
-        await failRecording(rec.id, `compose failed: ${res.error}`);
+        // The screen video could not be muxed — a missing segment file, a codec ffmpeg
+        // would not take, anything. That is no reason to throw away the audio: it is a
+        // complete recording of everything that was SAID, and it is already on disk.
+        // Six meetings (3 to 57 minutes each) were written off this way before anyone
+        // noticed the files had been there the whole time.
+        await salvageAudioOnly(rec.id, audio.file, audioSec, `compose failed: ${res.error}`);
       }
     } catch (e) {
       await failRecording(recordingId, `finalize threw: ${(e as Error).message}`);
     }
   }, 6000);
+}
+
+/**
+ * Register the raw mixed audio as the recording when the screen compose could not be
+ * produced. The meeting keeps everything that was said; only the screen video is lost,
+ * and `meta.salvaged` records why so the report can say so rather than implying the
+ * recording is whole.
+ */
+async function salvageAudioOnly(
+  recordingId: string,
+  audioFile: string,
+  durationSec: number,
+  reason: string,
+): Promise<void> {
+  console.error(`[recording] ${recordingId} salvaged to audio-only: ${reason}`);
+  try {
+    const prev = await prisma.recording.findUnique({ where: { id: recordingId }, select: { meta: true } });
+    const days = await retentionDays();
+    const size = await fileSizeBytes(`${RECORDINGS_DIR}/${audioFile}`);
+    await prisma.recording.update({
+      where: { id: recordingId },
+      data: {
+        status: 'ready',
+        fileName: audioFile,
+        filePath: `${RECORDINGS_DIR}/${audioFile}`,
+        durationSec: Math.round(durationSec),
+        fileSize: size != null ? BigInt(size) : null,
+        meta: { ...((prev?.meta as Record<string, unknown>) || {}), salvaged: 'audio-only', salvageReason: reason } as Prisma.InputJsonValue,
+        ...(days > 0 ? { expiresAt: new Date(Date.now() + days * 86400000) } : {}),
+      },
+    });
+  } catch (e) {
+    // Salvage is the fallback; if even that fails, fall back to the honest failure.
+    await failRecording(recordingId, `${reason}; salvage also failed: ${(e as Error).message}`, 'compose');
+  }
+}
+
+async function fileSizeBytes(path: string): Promise<number | null> {
+  try {
+    return (await stat(path)).size;
+  } catch {
+    return null;
+  }
 }

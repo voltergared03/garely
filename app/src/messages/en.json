@@ -646,7 +646,9 @@
     "quizCompletedTitle": "Quiz completed",
     "quizCompletedBody": "{name} scored {score}/{max} on \"{title}\"",
     "recordingFailedTitle": "Meeting recording was lost",
-    "recordingFailedBody": "The recording of \"{title}\" could not be saved. The transcript and report are intact."
+    "recordingFailedBody": "The recording of \"{title}\" could not be saved. The transcript and report are intact.",
+    "recordingNoAudioTitle": "Nothing to record",
+    "recordingNoAudioBody": "No microphone was ever on during \"{title}\", so there is no recording and no transcript."
   },
   "report": {
     "summary": "Summary",
@@ -747,6 +749,8 @@
     "chatSuggest3": "What action items came out of this?",
     "chatSuggest4": "What was left unresolved?",
     "recordingFailed": "This meeting’s recording was not saved — the recording process was interrupted. The transcript and report below are complete and unaffected.",
+    "recordingNoAudio": "There was nothing to record: no microphone was on at any point during this meeting.",
+    "recordingSalvaged": "The screen video did not make it into the recording — only the meeting audio was saved.",
     "recordingProcessing": "The recording is still being processed. Refresh in a few minutes."
   },
   "quiz": {
