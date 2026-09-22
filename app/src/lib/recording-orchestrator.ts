@@ -323,7 +323,7 @@ export function finalizeScreenAudio(recordingId: string): void {
         // The screen video could not be muxed — a missing segment file, a codec ffmpeg
         // would not take, anything. That is no reason to throw away the audio: it is a
         // complete recording of everything that was SAID, and it is already on disk.
-        // Six meetings (3 to 57 minutes each) were written off this way before anyone
+        // Seven meetings (3 to 57 minutes each) were written off this way before anyone
         // noticed the files had been there the whole time.
         await salvageAudioOnly(rec.id, audio.file, audioSec, `compose failed: ${res.error}`);
       }

@@ -4,6 +4,31 @@ All notable changes to Garely are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project currently
 ships `beta` tags ahead of a 1.0 public release.
 
+## [1.25.0-beta.17] — 2026-09-22
+
+Meetings that were never recorded, and recordings that were thrown away while their audio sat on disk.
+
+### Changed
+- **Recording starts when the first microphone goes on, not when the first person walks in.**
+  The recorder used to open the moment anyone joined, and a recorder that joins a silent room
+  captures nothing: it waits for sound that never comes and gives up at the end. That is how a
+  meeting one person sat alone in for 22 minutes reported a failed recording to its host. Now
+  nobody unmutes, nothing is recorded, and there is no failure to explain. A camera or a screen
+  share does not count — only a microphone.
+
+### Fixed
+- **A recording whose screen video could not be assembled lost its audio too.** Garely asks for
+  the screen segment under one filename and the media server writes it under another, so the
+  assembly step looked for a file that was never there, failed, and discarded the whole
+  recording — including a complete, playable track of everything that had been said. Seven
+  meetings, between 3 and 57 minutes each, had been written off this way while their audio sat
+  on disk the entire time. The file is now found by name regardless of format, and an assembly
+  that still fails keeps the audio rather than losing everything. **All seven recordings have
+  been restored** and are on their meeting pages, marked as audio-only.
+- **"Recording failed" was reported for meetings that simply had no sound in them.** A meeting
+  nobody spoke in now says so, in the notification and on the report page, instead of blaming
+  the recorder. Failures also record what actually went wrong, so the next one explains itself.
+
 ## [1.25.0-beta.16] — 2026-09-18
 
 ### Fixed
@@ -1265,6 +1290,7 @@ user-facing features, plus one user-facing fix.
   installable PWA with push notifications, full uk/en i18n, and a self-hosted
   one-command installer with automatic HTTPS.
 
+[1.25.0-beta.17]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.17
 [1.25.0-beta.16]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.16
 [1.25.0-beta.15]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.15
 [1.25.0-beta.14]: https://github.com/voltergared03/garely/releases/tag/v1.25.0-beta.14

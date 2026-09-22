@@ -63,7 +63,7 @@ beforeEach(() => {
 
 describe('finalizeScreenAudio — a broken compose must not cost us the audio', () => {
   it('registers the audio track when the compose fails, instead of failing the recording', async () => {
-    // Six meetings (3 to 57 minutes each) were written off as "failed" while their
+    // Seven meetings (3 to 57 minutes each) were written off as "failed" while their
     // audio sat on the volume the whole time. Losing the screen video is not a reason
     // to lose everything that was said.
     mProbe.mockResolvedValue(1800);
