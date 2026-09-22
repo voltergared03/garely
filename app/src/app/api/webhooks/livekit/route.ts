@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { WebhookReceiver } from 'livekit-server-sdk';
+import { WebhookReceiver, TrackType, TrackSource } from 'livekit-server-sdk';
 import { prisma } from '@/lib/prisma';
 import { readConfig } from '@/lib/config';
 import { beginRecording, finalizeScreenAudio } from '@/lib/recording-orchestrator';
@@ -91,6 +91,34 @@ export async function POST(req: NextRequest) {
       break;
     }
 
+    // Recording starts on the first microphone that actually goes on, not on the first
+    // person who walks in. An egress that joins a silent room records nothing, waits for
+    // a first media sample that never arrives, and ends aborted — which is how a meeting
+    // someone sat alone in for 22 minutes produced a "recording failed" for its host.
+    // No mic, no recording, no row, nothing to explain away.
+    case 'track_published': {
+      const identity = event.participant?.identity;
+      const track: { type?: number; source?: number } | undefined = (event as { track?: { type?: number; source?: number } }).track;
+      const isHuman = !!identity && !identity.startsWith('agent-') && !identity.startsWith('AJ_') && !identity.startsWith('EG_');
+      // Microphone only: a camera says nothing, and a screen share is captured by its
+      // own TrackEgress — neither is a reason to open the audio recorder.
+      const isMic = track?.type === TrackType.AUDIO && track?.source === TrackSource.MICROPHONE;
+      if (!isHuman || !isMic) break;
+      try {
+        const cfg = await readConfig(['WS_RECORD_ALL']);
+        if (cfg.WS_RECORD_ALL !== 'true') break;
+        const meeting = await prisma.meeting.findUnique({ where: { livekitRoom: roomName }, select: { id: true } });
+        if (!meeting) break;
+        // beginRecording re-checks for an existing recording and collapses concurrent
+        // callers, so every later unmute in the meeting is a no-op.
+        const started = await beginRecording(meeting.id, roomName);
+        if (started) console.log(`Recording started for ${meeting.id} (first mic on)`);
+      } catch (e) {
+        console.error('Auto-record start failed:', e);
+      }
+      break;
+    }
+
     case 'participant_joined': {
       const identity = event.participant?.identity;
       if (identity && !identity.startsWith('agent-') && !identity.startsWith('AJ_')) {
@@ -109,23 +137,8 @@ export async function POST(req: NextRequest) {
             console.log(`Meeting set to live: ${meeting.id}`);
           }
 
-          // Auto-start recording if enabled — once per meeting, guaranteed by the
-          // existing-recording check (not by the status transition), so it still
-          // fires when the meeting was already marked live at join-token time.
-          try {
-            const cfg = await readConfig(['WS_RECORD_ALL']);
-            if (cfg.WS_RECORD_ALL === 'true') {
-              const existing = await prisma.recording.findFirst({
-                where: { meetingId: meeting.id, status: { in: ['processing', 'ready'] } },
-              });
-              if (!existing) {
-                const started = await beginRecording(meeting.id, roomName);
-                if (started) console.log(`Recording started for ${meeting.id}`);
-              }
-            }
-          } catch (e) {
-            console.error('Auto-record start failed:', e);
-          }
+          // Recording does NOT start here — see the track_published case. Joining a
+          // room is not the same as speaking in one.
           // Update join time if participant exists
           await prisma.meetingParticipant.updateMany({
             where: {

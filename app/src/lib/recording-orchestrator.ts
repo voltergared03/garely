@@ -104,6 +104,29 @@ async function retentionDays(): Promise<number> {
  * Returns true if an egress was started.
  */
 export async function beginRecording(meetingId: string, roomName: string): Promise<boolean> {
+  // Recording now starts on the first microphone anyone turns on, and in a call where
+  // five people unmute at once that is five webhooks within milliseconds. The DB check
+  // the caller does cannot settle that race on its own — every one of them reads "no
+  // recording yet" before the first create lands — so collapse concurrent starts for a
+  // meeting onto one promise here, where every caller passes through.
+  const inFlight = startsInFlight.get(meetingId);
+  if (inFlight) return inFlight;
+  const run = startRecording(meetingId, roomName).finally(() => startsInFlight.delete(meetingId));
+  startsInFlight.set(meetingId, run);
+  return run;
+}
+
+/** Single-process guard. One app container today; a second would need a DB lock. */
+const startsInFlight = new Map<string, Promise<boolean>>();
+
+async function startRecording(meetingId: string, roomName: string): Promise<boolean> {
+  // Re-check inside the guard: a start that already finished is not in the map any more,
+  // and its row is the only thing that keeps the next unmute from opening a second egress.
+  const already = await prisma.recording.findFirst({
+    where: { meetingId, status: { in: ['processing', 'ready'] } },
+    select: { id: true },
+  });
+  if (already) return false;
   const mode = await getRecordMode();
   if (mode === 'screen-audio') {
     const aud = await startAudioOnlyRecording(roomName);

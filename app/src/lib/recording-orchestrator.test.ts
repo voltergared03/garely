@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mockReset } from 'vitest-mock-extended';
 import { prisma as prismaMock } from '@/lib/__mocks__/prisma';
-import { finalizeScreenAudio } from '@/lib/recording-orchestrator';
+import { beginRecording, finalizeScreenAudio } from '@/lib/recording-orchestrator';
 import { composeScreenAudio, probeDurationSec } from '@/lib/recording-compose';
 import { notify } from '@/lib/notify';
 import { readFile, readdir, stat } from 'fs/promises';
@@ -155,3 +155,30 @@ describe('egress file resolution — the requested name is not the written name'
   });
 })
 
+describe('beginRecording — one recorder per meeting, however many mics go on', () => {
+  it('collapses simultaneous starts onto a single egress', async () => {
+    // Five people unmuting at once is five track_published webhooks within
+    // milliseconds; every one of them reads "no recording yet" before the first
+    // create lands, so the DB check alone cannot settle it.
+    const { startAudioOnlyRecording } = await import('@/lib/egress');
+    vi.mocked(startAudioOnlyRecording).mockResolvedValue({ egressId: 'EG_1', filePath: '/recordings/a.ogg', fileName: 'a.ogg' } as any);
+    prismaMock.recording.findFirst.mockResolvedValue(null as any);
+    prismaMock.recording.create.mockResolvedValue({ id: 'r1' } as any);
+    vi.mocked(await import('@/lib/config')).readConfig.mockResolvedValue({ WS_RECORD_MODE: 'screen-audio' } as any);
+
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => beginRecording('m1', 'room1')));
+
+    expect(results.filter(Boolean)).toHaveLength(5); // all share the one promise
+    expect(startAudioOnlyRecording).toHaveBeenCalledTimes(1);
+    expect(prismaMock.recording.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('declines once a recording for the meeting already exists', async () => {
+    const { startAudioOnlyRecording } = await import('@/lib/egress');
+    vi.mocked(startAudioOnlyRecording).mockClear();
+    prismaMock.recording.findFirst.mockResolvedValue({ id: 'r1' } as any);
+
+    expect(await beginRecording('m1', 'room1')).toBe(false);
+    expect(startAudioOnlyRecording).not.toHaveBeenCalled();
+  });
+});
